@@ -1,4 +1,4 @@
-import { postJson } from "gamla";
+import { hash, postJson } from "gamla";
 
 type MonaTokenResponse = {
   expires: string;
@@ -22,7 +22,9 @@ type AnomalisaEvent = {
 
 export const sendToMona =
   ({ secret, clientId, tenantId }: MonaCredentials) =>
-  async ({ projectId, eventName, endUser, properties }: AnomalisaEvent): Promise<void> => {
+  async (
+    { projectId, eventName, endUser, properties }: AnomalisaEvent,
+  ): Promise<void> => {
     try {
       const tokenResponse = await postJson(
         "https://monalabs.frontegg.com/identity/resources/auth/v1/api-token",
@@ -41,7 +43,12 @@ export const sendToMona =
             userId: tenantId,
             messages: [{
               arcClass: "main",
-              message: { endUser, projectId, eventName, properties },
+              message: {
+                endUser: hash(endUser, 10),
+                projectId,
+                eventName,
+                properties,
+              },
             }],
           }),
         },

@@ -1,0 +1,7 @@
+{
+  "name": "@uri/anomalisa",
+  "version": "0.0.1",
+  "imports": {
+    "gamla": "npm:gamla@124.0.0"
+  }
+}

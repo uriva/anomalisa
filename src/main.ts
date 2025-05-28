@@ -22,7 +22,7 @@ type AnomalisaEvent = {
 
 export const sendToMona =
   ({ secret, clientId, tenantId }: MonaCredentials) =>
-  async ({ projectId, eventName, endUser, properties }: AnomalisaEvent) => {
+  async ({ projectId, eventName, endUser, properties }: AnomalisaEvent): Promise<void> => {
     try {
       const tokenResponse = await postJson(
         "https://monalabs.frontegg.com/identity/resources/auth/v1/api-token",

@@ -2,6 +2,7 @@
   "name": "@uri/anomalisa",
   "version": "0.0.1",
   "license": "MIT",
+  "exports": "./mod.ts",
   "imports": {
     "gamla": "npm:gamla@124.0.0"
   }

@@ -13,16 +13,16 @@ type MonaCredentials = {
   tenantId: string;
 };
 
-type MonaEvent = {
+type AnomalisaEvent = {
   projectId: string;
   eventName: string;
-  distinctId: string;
+  endUser: string;
   properties: Record<string, unknown>;
 };
 
 export const sendToMona =
   ({ secret, clientId, tenantId }: MonaCredentials) =>
-  async ({ projectId, eventName, distinctId, properties }: MonaEvent) => {
+  async ({ projectId, eventName, endUser, properties }: AnomalisaEvent) => {
     try {
       const tokenResponse = await postJson(
         "https://monalabs.frontegg.com/identity/resources/auth/v1/api-token",
@@ -41,7 +41,7 @@ export const sendToMona =
             userId: tenantId,
             messages: [{
               arcClass: "main",
-              message: { distinctId, projectId, eventName, properties },
+              message: { endUser, projectId, eventName, properties },
             }],
           }),
         },

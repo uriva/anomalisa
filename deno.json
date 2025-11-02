@@ -4,6 +4,8 @@
   "license": "MIT",
   "exports": "./mod.ts",
   "imports": {
-    "gamla": "npm:gamla@124.0.0"
+    "gamla": "npm:gamla@124.0.0",
+    "@uri/typed-api": "jsr:@uri/typed-api@0.0.11",
+    "zod": "npm:zod@3.25.57"
   }
 }

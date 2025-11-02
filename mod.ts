@@ -2,7 +2,7 @@ import { apiClient, httpCommunication } from "@uri/typed-api";
 import { apiDefinition } from "./src/api.ts";
 
 const client = apiClient(
-  httpCommunication("http://localhost:8080/api"),
+  httpCommunication("https://anomalisa.deno.dev"),
   apiDefinition,
 );
 

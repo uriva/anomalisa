@@ -1,0 +1,24 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@uri/typed-api@0.0.11": "0.0.11",
+    "npm:zod@3.25.57": "3.25.57"
+  },
+  "jsr": {
+    "@uri/typed-api@0.0.11": {
+      "integrity": "7a41b4dc0070e5dbce46263ae945e29c05076e5a59cd87c431a3e77480d227bc"
+    }
+  },
+  "npm": {
+    "zod@3.25.57": {
+      "integrity": "sha512-6tgzLuwVST5oLUxXTmBqoinKMd3JeesgbgseXeFasKKj8Q1FCZrHnbqJOyiEvr4cVAlbug+CgIsmJ8cl/pU5FA=="
+    }
+  },
+  "workspace": {
+    "dependencies": [
+      "jsr:@uri/typed-api@0.0.11",
+      "npm:gamla@124.0.0",
+      "npm:zod@3.25.57"
+    ]
+  }
+}

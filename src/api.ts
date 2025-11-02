@@ -8,7 +8,7 @@ export const apiDefinition = {
       projectId: z.string(),
       userId: z.string(),
       eventName: z.string(),
-      properties: z.object(),
+      properties: z.record(z.string(), z.any()),
     }),
     output: z.object({}),
   }),

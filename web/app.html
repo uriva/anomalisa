@@ -9,7 +9,6 @@
     body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
     a { color: #7eb8ff; text-decoration: none; }
     a:hover { text-decoration: underline; }
-    code { font-family: 'SF Mono', 'Fira Code', monospace; }
     .app-container { max-width: 640px; margin: 0 auto; padding: 2rem 1rem; }
     h1 { font-size: 1.5rem; margin-bottom: 1.5rem; color: #fff; }
     h1 a { color: #fff; }
@@ -18,31 +17,43 @@
     input, button { font-family: inherit; font-size: 0.9rem; }
     input { background: #1a1a1a; border: 1px solid #333; color: #e0e0e0; padding: 0.5rem 0.75rem; border-radius: 4px; width: 100%; }
     input:focus { outline: none; border-color: #666; }
-    .card { background: #141414; border: 1px solid #222; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-    .token { font-family: monospace; font-size: 0.8rem; background: #1a1a1a; padding: 0.25rem 0.5rem; border-radius: 3px; word-break: break-all; }
-    .activity { margin-top: 0.75rem; }
-    .event-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.35rem; }
-    .event-name { font-size: 0.78rem; color: #888; min-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .event-total { font-size: 0.75rem; color: #555; min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
+    .card { background: #141414; border: 1px solid #222; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; cursor: pointer; transition: border-color 0.15s; }
+    .card:hover { border-color: #444; }
+    .token { font-family: monospace; font-size: 0.8rem; background: #1a1a1a; padding: 0.25rem 0.5rem; border-radius: 3px; word-break: break-all; user-select: all; }
     .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
     .row input { flex: 1; }
     .section { margin-bottom: 2rem; }
-    .anomaly-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-    .anomaly-table th, .anomaly-table td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #222; text-align: left; }
-    .anomaly-table th { color: #888; font-weight: 500; }
     .muted { color: #666; font-size: 0.85rem; }
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
     .btn-app { background: #fff; color: #0a0a0a; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-weight: 500; }
     .btn-app:hover { background: #ddd; }
-    .btn-danger { background: #c0392b; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-weight: 500; }
+    .btn-danger { background: #c0392b; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 0.85rem; }
     .btn-danger:hover { background: #a93226; }
     .btn-secondary { background: #333; color: #e0e0e0; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-weight: 500; }
     .btn-secondary:hover { background: #444; }
+    .btn-back { background: none; border: none; color: #888; cursor: pointer; font-size: 0.9rem; padding: 0; font-family: inherit; }
+    .btn-back:hover { color: #ccc; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; }
     .modal { background: #141414; border: 1px solid #222; border-radius: 12px; padding: 2rem; width: 100%; max-width: 400px; }
     .modal h2 { margin-bottom: 1.25rem; }
     .modal .row { margin-bottom: 0.75rem; }
     .modal-close { background: none; border: none; color: #666; font-size: 1.2rem; cursor: pointer; position: absolute; top: 1rem; right: 1rem; }
+
+    .project-row { display: flex; justify-content: space-between; align-items: center; }
+    .project-meta { font-size: 0.78rem; color: #555; }
+
+    .chart-container { margin-bottom: 1.5rem; }
+    .chart-label { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.35rem; }
+    .chart-event-name { font-size: 0.88rem; color: #ccc; font-weight: 500; }
+    .chart-total { font-size: 0.78rem; color: #555; font-variant-numeric: tabular-nums; }
+    .chart-wrap { position: relative; }
+    .chart-canvas { width: 100%; height: 56px; display: block; }
+    .chart-axis { display: flex; justify-content: space-between; font-size: 0.7rem; color: #444; margin-top: 0.2rem; }
+    .chart-tooltip { position: absolute; background: #222; border: 1px solid #333; border-radius: 4px; padding: 0.3rem 0.5rem; font-size: 0.75rem; color: #ccc; pointer-events: none; white-space: nowrap; z-index: 10; transform: translateX(-50%); }
+
+    .anomaly-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .anomaly-table th, .anomaly-table td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #222; text-align: left; }
+    .anomaly-table th { color: #888; font-weight: 500; }
   </style>
 </head>
 <body>
@@ -57,6 +68,15 @@
     const db = init({ appId: "6c54827f-212d-4e48-9e87-b57626726004" });
 
     const render = (html) => { app.innerHTML = html; };
+
+    const apiCall = async (endpoint, payload) => {
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint, payload }),
+      });
+      return res.json();
+    };
 
     const showAuthModal = () => {
       const overlay = document.createElement("div");
@@ -110,33 +130,30 @@
       });
     };
 
-    const fetchAnomalies = async (token) => {
-      try {
-        const res = await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint: "getAnomalies", payload: { token } }),
-        });
-        return await res.json();
-      } catch {
-        return { anomalies: [] };
-      }
+    const timeAgo = (iso) => {
+      const ms = Date.now() - new Date(iso + ":00:00Z").getTime();
+      const mins = Math.floor(ms / 60000);
+      if (mins < 60) return mins + "m ago";
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return hrs + "h ago";
+      const days = Math.floor(hrs / 24);
+      return days + "d ago";
     };
 
-    const fetchEventCounts = async (token) => {
-      try {
-        const res = await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint: "getEventCounts", payload: { token } }),
-        });
-        return await res.json();
-      } catch {
-        return { events: {} };
-      }
+    const lastBucket = (events) => {
+      const buckets = Object.values(events).flatMap((arr) => arr.map((b) => b.bucket));
+      return buckets.length > 0 ? buckets.sort().at(-1) : null;
     };
 
-    const renderSparkline = (canvas, buckets) => {
+    const formatBucket = (bucket) => {
+      const d = new Date(bucket + ":00:00Z");
+      const month = d.toLocaleString(undefined, { month: "short" });
+      const day = d.getDate();
+      const hour = d.toLocaleString(undefined, { hour: "numeric", hour12: true });
+      return `${month} ${day}, ${hour}`;
+    };
+
+    const renderSparkline = (canvas, buckets, tooltipEl) => {
       const dpr = window.devicePixelRatio || 1;
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
@@ -147,37 +164,35 @@
       const max = Math.max(...buckets.map((b) => b.count), 1);
       const gap = 1;
       const barW = Math.max(2, (w - (buckets.length - 1) * gap) / buckets.length);
+
+      ctx.fillStyle = "#0a0a0a";
+      ctx.fillRect(0, 0, w, h);
+
       buckets.forEach((b, i) => {
-        const barH = Math.max(1, (b.count / max) * (h - 2));
-        ctx.fillStyle = "#334";
-        ctx.fillRect(i * (barW + gap), h - barH - 1, barW, barH);
-        ctx.fillStyle = "#5b8def";
+        const barH = Math.max(1, (b.count / max) * (h - 4));
+        ctx.fillStyle = "#1a3a5c";
         ctx.fillRect(i * (barW + gap), h - barH - 1, barW, barH);
       });
+
+      canvas.onmousemove = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const idx = Math.floor(x / (barW + gap));
+        if (idx >= 0 && idx < buckets.length) {
+          tooltipEl.style.display = "block";
+          tooltipEl.style.left = x + "px";
+          tooltipEl.style.top = "-28px";
+          tooltipEl.textContent = formatBucket(buckets[idx].bucket) + ": " + buckets[idx].count;
+        }
+      };
+
+      canvas.onmouseleave = () => { tooltipEl.style.display = "none"; };
     };
 
-    const loadActivity = async (token, el) => {
-      const result = await fetchEventCounts(token);
-      const events = result.events ?? {};
-      const names = Object.keys(events);
-      if (names.length === 0) {
-        el.innerHTML = "<span class='muted' style='font-size:0.78rem'>No events yet</span>";
-        return;
-      }
-      el.innerHTML = names.map((name) => {
-        const total = events[name].reduce((s, b) => s + b.count, 0);
-        return `
-          <div class="event-row">
-            <span class="event-name">${name}</span>
-            <canvas class="sparkline" data-event="${name}" style="flex:1;height:20px"></canvas>
-            <span class="event-total">${total}</span>
-          </div>
-        `;
-      }).join("");
-      el.querySelectorAll(".sparkline").forEach((canvas) => {
-        renderSparkline(canvas, events[canvas.dataset.event]);
-      });
-    };
+    let currentUser = null;
+    let selectedProjectId = null;
+    let projects = [];
+    let eventCountsCache = {};
 
     const renderLogin = () => {
       render(`
@@ -192,7 +207,7 @@
       document.getElementById("sign-in").addEventListener("click", showAuthModal);
     };
 
-    const renderDashboard = (user) => {
+    const renderProjectList = () => {
       render(`
         <div class="app-container">
           <div class="header">
@@ -202,7 +217,7 @@
               <button class="btn-secondary" id="logout">Sign out</button>
             </div>
           </div>
-          <p class="muted" style="margin-bottom:1.5rem">${user.email}</p>
+          <p class="muted" style="margin-bottom:1.5rem">${currentUser.email}</p>
 
           <div class="section">
             <h2>Create project</h2>
@@ -217,11 +232,6 @@
             <h2>Projects</h2>
             <div id="projects-list"><p class="muted">Loading...</p></div>
           </div>
-
-          <div class="section" id="anomalies-section" style="display:none">
-            <h2>Anomalies</h2>
-            <div id="anomalies-list"></div>
-          </div>
         </div>
       `);
 
@@ -234,7 +244,7 @@
         const token = crypto.randomUUID();
         try {
           await db.transact([
-            db.tx.projects[projectId].update({ name, token }).link({ owner: user.id }),
+            db.tx.projects[projectId].update({ name, token }).link({ owner: currentUser.id }),
           ]);
           document.getElementById("project-name").value = "";
           document.getElementById("create-msg").textContent = "Created!";
@@ -244,82 +254,177 @@
         }
       });
 
-      db.subscribeQuery({ projects: { $: { where: { "owner.id": user.id } } } }, (resp) => {
+      db.subscribeQuery({ projects: { $: { where: { "owner.id": currentUser.id } } } }, (resp) => {
         if (resp.error) {
           document.getElementById("projects-list").innerHTML = `<p class="muted">${resp.error.message}</p>`;
           return;
         }
-        const projects = resp.data?.projects ?? [];
+        projects = resp.data?.projects ?? [];
         if (projects.length === 0) {
           document.getElementById("projects-list").innerHTML = "<p class='muted'>No projects yet.</p>";
           return;
         }
+
         document.getElementById("projects-list").innerHTML = projects.map((p) => `
-          <div class="card" data-project-id="${p.id}">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+          <div class="card" data-id="${p.id}">
+            <div class="project-row">
               <strong>${p.name}</strong>
-              <div style="display:flex;gap:0.25rem">
-                <button class="btn-secondary view-anomalies" data-token="${p.token}">Anomalies</button>
-                <button class="btn-danger delete-project" data-id="${p.id}">Delete</button>
-              </div>
+              <span class="project-meta" data-token="${p.token}">...</span>
             </div>
-            <div><span class="muted">Token:</span> <span class="token">${p.token}</span></div>
-            <div class="activity" data-token="${p.token}"><span class="muted" style="font-size:0.78rem">Loading activity...</span></div>
           </div>
         `).join("");
 
-        document.querySelectorAll(".activity[data-token]").forEach((el) => {
-          loadActivity(el.dataset.token, el);
-        });
-
-        document.querySelectorAll(".delete-project").forEach((btn) => {
-          btn.addEventListener("click", async () => {
-            if (!confirm("Delete this project?")) return;
-            await db.transact([db.tx.projects[btn.dataset.id].delete()]);
+        document.querySelectorAll(".card[data-id]").forEach((card) => {
+          card.addEventListener("click", () => {
+            selectedProjectId = card.dataset.id;
+            renderProjectDetail();
           });
         });
 
-        document.querySelectorAll(".view-anomalies").forEach((btn) => {
-          btn.addEventListener("click", async () => {
-            const section = document.getElementById("anomalies-section");
-            const list = document.getElementById("anomalies-list");
-            section.style.display = "block";
-            list.innerHTML = "<p class='muted'>Loading...</p>";
-            const result = await fetchAnomalies(btn.dataset.token);
-            const anomalies = result.anomalies ?? [];
-            if (anomalies.length === 0) {
-              list.innerHTML = "<p class='muted'>No anomalies detected.</p>";
-              return;
-            }
-            const metricLabel = (m) => m === "userSpike" ? "User Spike" : "Total Count";
-            list.innerHTML = `
-              <table class="anomaly-table">
-                <tr><th>Type</th><th>Event</th><th>User</th><th>Bucket</th><th>Expected</th><th>Actual</th><th>Z</th><th>Detected</th></tr>
-                ${anomalies.map((a) => `
-                  <tr>
-                    <td>${metricLabel(a.metric)}</td>
-                    <td>${a.eventName}</td>
-                    <td>${a.userId ?? "-"}</td>
-                    <td>${a.bucket}</td>
-                    <td>${a.expected}</td>
-                    <td>${a.actual}</td>
-                    <td>${a.zScore}</td>
-                    <td>${new Date(a.detectedAt).toLocaleString()}</td>
-                  </tr>
-                `).join("")}
-              </table>
-            `;
-          });
+        projects.forEach((p) => {
+          apiCall("getEventCounts", { token: p.token }).then((result) => {
+            const events = result.events ?? {};
+            eventCountsCache[p.token] = events;
+            const meta = document.querySelector(`.project-meta[data-token="${p.token}"]`);
+            if (!meta) return;
+            const last = lastBucket(events);
+            const eventNames = Object.keys(events);
+            const total = eventNames.reduce((s, n) => s + events[n].reduce((a, b) => a + b.count, 0), 0);
+            meta.textContent = last
+              ? `${total} events \u00b7 last ${timeAgo(last)}`
+              : "no events yet";
+          }).catch(() => {});
         });
       });
+    };
+
+    const renderProjectDetail = () => {
+      const project = projects.find((p) => p.id === selectedProjectId);
+      if (!project) return renderProjectList();
+
+      render(`
+        <div class="app-container">
+          <div class="header">
+            <button class="btn-back" id="back">\u2190 Projects</button>
+            <div style="display:flex;gap:0.5rem">
+              <button class="btn-danger" id="delete-project">Delete</button>
+            </div>
+          </div>
+
+          <h2 style="margin-bottom:0.25rem;font-size:1.3rem;color:#fff">${project.name}</h2>
+          <p class="muted" style="margin-bottom:0.75rem">
+            <span class="muted">Token:</span> <span class="token">${project.token}</span>
+          </p>
+          <p class="muted" id="last-event" style="margin-bottom:1.5rem">...</p>
+
+          <div class="section" id="charts-section">
+            <h2>Activity <span style="font-weight:400;font-size:0.8rem;color:#555">events per hour, last 7 days</span></h2>
+            <div id="charts"><p class="muted">Loading...</p></div>
+          </div>
+
+          <div class="section">
+            <h2>Anomalies</h2>
+            <div id="anomalies-list"><p class="muted">Loading...</p></div>
+          </div>
+        </div>
+      `);
+
+      document.getElementById("back").addEventListener("click", () => {
+        selectedProjectId = null;
+        renderProjectList();
+      });
+
+      document.getElementById("delete-project").addEventListener("click", async () => {
+        if (!confirm("Delete " + project.name + "?")) return;
+        await db.transact([db.tx.projects[project.id].delete()]);
+        selectedProjectId = null;
+        renderProjectList();
+      });
+
+      const loadCharts = async () => {
+        const cached = eventCountsCache[project.token];
+        const result = cached ? { events: cached } : await apiCall("getEventCounts", { token: project.token }).catch(() => ({ events: {} }));
+        const events = result.events ?? {};
+        eventCountsCache[project.token] = events;
+
+        const last = lastBucket(events);
+        document.getElementById("last-event").textContent = last
+          ? "Last event: " + formatBucket(last) + " (" + timeAgo(last) + ")"
+          : "No events yet";
+
+        const names = Object.keys(events);
+        const chartsEl = document.getElementById("charts");
+        if (names.length === 0) {
+          chartsEl.innerHTML = "<p class='muted'>No events recorded yet. Send events using the SDK to see activity here.</p>";
+          return;
+        }
+
+        chartsEl.innerHTML = names.map((name) => {
+          const total = events[name].reduce((s, b) => s + b.count, 0);
+          return `
+            <div class="chart-container">
+              <div class="chart-label">
+                <span class="chart-event-name">${name}</span>
+                <span class="chart-total">${total} total</span>
+              </div>
+              <div class="chart-wrap">
+                <canvas class="chart-canvas" data-event="${name}"></canvas>
+                <div class="chart-tooltip" style="display:none"></div>
+              </div>
+              <div class="chart-axis">
+                <span>${events[name].length > 0 ? formatBucket(events[name][0].bucket) : ""}</span>
+                <span>now</span>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        chartsEl.querySelectorAll(".chart-canvas").forEach((canvas) => {
+          const tooltip = canvas.parentElement.querySelector(".chart-tooltip");
+          renderSparkline(canvas, events[canvas.dataset.event], tooltip);
+        });
+      };
+
+      const loadAnomalies = async () => {
+        const result = await apiCall("getAnomalies", { token: project.token }).catch(() => ({ anomalies: [] }));
+        const anomalies = result.anomalies ?? [];
+        const list = document.getElementById("anomalies-list");
+        if (anomalies.length === 0) {
+          list.innerHTML = "<p class='muted'>No anomalies detected.</p>";
+          return;
+        }
+        const metricLabel = (m) => m === "userSpike" ? "User Spike" : "Total Count";
+        list.innerHTML = `
+          <table class="anomaly-table">
+            <tr><th>Type</th><th>Event</th><th>User</th><th>Bucket</th><th>Expected</th><th>Actual</th><th>Z</th><th>Detected</th></tr>
+            ${anomalies.map((a) => `
+              <tr>
+                <td>${metricLabel(a.metric)}</td>
+                <td>${a.eventName}</td>
+                <td>${a.userId ?? "-"}</td>
+                <td>${a.bucket}</td>
+                <td>${a.expected}</td>
+                <td>${a.actual}</td>
+                <td>${a.zScore}</td>
+                <td>${new Date(a.detectedAt).toLocaleString()}</td>
+              </tr>
+            `).join("")}
+          </table>
+        `;
+      };
+
+      loadCharts();
+      loadAnomalies();
     };
 
     render("<p class='muted' style='padding:2rem 1rem'>Loading...</p>");
 
     db.subscribeAuth((auth) => {
+      currentUser = auth.user;
       if (auth.user) {
-        renderDashboard(auth.user);
+        selectedProjectId ? renderProjectDetail() : renderProjectList();
       } else {
+        selectedProjectId = null;
         renderLogin();
       }
     });

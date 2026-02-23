@@ -38,8 +38,11 @@ const corsHeaders = {
 
 const instantdbAppId = Deno.env.get("INSTANTDB_APP_ID") ?? "";
 
-const webAppHtml = await Deno.readTextFile(
-  new URL("../web/index.html", import.meta.url),
+const readWebFile = (name: string) =>
+  Deno.readTextFile(new URL(`../web/${name}`, import.meta.url));
+
+const [landingHtml, appHtml, docsHtml] = await Promise.all(
+  ["index.html", "app.html", "docs.html"].map(readWebFile),
 );
 
 const jsonResponse = (data: Record<string, unknown>, status = 200) =>
@@ -48,15 +51,22 @@ const jsonResponse = (data: Record<string, unknown>, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const handleGet = (url: URL) => {
-  if (url.pathname === "/config") {
-    return jsonResponse({ instantdbAppId });
-  }
-  return new Response(webAppHtml, {
+const htmlResponse = (html: string) =>
+  new Response(html, {
     status: 200,
     headers: { ...corsHeaders, "Content-Type": "text/html" },
   });
+
+const htmlByPath: Record<string, string> = {
+  "/": landingHtml,
+  "/app": appHtml,
+  "/docs": docsHtml,
 };
+
+const handleGet = (url: URL) =>
+  url.pathname === "/config"
+    ? jsonResponse({ instantdbAppId })
+    : htmlResponse(htmlByPath[url.pathname] ?? landingHtml);
 
 const handlePost = async (req: Request) => {
   const bodyText = await req.text();

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>anomalisa</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
+    a { color: #7eb8ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { font-family: 'SF Mono', 'Fira Code', monospace; }
+    .app-container { max-width: 640px; margin: 0 auto; padding: 2rem 1rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 1.5rem; color: #fff; }
+    h1 a { color: #fff; }
+    h1 a:hover { text-decoration: none; opacity: 0.8; }
+    h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #ccc; }
+    input, button { font-family: inherit; font-size: 0.9rem; }
+    input { background: #1a1a1a; border: 1px solid #333; color: #e0e0e0; padding: 0.5rem 0.75rem; border-radius: 4px; width: 100%; }
+    input:focus { outline: none; border-color: #666; }
+    .card { background: #141414; border: 1px solid #222; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    .token { font-family: monospace; font-size: 0.8rem; background: #1a1a1a; padding: 0.25rem 0.5rem; border-radius: 3px; word-break: break-all; }
+    .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+    .row input { flex: 1; }
+    .section { margin-bottom: 2rem; }
+    .anomaly-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .anomaly-table th, .anomaly-table td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #222; text-align: left; }
+    .anomaly-table th { color: #888; font-weight: 500; }
+    .muted { color: #666; font-size: 0.85rem; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .btn-app { background: #fff; color: #0a0a0a; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-weight: 500; }
+    .btn-app:hover { background: #ddd; }
+    .btn-danger { background: #c0392b; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-weight: 500; }
+    .btn-danger:hover { background: #a93226; }
+    .btn-secondary { background: #333; color: #e0e0e0; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-weight: 500; }
+    .btn-secondary:hover { background: #444; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .modal { background: #141414; border: 1px solid #222; border-radius: 12px; padding: 2rem; width: 100%; max-width: 400px; }
+    .modal h2 { margin-bottom: 1.25rem; }
+    .modal .row { margin-bottom: 0.75rem; }
+    .modal-close { background: none; border: none; color: #666; font-size: 1.2rem; cursor: pointer; position: absolute; top: 1rem; right: 1rem; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script type="module">
+    import { init, id } from "https://esm.sh/@instantdb/core@0.22.135";
+
+    const app = document.getElementById("app");
+    const apiUrl = "https://anomalisa.deno.dev";
+
+    const db = init({ appId: "6c54827f-212d-4e48-9e87-b57626726004" });
+
+    const render = (html) => { app.innerHTML = html; };
+
+    const showAuthModal = () => {
+      const overlay = document.createElement("div");
+      overlay.className = "modal-overlay";
+      overlay.innerHTML = `
+        <div class="modal" style="position:relative">
+          <button class="modal-close" id="modal-close">&times;</button>
+          <h2>Sign in</h2>
+          <div class="row">
+            <input id="email" type="email" placeholder="you@example.com" />
+            <button class="btn-app" id="send-code">Send code</button>
+          </div>
+          <div id="code-section" style="display:none">
+            <div class="row" style="margin-top:0.75rem">
+              <input id="code" type="text" placeholder="Enter code" />
+              <button class="btn-app" id="verify-code">Verify</button>
+            </div>
+          </div>
+          <p class="muted" id="login-msg" style="margin-top:0.75rem"></p>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      let sentEmail = "";
+
+      document.getElementById("modal-close").addEventListener("click", () => overlay.remove());
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+
+      document.getElementById("send-code").addEventListener("click", async () => {
+        const email = document.getElementById("email").value.trim();
+        if (!email) return;
+        sentEmail = email;
+        try {
+          await db.auth.sendMagicCode({ email });
+          document.getElementById("code-section").style.display = "block";
+          document.getElementById("login-msg").textContent = "Code sent to " + email;
+        } catch (e) {
+          document.getElementById("login-msg").textContent = e.message;
+        }
+      });
+
+      document.getElementById("verify-code").addEventListener("click", async () => {
+        const code = document.getElementById("code").value.trim();
+        if (!code) return;
+        try {
+          await db.auth.signInWithMagicCode({ email: sentEmail, code });
+          overlay.remove();
+        } catch (e) {
+          document.getElementById("login-msg").textContent = e.message;
+        }
+      });
+    };
+
+    const fetchAnomalies = async (token) => {
+      try {
+        const res = await fetch(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: "getAnomalies", payload: { token } }),
+        });
+        return await res.json();
+      } catch {
+        return { anomalies: [] };
+      }
+    };
+
+    const renderLogin = () => {
+      render(`
+        <div class="app-container">
+          <div class="header">
+            <h1><a href="/">anomalisa</a></h1>
+          </div>
+          <p class="muted" style="margin-bottom:1.5rem">Sign in to manage your projects.</p>
+          <button class="btn-app" id="sign-in">Sign in</button>
+        </div>
+      `);
+      document.getElementById("sign-in").addEventListener("click", showAuthModal);
+    };
+
+    const renderDashboard = (user) => {
+      render(`
+        <div class="app-container">
+          <div class="header">
+            <h1><a href="/">anomalisa</a></h1>
+            <div style="display:flex;gap:0.5rem">
+              <a href="/docs" class="btn-secondary" style="text-decoration:none;text-align:center">Docs</a>
+              <button class="btn-secondary" id="logout">Sign out</button>
+            </div>
+          </div>
+          <p class="muted" style="margin-bottom:1.5rem">${user.email}</p>
+
+          <div class="section">
+            <h2>Create project</h2>
+            <div class="row">
+              <input id="project-name" placeholder="Project name" />
+              <button class="btn-app" id="create-project">Create</button>
+            </div>
+            <p class="muted" id="create-msg"></p>
+          </div>
+
+          <div class="section">
+            <h2>Projects</h2>
+            <div id="projects-list"><p class="muted">Loading...</p></div>
+          </div>
+
+          <div class="section" id="anomalies-section" style="display:none">
+            <h2>Anomalies</h2>
+            <div id="anomalies-list"></div>
+          </div>
+        </div>
+      `);
+
+      document.getElementById("logout").addEventListener("click", () => db.auth.signOut());
+
+      document.getElementById("create-project").addEventListener("click", async () => {
+        const name = document.getElementById("project-name").value.trim();
+        if (!name) return;
+        const projectId = id();
+        const token = crypto.randomUUID();
+        try {
+          await db.transact([
+            db.tx.projects[projectId].update({ name, token }).link({ owner: user.id }),
+          ]);
+          document.getElementById("project-name").value = "";
+          document.getElementById("create-msg").textContent = "Created!";
+          setTimeout(() => { document.getElementById("create-msg").textContent = ""; }, 2000);
+        } catch (e) {
+          document.getElementById("create-msg").textContent = e.message;
+        }
+      });
+
+      db.subscribeQuery({ projects: { $: { where: { "owner.id": user.id } } } }, (resp) => {
+        if (resp.error) {
+          document.getElementById("projects-list").innerHTML = `<p class="muted">${resp.error.message}</p>`;
+          return;
+        }
+        const projects = resp.data?.projects ?? [];
+        if (projects.length === 0) {
+          document.getElementById("projects-list").innerHTML = "<p class='muted'>No projects yet.</p>";
+          return;
+        }
+        document.getElementById("projects-list").innerHTML = projects.map((p) => `
+          <div class="card" data-project-id="${p.id}">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+              <strong>${p.name}</strong>
+              <div style="display:flex;gap:0.25rem">
+                <button class="btn-secondary view-anomalies" data-token="${p.token}">Anomalies</button>
+                <button class="btn-danger delete-project" data-id="${p.id}">Delete</button>
+              </div>
+            </div>
+            <div><span class="muted">Token:</span> <span class="token">${p.token}</span></div>
+          </div>
+        `).join("");
+
+        document.querySelectorAll(".delete-project").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            if (!confirm("Delete this project?")) return;
+            await db.transact([db.tx.projects[btn.dataset.id].delete()]);
+          });
+        });
+
+        document.querySelectorAll(".view-anomalies").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const section = document.getElementById("anomalies-section");
+            const list = document.getElementById("anomalies-list");
+            section.style.display = "block";
+            list.innerHTML = "<p class='muted'>Loading...</p>";
+            const result = await fetchAnomalies(btn.dataset.token);
+            const anomalies = result.anomalies ?? [];
+            if (anomalies.length === 0) {
+              list.innerHTML = "<p class='muted'>No anomalies detected.</p>";
+              return;
+            }
+            const metricLabel = (m) => m === "userSpike" ? "User Spike" : "Total Count";
+            list.innerHTML = `
+              <table class="anomaly-table">
+                <tr><th>Type</th><th>Event</th><th>User</th><th>Bucket</th><th>Expected</th><th>Actual</th><th>Z</th><th>Detected</th></tr>
+                ${anomalies.map((a) => `
+                  <tr>
+                    <td>${metricLabel(a.metric)}</td>
+                    <td>${a.eventName}</td>
+                    <td>${a.userId ?? "-"}</td>
+                    <td>${a.bucket}</td>
+                    <td>${a.expected}</td>
+                    <td>${a.actual}</td>
+                    <td>${a.zScore}</td>
+                    <td>${new Date(a.detectedAt).toLocaleString()}</td>
+                  </tr>
+                `).join("")}
+              </table>
+            `;
+          });
+        });
+      });
+    };
+
+    render("<p class='muted' style='padding:2rem 1rem'>Loading...</p>");
+
+    db.subscribeAuth((auth) => {
+      if (auth.user) {
+        renderDashboard(auth.user);
+      } else {
+        renderLogin();
+      }
+    });
+  </script>
+</body>
+</html>

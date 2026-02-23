@@ -99,11 +99,17 @@ in InstantDB.
 
 Forward Email from domain `f0mo.com`. API key and domain are env vars in `.env`.
 
-## Web App
+## Web
 
-Single HTML file at `web/index.html`, served on GET `/`. Uses InstantDB client
-SDK from CDN for auth (magic codes) and project management. Fetches app ID from
-GET `/config`.
+Three static HTML pages served by `src/server.ts`:
+
+- `/` — landing page (`web/index.html`)
+- `/app` — dashboard with auth, project CRUD, anomaly viewer (`web/app.html`)
+- `/docs` — SDK documentation (`web/docs.html`)
+- `/config` — returns `{ instantdbAppId }` as JSON
+
+The app uses InstantDB client SDK from CDN for auth (magic codes) and project
+management.
 
 ## Key Files
 
@@ -116,7 +122,9 @@ GET `/config`.
 | `src/db.ts`          | InstantDB admin client, token lookup          |
 | `src/email.ts`       | Forward Email client for anomaly alerts       |
 | `instant.schema.ts`  | InstantDB schema (projects, users, links)     |
-| `web/index.html`     | Single-page web app (auth, projects, alerts)  |
+| `web/index.html`     | Landing page                                  |
+| `web/app.html`       | Dashboard app (auth, projects, anomalies)     |
+| `web/docs.html`      | SDK documentation                             |
 
 ## Env Vars (in .env, gitignored)
 

@@ -3,233 +3,118 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>anomalisa</title>
+  <title>anomalisa - anomaly detection for your events</title>
+  <meta name="description" content="Send events, get emailed when something weird happens. No dashboards, no thresholds. Just math and email." />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
-    .container { max-width: 640px; margin: 0 auto; padding: 2rem 1rem; }
-    h1 { font-size: 1.5rem; margin-bottom: 1.5rem; color: #fff; }
-    h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #ccc; }
-    input, button { font-family: inherit; font-size: 0.9rem; }
-    input { background: #1a1a1a; border: 1px solid #333; color: #e0e0e0; padding: 0.5rem 0.75rem; border-radius: 4px; width: 100%; }
-    input:focus { outline: none; border-color: #666; }
-    button { background: #fff; color: #0a0a0a; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-weight: 500; }
-    button:hover { background: #ddd; }
-    button.danger { background: #c0392b; color: #fff; }
-    button.danger:hover { background: #a93226; }
-    button.secondary { background: #333; color: #e0e0e0; }
-    button.secondary:hover { background: #444; }
-    .card { background: #141414; border: 1px solid #222; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-    .token { font-family: monospace; font-size: 0.8rem; background: #1a1a1a; padding: 0.25rem 0.5rem; border-radius: 3px; word-break: break-all; }
-    .row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
-    .row input { flex: 1; }
-    .section { margin-bottom: 2rem; }
-    .anomaly-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-    .anomaly-table th, .anomaly-table td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #222; text-align: left; }
-    .anomaly-table th { color: #888; font-weight: 500; }
-    .muted { color: #666; font-size: 0.85rem; }
-    .status { padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.75rem; }
-    .logout { position: absolute; top: 1rem; right: 1rem; }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-    #app { position: relative; }
+    a { color: #7eb8ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { font-family: 'SF Mono', 'Fira Code', monospace; }
+    .landing { max-width: 680px; margin: 0 auto; padding: 4rem 1.5rem; }
+    .logo { font-size: 2rem; font-weight: 700; color: #fff; letter-spacing: -0.03em; margin-bottom: 0.5rem; }
+    .tagline { font-size: 1.15rem; color: #999; line-height: 1.6; margin-bottom: 3rem; max-width: 520px; }
+    .cta-row { display: flex; gap: 0.75rem; margin-bottom: 4rem; flex-wrap: wrap; }
+    .btn-primary { display: inline-block; background: #fff; color: #0a0a0a; border: none; padding: 0.65rem 1.5rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.95rem; font-family: inherit; text-decoration: none; }
+    .btn-primary:hover { background: #ddd; text-decoration: none; }
+    .btn-ghost { background: transparent; color: #999; border: 1px solid #333; padding: 0.65rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.95rem; font-family: inherit; }
+    .btn-ghost:hover { border-color: #555; color: #ccc; text-decoration: none; }
+    .features { display: grid; gap: 1.5rem; margin-bottom: 4rem; }
+    .feature { background: #111; border: 1px solid #1a1a1a; border-radius: 8px; padding: 1.25rem 1.5rem; }
+    .feature-title { font-size: 0.95rem; font-weight: 600; color: #fff; margin-bottom: 0.4rem; }
+    .feature-desc { font-size: 0.85rem; color: #888; line-height: 1.55; }
+    .code-section { margin-bottom: 4rem; }
+    .code-section h2 { font-size: 1rem; color: #ccc; margin-bottom: 1rem; font-weight: 500; }
+    .code-block { background: #111; border: 1px solid #1a1a1a; border-radius: 8px; padding: 1.25rem 1.5rem; overflow-x: auto; font-size: 0.82rem; line-height: 1.65; color: #c8d3e0; }
+    .code-block .kw { color: #c586c0; }
+    .code-block .fn { color: #dcdcaa; }
+    .code-block .str { color: #ce9178; }
+    .code-block .comment { color: #6a9955; }
+    .how-section { margin-bottom: 4rem; }
+    .how-section h2 { font-size: 1rem; color: #ccc; margin-bottom: 1rem; font-weight: 500; }
+    .how-steps { display: grid; gap: 0.75rem; }
+    .how-step { display: flex; gap: 1rem; align-items: baseline; }
+    .step-num { color: #555; font-size: 0.8rem; font-weight: 700; min-width: 1.5rem; }
+    .step-text { font-size: 0.88rem; color: #999; line-height: 1.5; }
+    .footer { border-top: 1px solid #1a1a1a; padding-top: 2rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #555; flex-wrap: wrap; gap: 1rem; }
+    .footer-links { display: flex; gap: 1.5rem; }
+    .footer a { color: #666; }
+    .footer a:hover { color: #999; }
   </style>
 </head>
 <body>
-  <div class="container" id="app"></div>
+  <div class="landing">
+    <div class="logo">anomalisa</div>
+    <p class="tagline">
+      Send events, get emailed when something weird happens.
+      No dashboards to stare at. No thresholds to configure.
+      Just statistics and email.
+    </p>
+    <div class="cta-row">
+      <a href="/app" class="btn-primary">Get started</a>
+      <a href="/docs" class="btn-ghost">Docs</a>
+      <a href="https://github.com/uriva/anomalisa" class="btn-ghost" target="_blank">GitHub</a>
+    </div>
 
-  <script type="module">
-    import { init, id } from "https://esm.sh/@instantdb/core@0.22.135";
+    <div class="features">
+      <div class="feature">
+        <div class="feature-title">Event spike detection</div>
+        <div class="feature-desc">Your signup event usually gets ~50/hour. Suddenly it's 200. Or 3. You get an email.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Per-user anomalies</div>
+        <div class="feature-desc">One user generating 100x more events than usual. Could be a bot, abuse, or a bug. You'll know.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Zero configuration</div>
+        <div class="feature-desc">It learns what's normal from your data using Welford's online algorithm. Stays quiet until the math says something is genuinely off.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Open source</div>
+        <div class="feature-desc">Run it yourself, fork it, rip it apart. Or just use the hosted version and move on with your life.</div>
+      </div>
+    </div>
 
-    const app = document.getElementById("app");
-    const apiUrl = "https://anomalisa.deno.dev";
+    <div class="code-section">
+      <h2>Three lines to get started</h2>
+      <div class="code-block">
+<span class="comment">// deno add jsr:@uri/anomalisa</span>
+<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
 
-    const db = init({ appId: "6c54827f-212d-4e48-9e87-b57626726004" });
+<span class="kw">await</span> <span class="fn">sendEvent</span>({
+  token: <span class="str">"your-project-token"</span>,
+  userId: <span class="str">"user-123"</span>,
+  eventName: <span class="str">"purchase"</span>,
+});
+      </div>
+    </div>
 
-    const render = (html) => { app.innerHTML = html; };
-
-    const renderLoading = () => render("<p class='muted'>Loading...</p>");
-
-    const renderLogin = () => {
-      render(`
-        <h1>anomalisa</h1>
-        <div class="card">
-          <div class="section">
-            <h2>Sign in</h2>
-            <div class="row">
-              <input id="email" type="email" placeholder="you@example.com" />
-              <button id="send-code">Send code</button>
-            </div>
-          </div>
-          <div class="section" id="code-section" style="display:none">
-            <div class="row">
-              <input id="code" type="text" placeholder="Enter code" />
-              <button id="verify-code">Verify</button>
-            </div>
-          </div>
-          <p class="muted" id="login-msg"></p>
+    <div class="how-section">
+      <h2>How it works</h2>
+      <div class="how-steps">
+        <div class="how-step">
+          <span class="step-num">1</span>
+          <span class="step-text">Sign up, create a project, grab your token.</span>
         </div>
-      `);
-
-      let sentEmail = "";
-
-      document.getElementById("send-code").addEventListener("click", async () => {
-        const email = document.getElementById("email").value.trim();
-        if (!email) return;
-        sentEmail = email;
-        try {
-          await db.auth.sendMagicCode({ email });
-          document.getElementById("code-section").style.display = "block";
-          document.getElementById("login-msg").textContent = "Code sent to " + email;
-        } catch (e) {
-          document.getElementById("login-msg").textContent = e.message;
-        }
-      });
-
-      document.getElementById("verify-code").addEventListener("click", async () => {
-        const code = document.getElementById("code").value.trim();
-        if (!code) return;
-        try {
-          await db.auth.signInWithMagicCode({ email: sentEmail, code });
-        } catch (e) {
-          document.getElementById("login-msg").textContent = e.message;
-        }
-      });
-    };
-
-    const fetchAnomalies = async (token) => {
-      try {
-        const res = await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint: "getAnomalies", payload: { token } }),
-        });
-        return await res.json();
-      } catch {
-        return { anomalies: [] };
-      }
-    };
-
-    const renderDashboard = (user) => {
-      render(`
-        <div class="header">
-          <h1>anomalisa</h1>
-          <button class="secondary" id="logout">Sign out</button>
+        <div class="how-step">
+          <span class="step-num">2</span>
+          <span class="step-text">Send events from your app with the SDK. Just a token, user id, and event name.</span>
         </div>
-        <p class="muted" style="margin-bottom:1.5rem">${user.email}</p>
-
-        <div class="section">
-          <h2>Create project</h2>
-          <div class="row">
-            <input id="project-name" placeholder="Project name" />
-            <button id="create-project">Create</button>
-          </div>
-          <p class="muted" id="create-msg"></p>
+        <div class="how-step">
+          <span class="step-num">3</span>
+          <span class="step-text">Anomalisa counts events in hourly buckets, builds a running statistical model, and emails you when something deviates more than 2 standard deviations.</span>
         </div>
+      </div>
+    </div>
 
-        <div class="section">
-          <h2>Projects</h2>
-          <div id="projects-list"><p class="muted">Loading...</p></div>
-        </div>
-
-        <div class="section" id="anomalies-section" style="display:none">
-          <h2>Anomalies</h2>
-          <div id="anomalies-list"></div>
-        </div>
-      `);
-
-      document.getElementById("logout").addEventListener("click", () => db.auth.signOut());
-
-      document.getElementById("create-project").addEventListener("click", async () => {
-        const name = document.getElementById("project-name").value.trim();
-        if (!name) return;
-        const projectId = id();
-        const token = crypto.randomUUID();
-        try {
-          await db.transact([
-            db.tx.projects[projectId].update({ name, token }).link({ owner: user.id }),
-          ]);
-          document.getElementById("project-name").value = "";
-          document.getElementById("create-msg").textContent = "Created!";
-          setTimeout(() => { document.getElementById("create-msg").textContent = ""; }, 2000);
-        } catch (e) {
-          document.getElementById("create-msg").textContent = e.message;
-        }
-      });
-
-      db.subscribeQuery({ projects: { $: { where: { "owner.id": user.id } } } }, (resp) => {
-        if (resp.error) {
-          document.getElementById("projects-list").innerHTML = `<p class="muted">${resp.error.message}</p>`;
-          return;
-        }
-        const projects = resp.data?.projects ?? [];
-        if (projects.length === 0) {
-          document.getElementById("projects-list").innerHTML = "<p class='muted'>No projects yet.</p>";
-          return;
-        }
-        document.getElementById("projects-list").innerHTML = projects.map((p) => `
-          <div class="card" data-project-id="${p.id}">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
-              <strong>${p.name}</strong>
-              <div style="display:flex;gap:0.25rem">
-                <button class="secondary view-anomalies" data-token="${p.token}">Anomalies</button>
-                <button class="danger delete-project" data-id="${p.id}">Delete</button>
-              </div>
-            </div>
-            <div><span class="muted">Token:</span> <span class="token">${p.token}</span></div>
-          </div>
-        `).join("");
-
-        document.querySelectorAll(".delete-project").forEach((btn) => {
-          btn.addEventListener("click", async () => {
-            if (!confirm("Delete this project?")) return;
-            await db.transact([db.tx.projects[btn.dataset.id].delete()]);
-          });
-        });
-
-        document.querySelectorAll(".view-anomalies").forEach((btn) => {
-          btn.addEventListener("click", async () => {
-            const section = document.getElementById("anomalies-section");
-            const list = document.getElementById("anomalies-list");
-            section.style.display = "block";
-            list.innerHTML = "<p class='muted'>Loading...</p>";
-            const result = await fetchAnomalies(btn.dataset.token);
-            const anomalies = result.anomalies ?? [];
-            if (anomalies.length === 0) {
-              list.innerHTML = "<p class='muted'>No anomalies detected.</p>";
-              return;
-            }
-            const metricLabel = (m) => m === "userSpike" ? "User Spike" : "Total Count";
-            list.innerHTML = `
-              <table class="anomaly-table">
-                <tr><th>Type</th><th>Event</th><th>User</th><th>Bucket</th><th>Expected</th><th>Actual</th><th>Z</th><th>Detected</th></tr>
-                ${anomalies.map((a) => `
-                  <tr>
-                    <td>${metricLabel(a.metric)}</td>
-                    <td>${a.eventName}</td>
-                    <td>${a.userId ?? "-"}</td>
-                    <td>${a.bucket}</td>
-                    <td>${a.expected}</td>
-                    <td>${a.actual}</td>
-                    <td>${a.zScore}</td>
-                    <td>${new Date(a.detectedAt).toLocaleString()}</td>
-                  </tr>
-                `).join("")}
-              </table>
-            `;
-          });
-        });
-      });
-    };
-
-    renderLoading();
-
-    db.subscribeAuth((auth) => {
-      if (auth.user) {
-        renderDashboard(auth.user);
-      } else {
-        renderLogin();
-      }
-    });
-  </script>
+    <div class="footer">
+      <span>anomalisa</span>
+      <div class="footer-links">
+        <a href="/docs">Docs</a>
+        <a href="https://github.com/uriva/anomalisa" target="_blank">GitHub</a>
+        <a href="https://jsr.io/@uri/anomalisa" target="_blank">JSR</a>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

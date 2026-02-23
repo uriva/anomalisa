@@ -1,11 +1,15 @@
 {
   "name": "@uri/anomalisa",
-  "version": "0.0.4",
+  "version": "0.0.6",
   "license": "MIT",
   "exports": "./mod.ts",
+  "tasks": {
+    "test": "deno test --unstable-kv"
+  },
   "imports": {
     "gamla": "npm:gamla@124.0.0",
     "@uri/typed-api": "jsr:@uri/typed-api@0.0.11",
-    "zod": "npm:zod@3.25.57"
+    "zod": "npm:zod@3.25.57",
+    "@instantdb/admin": "npm:@instantdb/admin@0.22.135"
   }
 }

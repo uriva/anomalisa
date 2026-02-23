@@ -208,6 +208,24 @@ export const recordEvent = async (
   );
 };
 
+export const getEventCounts = async (
+  projectId: string,
+): Promise<Record<string, Array<{ bucket: string; count: number }>>> => {
+  const entries = await Array.fromAsync(
+    kv.list<number>({ prefix: ["counts", projectId] }),
+  );
+  const events: Record<string, Array<{ bucket: string; count: number }>> = {};
+  entries.forEach(({ key, value }) => {
+    const eventName = String(key[2]);
+    const bucket = String(key[3]);
+    (events[eventName] ??= []).push({ bucket, count: value });
+  });
+  Object.values(events).forEach((arr) =>
+    arr.sort((a, b) => a.bucket.localeCompare(b.bucket))
+  );
+  return events;
+};
+
 export const getAnomalies = async (projectId: string): Promise<Anomaly[]> => {
   const entries = await Array.fromAsync(
     kv.list<Anomaly>({ prefix: ["anomalies", projectId] }),

@@ -32,6 +32,18 @@ export const apiDefinition = {
       ),
     }),
   }),
+  getEventCounts: endpoint({
+    authRequired: false,
+    input: z.object({
+      token: z.string(),
+    }),
+    output: z.object({
+      events: z.record(
+        z.string(),
+        z.array(z.object({ bucket: z.string(), count: z.number() })),
+      ),
+    }),
+  }),
 } as const;
 
 export type Api = typeof apiDefinition;

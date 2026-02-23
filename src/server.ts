@@ -1,6 +1,6 @@
 import { apiHandler, type ApiImplementation } from "@uri/typed-api";
 import { type Api, apiDefinition } from "./api.ts";
-import { getAnomalies, recordEvent } from "./anomaly.ts";
+import { getAnomalies, getEventCounts, recordEvent } from "./anomaly.ts";
 import { lookupProjectByToken } from "./db.ts";
 import { sendAnomalyAlert } from "./email.ts";
 
@@ -26,6 +26,10 @@ const endpoints: ApiImplementation<null, Api> = {
     getAnomalies: async ({ token }) => {
       const project = await resolveProject(token);
       return { anomalies: await getAnomalies(project.id) };
+    },
+    getEventCounts: async ({ token }) => {
+      const project = await resolveProject(token);
+      return { events: await getEventCounts(project.id) };
     },
   },
 };

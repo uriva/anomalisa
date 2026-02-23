@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: anomalisa
-    runtime: static
-    staticPublishPath: ./web
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html

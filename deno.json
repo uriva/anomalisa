@@ -6,6 +6,10 @@
   "tasks": {
     "test": "deno test --unstable-kv"
   },
+  "deploy": {
+    "org": "uriva",
+    "app": "anomalisa"
+  },
   "imports": {
     "gamla": "npm:gamla@124.0.0",
     "@uri/typed-api": "jsr:@uri/typed-api@0.0.11",

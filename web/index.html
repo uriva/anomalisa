@@ -41,11 +41,9 @@
     import { init, id } from "https://esm.sh/@instantdb/core@0.22.135";
 
     const app = document.getElementById("app");
+    const apiUrl = "https://anomalisa.deno.dev";
 
-    const configRes = await fetch("/config");
-    const { instantdbAppId } = await configRes.json();
-
-    const db = init({ appId: instantdbAppId });
+    const db = init({ appId: "6c54827f-212d-4e48-9e87-b57626726004" });
 
     const render = (html) => { app.innerHTML = html; };
 
@@ -100,7 +98,7 @@
 
     const fetchAnomalies = async (token) => {
       try {
-        const res = await fetch(location.origin, {
+        const res = await fetch(apiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ endpoint: "getAnomalies", payload: { token } }),

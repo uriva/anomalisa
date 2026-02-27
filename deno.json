@@ -1,6 +1,6 @@
 {
   "name": "@uri/anomalisa",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "license": "MIT",
   "exports": "./mod.ts",
   "tasks": {
@@ -14,6 +14,7 @@
     "gamla": "npm:gamla@124.0.0",
     "@uri/typed-api": "jsr:@uri/typed-api@0.0.11",
     "zod": "npm:zod@3.25.57",
-    "@instantdb/admin": "npm:@instantdb/admin@0.22.135"
+    "@instantdb/admin": "npm:@instantdb/admin@0.22.135",
+    "@std/assert": "jsr:@std/assert@^1.0.19"
   }
 }

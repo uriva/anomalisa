@@ -80,6 +80,17 @@ const storeAnomaly = (projectId: string, anomaly: Anomaly) =>
     expireIn: anomalyTtlMs,
   });
 
+const getOrInitStats = async (
+  key: Deno.KvKey,
+  bucket: string,
+): Promise<Stats> => {
+  const entry = await kv.get<Stats>(key);
+  if (entry.value) return entry.value;
+  const initial = emptyStats(bucket);
+  await kv.set(key, initial);
+  return initial;
+};
+
 const incrementAndGet = async (key: Deno.KvKey, ttl: number) => {
   const entry = await kv.get<number>(key);
   const next = (entry.value ?? 0) + 1;
@@ -103,8 +114,7 @@ const checkUserSpike = async (
   userCount: number,
 ): Promise<Anomaly | null> => {
   const perUserStatsKey = ["stats", "perUser", projectId, eventName];
-  const perUserStats =
-    (await kv.get<Stats>(perUserStatsKey)).value ?? emptyStats(bucket);
+  const perUserStats = await getOrInitStats(perUserStatsKey, bucket);
   return detectAnomaly(
     perUserStats,
     userCount,
@@ -133,17 +143,15 @@ const handleBucketTransition = async (
     "totalCount",
   );
 
-  const prevMaxUserCount =
-    (await kv.get<number>([
-      "maxUserCount",
-      projectId,
-      eventName,
-      stats.lastBucket,
-    ])).value ?? 0;
+  const prevMaxUserCount = (await kv.get<number>([
+    "maxUserCount",
+    projectId,
+    eventName,
+    stats.lastBucket,
+  ])).value ?? 0;
 
   const perUserStatsKey = ["stats", "perUser", projectId, eventName];
-  const perUserStats =
-    (await kv.get<Stats>(perUserStatsKey)).value ?? emptyStats(bucket);
+  const perUserStats = await getOrInitStats(perUserStatsKey, bucket);
 
   await Promise.all([
     kv.set(["stats", "total", projectId, eventName], {
@@ -183,8 +191,7 @@ export const recordEvent = async (
   );
 
   const totalStatsKey = ["stats", "total", projectId, eventName];
-  const totalStats =
-    (await kv.get<Stats>(totalStatsKey)).value ?? emptyStats(bucket);
+  const totalStats = await getOrInitStats(totalStatsKey, bucket);
 
   const userSpikeAnomaly = await checkUserSpike(
     projectId,

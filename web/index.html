@@ -1,120 +1,295 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>anomalisa - anomaly detection for your events</title>
-  <meta name="description" content="Send events, get emailed when something weird happens. No dashboards, no thresholds. Just math and email." />
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
-    a { color: #7eb8ff; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    code { font-family: 'SF Mono', 'Fira Code', monospace; }
-    .landing { max-width: 680px; margin: 0 auto; padding: 4rem 1.5rem; }
-    .logo { font-size: 2rem; font-weight: 700; color: #fff; letter-spacing: -0.03em; margin-bottom: 0.5rem; }
-    .tagline { font-size: 1.15rem; color: #999; line-height: 1.6; margin-bottom: 3rem; max-width: 520px; }
-    .cta-row { display: flex; gap: 0.75rem; margin-bottom: 4rem; flex-wrap: wrap; }
-    .btn-primary { display: inline-block; background: #fff; color: #0a0a0a; border: none; padding: 0.65rem 1.5rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.95rem; font-family: inherit; text-decoration: none; }
-    .btn-primary:hover { background: #ddd; text-decoration: none; }
-    .btn-ghost { background: transparent; color: #999; border: 1px solid #333; padding: 0.65rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.95rem; font-family: inherit; }
-    .btn-ghost:hover { border-color: #555; color: #ccc; text-decoration: none; }
-    .features { display: grid; gap: 1.5rem; margin-bottom: 4rem; }
-    .feature { background: #111; border: 1px solid #1a1a1a; border-radius: 8px; padding: 1.25rem 1.5rem; }
-    .feature-title { font-size: 0.95rem; font-weight: 600; color: #fff; margin-bottom: 0.4rem; }
-    .feature-desc { font-size: 0.85rem; color: #888; line-height: 1.55; }
-    .code-section { margin-bottom: 4rem; }
-    .code-section h2 { font-size: 1rem; color: #ccc; margin-bottom: 1rem; font-weight: 500; }
-    .code-block { background: #111; border: 1px solid #1a1a1a; border-radius: 8px; padding: 1.25rem 1.5rem; overflow-x: auto; font-size: 0.82rem; line-height: 1.65; color: #c8d3e0; }
-    .code-block .kw { color: #c586c0; }
-    .code-block .fn { color: #dcdcaa; }
-    .code-block .str { color: #ce9178; }
-    .code-block .comment { color: #6a9955; }
-    .how-section { margin-bottom: 4rem; }
-    .how-section h2 { font-size: 1rem; color: #ccc; margin-bottom: 1rem; font-weight: 500; }
-    .how-steps { display: grid; gap: 0.75rem; }
-    .how-step { display: flex; gap: 1rem; align-items: baseline; }
-    .step-num { color: #555; font-size: 0.8rem; font-weight: 700; min-width: 1.5rem; }
-    .step-text { font-size: 0.88rem; color: #999; line-height: 1.5; }
-    .footer { border-top: 1px solid #1a1a1a; padding-top: 2rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #555; flex-wrap: wrap; gap: 1rem; }
-    .footer-links { display: flex; gap: 1.5rem; }
-    .footer a { color: #666; }
-    .footer a:hover { color: #999; }
-  </style>
-</head>
-<body>
-  <div class="landing">
-    <div class="logo">anomalisa</div>
-    <p class="tagline">
-      Send events, get emailed when something weird happens.
-      No dashboards to stare at. No thresholds to configure.
-      Just statistics and email.
-    </p>
-    <div class="cta-row">
-      <a href="/app" class="btn-primary">Get started</a>
-      <a href="/docs" class="btn-ghost">Docs</a>
-      <a href="https://github.com/uriva/anomalisa" class="btn-ghost" target="_blank">GitHub</a>
-    </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>anomalisa - anomaly detection for your events</title>
+    <meta
+      name="description"
+      content="Send events, get emailed when something weird happens. No dashboards, no thresholds. Just math and email."
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #0a0a0a;
+        color: #e0e0e0;
+        min-height: 100vh;
+      }
+      a {
+        color: #7eb8ff;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      code {
+        font-family: "SF Mono", "Fira Code", monospace;
+      }
+      .landing {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 4rem 1.5rem;
+      }
+      .logo {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #fff;
+        letter-spacing: -0.03em;
+        margin-bottom: 0.5rem;
+      }
+      .tagline {
+        font-size: 1.15rem;
+        color: #999;
+        line-height: 1.6;
+        margin-bottom: 3rem;
+        max-width: 520px;
+      }
+      .cta-row {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 4rem;
+        flex-wrap: wrap;
+      }
+      .btn-primary {
+        display: inline-block;
+        background: #fff;
+        color: #0a0a0a;
+        border: none;
+        padding: 0.65rem 1.5rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.95rem;
+        font-family: inherit;
+        text-decoration: none;
+      }
+      .btn-primary:hover {
+        background: #ddd;
+        text-decoration: none;
+      }
+      .btn-ghost {
+        background: transparent;
+        color: #999;
+        border: 1px solid #333;
+        padding: 0.65rem 1.5rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.95rem;
+        font-family: inherit;
+      }
+      .btn-ghost:hover {
+        border-color: #555;
+        color: #ccc;
+        text-decoration: none;
+      }
+      .features {
+        display: grid;
+        gap: 1.5rem;
+        margin-bottom: 4rem;
+      }
+      .feature {
+        background: #111;
+        border: 1px solid #1a1a1a;
+        border-radius: 8px;
+        padding: 1.25rem 1.5rem;
+      }
+      .feature-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #fff;
+        margin-bottom: 0.4rem;
+      }
+      .feature-desc {
+        font-size: 0.85rem;
+        color: #888;
+        line-height: 1.55;
+      }
+      .code-section {
+        margin-bottom: 4rem;
+      }
+      .code-section h2 {
+        font-size: 1rem;
+        color: #ccc;
+        margin-bottom: 1rem;
+        font-weight: 500;
+      }
+      .code-block {
+        background: #111;
+        border: 1px solid #1a1a1a;
+        border-radius: 8px;
+        padding: 1.25rem 1.5rem;
+        overflow-x: auto;
+        font-size: 0.82rem;
+        line-height: 1.65;
+        color: #c8d3e0;
+      }
+      .code-block .kw {
+        color: #c586c0;
+      }
+      .code-block .fn {
+        color: #dcdcaa;
+      }
+      .code-block .str {
+        color: #ce9178;
+      }
+      .code-block .comment {
+        color: #6a9955;
+      }
+      .how-section {
+        margin-bottom: 4rem;
+      }
+      .how-section h2 {
+        font-size: 1rem;
+        color: #ccc;
+        margin-bottom: 1rem;
+        font-weight: 500;
+      }
+      .how-steps {
+        display: grid;
+        gap: 0.75rem;
+      }
+      .how-step {
+        display: flex;
+        gap: 1rem;
+        align-items: baseline;
+      }
+      .step-num {
+        color: #555;
+        font-size: 0.8rem;
+        font-weight: 700;
+        min-width: 1.5rem;
+      }
+      .step-text {
+        font-size: 0.88rem;
+        color: #999;
+        line-height: 1.5;
+      }
+      .footer {
+        border-top: 1px solid #1a1a1a;
+        padding-top: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.8rem;
+        color: #555;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+      .footer-links {
+        display: flex;
+        gap: 1.5rem;
+      }
+      .footer a {
+        color: #666;
+      }
+      .footer a:hover {
+        color: #999;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="landing">
+      <div class="logo">anomalisa</div>
+      <p class="tagline">
+        Send events, get emailed when something weird happens. No dashboards to
+        stare at. No thresholds to configure. Just statistics and email.
+      </p>
+      <div class="cta-row">
+        <a href="/app" class="btn-primary">Get started</a>
+        <a href="/docs" class="btn-ghost">Docs</a>
+        <a
+          href="https://github.com/uriva/anomalisa"
+          class="btn-ghost"
+          target="_blank"
+        >GitHub</a>
+      </div>
 
-    <div class="features">
-      <div class="feature">
-        <div class="feature-title">Event spike detection</div>
-        <div class="feature-desc">Your signup event usually gets ~50/hour. Suddenly it's 200. Or 3. You get an email.</div>
-      </div>
-      <div class="feature">
-        <div class="feature-title">Per-user anomalies</div>
-        <div class="feature-desc">One user generating 100x more events than usual. Could be a bot, abuse, or a bug. You'll know.</div>
-      </div>
-      <div class="feature">
-        <div class="feature-title">Zero configuration</div>
-        <div class="feature-desc">It learns what's normal from your data using Welford's online algorithm. Stays quiet until the math says something is genuinely off.</div>
-      </div>
-      <div class="feature">
-        <div class="feature-title">Open source</div>
-        <div class="feature-desc">Run it yourself, fork it, rip it apart. Or just use the hosted version and move on with your life.</div>
-      </div>
-    </div>
-
-    <div class="code-section">
-      <h2>Three lines to get started</h2>
-      <div class="code-block">
-<span class="comment">// deno add jsr:@uri/anomalisa</span>
-<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
-
-<span class="kw">await</span> <span class="fn">sendEvent</span>({
-  token: <span class="str">"your-project-token"</span>,
-  userId: <span class="str">"user-123"</span>,
-  eventName: <span class="str">"purchase"</span>,
-});
-      </div>
-    </div>
-
-    <div class="how-section">
-      <h2>How it works</h2>
-      <div class="how-steps">
-        <div class="how-step">
-          <span class="step-num">1</span>
-          <span class="step-text">Sign up, create a project, grab your token.</span>
+      <div class="features">
+        <div class="feature">
+          <div class="feature-title">Event spike detection</div>
+          <div class="feature-desc">
+            Your signup event usually gets ~50/hour. Suddenly it's 200. Or 3.
+            You get an email.
+          </div>
         </div>
-        <div class="how-step">
-          <span class="step-num">2</span>
-          <span class="step-text">Send events from your app with the SDK. Just a token, user id, and event name.</span>
+        <div class="feature">
+          <div class="feature-title">Per-user anomalies</div>
+          <div class="feature-desc">
+            One user generating 100x more events than usual. Could be a bot,
+            abuse, or a bug. You'll know.
+          </div>
         </div>
-        <div class="how-step">
-          <span class="step-num">3</span>
-          <span class="step-text">Anomalisa counts events in hourly buckets, builds a running statistical model, and emails you when something deviates more than 2 standard deviations.</span>
+        <div class="feature">
+          <div class="feature-title">Zero configuration</div>
+          <div class="feature-desc">
+            It learns what's normal from your data using Welford's online
+            algorithm. Stays quiet until the math says something is genuinely
+            off.
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-title">Open source</div>
+          <div class="feature-desc">
+            Run it yourself, fork it, rip it apart. Or just use the hosted
+            version and move on with your life.
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="footer">
-      <span>anomalisa</span>
-      <div class="footer-links">
-        <a href="/docs">Docs</a>
-        <a href="https://github.com/uriva/anomalisa" target="_blank">GitHub</a>
-        <a href="https://jsr.io/@uri/anomalisa" target="_blank">JSR</a>
+      <div class="code-section">
+        <h2>Three lines to get started</h2>
+        <div class="code-block">
+          <span class="comment">// deno add jsr:@uri/anomalisa</span>
+          <span class="kw">import</span> { <span class="fn">sendEvent</span> }
+          <span class="kw">from</span> <span class="str"
+          >"@uri/anomalisa"</span>;
+
+          <span class="kw">await</span> <span class="fn">sendEvent</span>({
+          token: <span class="str">"your-project-token"</span>, userId: <span
+            class="str"
+          >"user-123"</span>, eventName: <span class="str">"purchase"</span>,
+          });
+        </div>
+      </div>
+
+      <div class="how-section">
+        <h2>How it works</h2>
+        <div class="how-steps">
+          <div class="how-step">
+            <span class="step-num">1</span>
+            <span class="step-text"
+            >Sign up, create a project, grab your token.</span>
+          </div>
+          <div class="how-step">
+            <span class="step-num">2</span>
+            <span class="step-text"
+            >Send events from your app with the SDK. Just a token, user id, and
+              event name.</span>
+          </div>
+          <div class="how-step">
+            <span class="step-num">3</span>
+            <span class="step-text"
+            >Anomalisa counts events in hourly buckets, builds a running
+              statistical model, and emails you when something deviates more
+              than 2 standard deviations.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span>anomalisa</span>
+        <div class="footer-links">
+          <a href="/docs">Docs</a>
+          <a href="https://github.com/uriva/anomalisa" target="_blank"
+          >GitHub</a>
+          <a href="https://jsr.io/@uri/anomalisa" target="_blank">JSR</a>
+        </div>
       </div>
     </div>
-  </div>
-</body>
+  </body>
 </html>

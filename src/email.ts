@@ -12,8 +12,8 @@ type Email = {
   text: string;
 };
 
-const sendEmail = (email: Email) =>
-  fetch("https://api.forwardemail.net/v1/emails", {
+const sendEmail = async (email: Email) => {
+  const response = await fetch("https://api.forwardemail.net/v1/emails", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -21,6 +21,14 @@ const sendEmail = (email: Email) =>
     },
     body: JSON.stringify({ ...email, encoding: "utf-8" }),
   });
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(
+      `Email send failed: ${response.status} ${response.statusText} ${body}`,
+    );
+  }
+  return response;
+};
 
 const metricLabel = (metric: Anomaly["metric"]) =>
   metric === "userSpike" ? "User Spike" : "Total Count";
@@ -51,10 +59,14 @@ const anomalyHtml = (anomaly: Anomaly) =>
 const anomalyText = (
   { eventName, bucket, expected, actual, zScore, metric, userId }: Anomaly,
 ) =>
-  `${metricLabel(metric)} Anomaly: ${eventName}${userId ? ` (user: ${userId})` : ""} in ${bucket} — expected ${expected}, got ${actual} (z=${zScore})`;
+  `${metricLabel(metric)} Anomaly: ${eventName}${
+    userId ? ` (user: ${userId})` : ""
+  } in ${bucket} — expected ${expected}, got ${actual} (z=${zScore})`;
 
 const subjectLine = ({ metric, eventName, userId }: Anomaly) =>
-  `[anomalisa] ${metricLabel(metric)}: ${eventName}${userId ? ` (${userId})` : ""}`;
+  `[anomalisa] ${metricLabel(metric)}: ${eventName}${
+    userId ? ` (${userId})` : ""
+  }`;
 
 export const sendAnomalyAlert = (toEmail: string, anomaly: Anomaly) =>
   sendEmail({

@@ -2,6 +2,7 @@
   "version": "5",
   "specifiers": {
     "jsr:@std/assert@*": "1.0.19",
+    "jsr:@std/assert@^1.0.19": "1.0.19",
     "jsr:@std/internal@^1.0.12": "1.0.12",
     "jsr:@uri/typed-api@0.0.11": "0.0.11",
     "npm:@instantdb/admin@0.22.135": "0.22.135",
@@ -81,6 +82,7 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@std/assert@^1.0.19",
       "jsr:@uri/typed-api@0.0.11",
       "npm:@instantdb/admin@0.22.135",
       "npm:gamla@124.0.0",

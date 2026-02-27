@@ -1,94 +1,287 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>anomalisa - docs</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
-    a { color: #7eb8ff; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .page { max-width: 680px; margin: 0 auto; padding: 3rem 1.5rem; }
-    .logo { font-size: 1.5rem; font-weight: 700; color: #fff; letter-spacing: -0.03em; margin-bottom: 2.5rem; }
-    .logo a { color: #fff; }
-    .logo a:hover { text-decoration: none; opacity: 0.8; }
-    h2 { font-size: 1.1rem; color: #fff; margin: 2.5rem 0 0.75rem; font-weight: 600; }
-    h2:first-of-type { margin-top: 0; }
-    p { font-size: 0.9rem; color: #999; line-height: 1.65; margin-bottom: 0.75rem; }
-    .code-block { background: #111; border: 1px solid #1a1a1a; border-radius: 8px; padding: 1.25rem 1.5rem; overflow-x: auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82rem; line-height: 1.65; color: #c8d3e0; margin-bottom: 1.5rem; }
-    .code-block .kw { color: #c586c0; }
-    .code-block .fn { color: #dcdcaa; }
-    .code-block .str { color: #ce9178; }
-    .code-block .comment { color: #6a9955; }
-    .code-block .type { color: #4ec9b0; }
-    .code-block .num { color: #b5cea8; }
-    .field-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 1.5rem; }
-    .field-table th, .field-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #1a1a1a; text-align: left; }
-    .field-table th { color: #888; font-weight: 500; font-size: 0.8rem; }
-    .field-table td { color: #ccc; }
-    .field-table code { background: #1a1a1a; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.8rem; }
-    .muted { color: #666; }
-    .footer { border-top: 1px solid #1a1a1a; padding-top: 2rem; margin-top: 3rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #555; flex-wrap: wrap; gap: 1rem; }
-    .footer-links { display: flex; gap: 1.5rem; }
-    .footer a { color: #666; }
-    .footer a:hover { color: #999; }
-  </style>
-</head>
-<body>
-  <div class="page">
-    <div class="logo"><a href="/">anomalisa</a> <span style="font-size:0.85rem;color:#555;font-weight:400">docs</span></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>anomalisa - docs</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #0a0a0a;
+        color: #e0e0e0;
+        min-height: 100vh;
+      }
+      a {
+        color: #7eb8ff;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .page {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 3rem 1.5rem;
+      }
+      .logo {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #fff;
+        letter-spacing: -0.03em;
+        margin-bottom: 2.5rem;
+      }
+      .logo a {
+        color: #fff;
+      }
+      .logo a:hover {
+        text-decoration: none;
+        opacity: 0.8;
+      }
+      h2 {
+        font-size: 1.1rem;
+        color: #fff;
+        margin: 2.5rem 0 0.75rem;
+        font-weight: 600;
+      }
+      h2:first-of-type {
+        margin-top: 0;
+      }
+      p {
+        font-size: 0.9rem;
+        color: #999;
+        line-height: 1.65;
+        margin-bottom: 0.75rem;
+      }
+      .code-block {
+        background: #111;
+        border: 1px solid #1a1a1a;
+        border-radius: 8px;
+        padding: 1.25rem 1.5rem;
+        overflow-x: auto;
+        font-family: "SF Mono", "Fira Code", monospace;
+        font-size: 0.82rem;
+        line-height: 1.65;
+        color: #c8d3e0;
+        margin-bottom: 1.5rem;
+      }
+      .code-block .kw {
+        color: #c586c0;
+      }
+      .code-block .fn {
+        color: #dcdcaa;
+      }
+      .code-block .str {
+        color: #ce9178;
+      }
+      .code-block .comment {
+        color: #6a9955;
+      }
+      .code-block .type {
+        color: #4ec9b0;
+      }
+      .code-block .num {
+        color: #b5cea8;
+      }
+      .field-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+        margin-bottom: 1.5rem;
+      }
+      .field-table th, .field-table td {
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid #1a1a1a;
+        text-align: left;
+      }
+      .field-table th {
+        color: #888;
+        font-weight: 500;
+        font-size: 0.8rem;
+      }
+      .field-table td {
+        color: #ccc;
+      }
+      .field-table code {
+        background: #1a1a1a;
+        padding: 0.15rem 0.4rem;
+        border-radius: 3px;
+        font-size: 0.8rem;
+      }
+      .muted {
+        color: #666;
+      }
+      .footer {
+        border-top: 1px solid #1a1a1a;
+        padding-top: 2rem;
+        margin-top: 3rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.8rem;
+        color: #555;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+      .footer-links {
+        display: flex;
+        gap: 1.5rem;
+      }
+      .footer a {
+        color: #666;
+      }
+      .footer a:hover {
+        color: #999;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="logo">
+        <a href="/">anomalisa</a> <span
+          style="font-size: 0.85rem; color: #555; font-weight: 400"
+        >docs</span>
+      </div>
 
-    <h2>Install</h2>
-    <div class="code-block">deno add jsr:@uri/anomalisa</div>
-    <p>Or import directly from JSR:</p>
-    <div class="code-block"><span class="kw">import</span> { <span class="fn">sendEvent</span>, <span class="fn">getAnomalies</span> } <span class="kw">from</span> <span class="str">"jsr:@uri/anomalisa"</span>;</div>
+      <h2>Install</h2>
+      <div class="code-block">deno add jsr:@uri/anomalisa</div>
+      <p>Or import directly from JSR:</p>
+      <div class="code-block">
+        <span class="kw">import</span> { <span class="fn">sendEvent</span>,
+        <span class="fn">getAnomalies</span> } <span class="kw">from</span>
+        <span class="str">"jsr:@uri/anomalisa"</span>;
+      </div>
 
-    <h2>sendEvent</h2>
-    <p>Records an event. The server builds a statistical model from your events and emails you when something looks anomalous.</p>
-    <div class="code-block"><span class="kw">await</span> <span class="fn">sendEvent</span>({
-  token: <span class="str">"your-project-token"</span>,
-  userId: <span class="str">"user-123"</span>,
-  eventName: <span class="str">"purchase"</span>,
-});</div>
-    <table class="field-table">
-      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-      <tr><td><code>token</code></td><td>string</td><td>Your project token from the <a href="/app">dashboard</a></td></tr>
-      <tr><td><code>userId</code></td><td>string</td><td>Identifies the user performing the action</td></tr>
-      <tr><td><code>eventName</code></td><td>string</td><td>Name of the event (e.g. "signup", "purchase")</td></tr>
-    </table>
-    <p>Returns an empty object. Anomaly detection and alerting happen server-side.</p>
+      <h2>sendEvent</h2>
+      <p>
+        Records an event. The server builds a statistical model from your events
+        and emails you when something looks anomalous.
+      </p>
+      <div class="code-block">
+        <span class="kw">await</span> <span class="fn">sendEvent</span>({ token:
+        <span class="str">"your-project-token"</span>, userId: <span class="str"
+        >"user-123"</span>, eventName: <span class="str">"purchase"</span>, });
+      </div>
+      <table class="field-table">
+        <tr>
+          <th>Field</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+        <tr>
+          <td><code>token</code></td>
+          <td>string</td>
+          <td>Your project token from the <a href="/app">dashboard</a></td>
+        </tr>
+        <tr>
+          <td><code>userId</code></td>
+          <td>string</td>
+          <td>Identifies the user performing the action</td>
+        </tr>
+        <tr>
+          <td><code>eventName</code></td>
+          <td>string</td>
+          <td>Name of the event (e.g. "signup", "purchase")</td>
+        </tr>
+      </table>
+      <p>
+        Returns an empty object. Anomaly detection and alerting happen
+        server-side.
+      </p>
 
-    <h2>getAnomalies</h2>
-    <p>Fetches all detected anomalies for a project. Anomalies are kept for 30 days.</p>
-    <div class="code-block"><span class="kw">const</span> { anomalies } = <span class="kw">await</span> <span class="fn">getAnomalies</span>({ token: <span class="str">"your-project-token"</span> });</div>
-    <p>Each anomaly has:</p>
-    <table class="field-table">
-      <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-      <tr><td><code>eventName</code></td><td>string</td><td>The event that spiked</td></tr>
-      <tr><td><code>metric</code></td><td>"totalCount" | "userSpike"</td><td>Whether the spike was global or from a single user</td></tr>
-      <tr><td><code>userId</code></td><td>string?</td><td>Present when metric is "userSpike"</td></tr>
-      <tr><td><code>bucket</code></td><td>string</td><td>The hourly bucket (ISO timestamp)</td></tr>
-      <tr><td><code>expected</code></td><td>number</td><td>Running mean for this event</td></tr>
-      <tr><td><code>actual</code></td><td>number</td><td>Observed count in this bucket</td></tr>
-      <tr><td><code>zScore</code></td><td>number</td><td>How many standard deviations from the mean</td></tr>
-      <tr><td><code>detectedAt</code></td><td>string</td><td>ISO timestamp of detection</td></tr>
-    </table>
+      <h2>getAnomalies</h2>
+      <p>
+        Fetches all detected anomalies for a project. Anomalies are kept for 30
+        days.
+      </p>
+      <div class="code-block">
+        <span class="kw">const</span> { anomalies } = <span class="kw"
+        >await</span> <span class="fn">getAnomalies</span>({ token: <span
+          class="str"
+        >"your-project-token"</span> });
+      </div>
+      <p>Each anomaly has:</p>
+      <table class="field-table">
+        <tr>
+          <th>Field</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+        <tr>
+          <td><code>eventName</code></td>
+          <td>string</td>
+          <td>The event that spiked</td>
+        </tr>
+        <tr>
+          <td><code>metric</code></td>
+          <td>"totalCount" | "userSpike"</td>
+          <td>Whether the spike was global or from a single user</td>
+        </tr>
+        <tr>
+          <td><code>userId</code></td>
+          <td>string?</td>
+          <td>Present when metric is "userSpike"</td>
+        </tr>
+        <tr>
+          <td><code>bucket</code></td>
+          <td>string</td>
+          <td>The hourly bucket (ISO timestamp)</td>
+        </tr>
+        <tr>
+          <td><code>expected</code></td>
+          <td>number</td>
+          <td>Running mean for this event</td>
+        </tr>
+        <tr>
+          <td><code>actual</code></td>
+          <td>number</td>
+          <td>Observed count in this bucket</td>
+        </tr>
+        <tr>
+          <td><code>zScore</code></td>
+          <td>number</td>
+          <td>How many standard deviations from the mean</td>
+        </tr>
+        <tr>
+          <td><code>detectedAt</code></td>
+          <td>string</td>
+          <td>ISO timestamp of detection</td>
+        </tr>
+      </table>
 
-    <h2>How detection works</h2>
-    <p>Events are counted in hourly buckets. The server maintains a running mean and variance per event using <a href="https://en.wikipedia.org/wiki/Welford%27s_online_algorithm" target="_blank">Welford's online algorithm</a>. When a bucket's count deviates by more than 2 standard deviations, it's flagged as an anomaly and you get an email.</p>
-    <p>Two things are tracked independently:</p>
-    <p><strong style="color:#ccc">Total count</strong> -- the total number of times an event fires per hour across all users.</p>
-    <p><strong style="color:#ccc">Per-user spikes</strong> -- each user's hourly event count is compared against that user's historical pattern.</p>
+      <h2>How detection works</h2>
+      <p>
+        Events are counted in hourly buckets. The server maintains a running
+        mean and variance per event using <a
+          href="https://en.wikipedia.org/wiki/Welford%27s_online_algorithm"
+          target="_blank"
+        >Welford's online algorithm</a>. When a bucket's count deviates by more
+        than 2 standard deviations, it's flagged as an anomaly and you get an
+        email.
+      </p>
+      <p>Two things are tracked independently:</p>
+      <p>
+        <strong style="color: #ccc">Total count</strong> -- the total number of
+        times an event fires per hour across all users.
+      </p>
+      <p>
+        <strong style="color: #ccc">Per-user spikes</strong> -- each user's
+        hourly event count is compared against that user's historical pattern.
+      </p>
 
-    <div class="footer">
-      <span>anomalisa</span>
-      <div class="footer-links">
-        <a href="/app">Dashboard</a>
-        <a href="https://github.com/uriva/anomalisa" target="_blank">GitHub</a>
-        <a href="https://jsr.io/@uri/anomalisa" target="_blank">JSR</a>
+      <div class="footer">
+        <span>anomalisa</span>
+        <div class="footer-links">
+          <a href="/app">Dashboard</a>
+          <a href="https://github.com/uriva/anomalisa" target="_blank"
+          >GitHub</a>
+          <a href="https://jsr.io/@uri/anomalisa" target="_blank">JSR</a>
+        </div>
       </div>
     </div>
-  </div>
-</body>
+  </body>
 </html>

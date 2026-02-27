@@ -1,9 +1,9 @@
-import { assertEquals, assertAlmostEquals } from "jsr:@std/assert";
+import { assertAlmostEquals, assertEquals } from "@std/assert";
 import {
+  type Anomaly,
   detectAnomaly,
   emptyStats,
   stdDev,
-  type Anomaly,
   updateStats,
 } from "./anomaly.ts";
 
@@ -110,7 +110,13 @@ Deno.test("detectAnomaly — borderline z-score just above threshold triggers", 
   const sd = stdDev(stats);
   const mean = stats.mean;
   const barelyOver = Math.ceil(mean + 2.1 * sd);
-  const result = detectAnomaly(stats, barelyOver, "proj1", "test", "totalCount");
+  const result = detectAnomaly(
+    stats,
+    barelyOver,
+    "proj1",
+    "test",
+    "totalCount",
+  );
   assertEquals(result !== null, true);
 });
 

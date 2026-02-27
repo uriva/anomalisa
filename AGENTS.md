@@ -79,8 +79,8 @@ Email.
 
 ## API
 
-Uses `@uri/typed-api` (JSON-RPC style). Request body is
-`{ endpoint, payload }`. Two endpoints:
+Uses `@uri/typed-api` (JSON-RPC style). Request body is `{ endpoint, payload }`.
+Two endpoints:
 
 - `sendEvent` — records an event, returns anomaly if detected
 - `getAnomalies` — returns all recorded anomalies for a project
@@ -113,18 +113,18 @@ management.
 
 ## Key Files
 
-| File                 | Purpose                                       |
-| -------------------- | --------------------------------------------- |
-| `mod.ts`             | Client SDK (sendEvent, getAnomalies)          |
-| `src/api.ts`         | Zod-validated API definition                  |
-| `src/server.ts`      | HTTP server, auth, routing, web serving       |
-| `src/anomaly.ts`     | Deno KV anomaly detection engine              |
-| `src/db.ts`          | InstantDB admin client, token lookup          |
-| `src/email.ts`       | Forward Email client for anomaly alerts       |
-| `instant.schema.ts`  | InstantDB schema (projects, users, links)     |
-| `web/index.html`     | Landing page                                  |
-| `web/app.html`       | Dashboard app (auth, projects, anomalies)     |
-| `web/docs.html`      | SDK documentation                             |
+| File                | Purpose                                   |
+| ------------------- | ----------------------------------------- |
+| `mod.ts`            | Client SDK (sendEvent, getAnomalies)      |
+| `src/api.ts`        | Zod-validated API definition              |
+| `src/server.ts`     | HTTP server, auth, routing, web serving   |
+| `src/anomaly.ts`    | Deno KV anomaly detection engine          |
+| `src/db.ts`         | InstantDB admin client, token lookup      |
+| `src/email.ts`      | Forward Email client for anomaly alerts   |
+| `instant.schema.ts` | InstantDB schema (projects, users, links) |
+| `web/index.html`    | Landing page                              |
+| `web/app.html`      | Dashboard app (auth, projects, anomalies) |
+| `web/docs.html`     | SDK documentation                         |
 
 ## Env Vars (in .env, gitignored)
 

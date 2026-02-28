@@ -7,7 +7,7 @@ type Stats = {
   lastBucket: string;
 };
 
-type Metric = "totalCount" | "userSpike";
+type Metric = "totalCount" | "userSpike" | "percentageSpike";
 
 export type Anomaly = {
   projectId: string;
@@ -39,6 +39,8 @@ const round2 = (x: number) => Math.round(x * 100) / 100;
 
 const minDataPoints = 3;
 const zScoreThreshold = 2;
+const percentageThreshold = 1.0;
+const minAbsoluteDiff = 3;
 const countTtlMs = 7 * 24 * 60 * 60 * 1000;
 const anomalyTtlMs = 30 * 24 * 60 * 60 * 1000;
 
@@ -71,6 +73,29 @@ export const detectAnomaly = (
       detectedAt: new Date().toISOString(),
       metric,
       ...(userId ? { userId } : {}),
+    }
+    : null;
+};
+
+export const detectPercentageSpike = (
+  stats: Stats,
+  count: number,
+  projectId: string,
+  eventName: string,
+): Anomaly | null => {
+  if (stats.n < minDataPoints || stats.mean <= 0) return null;
+  const pctChange = (count - stats.mean) / stats.mean;
+  return pctChange > percentageThreshold &&
+      count - stats.mean >= minAbsoluteDiff
+    ? {
+      projectId,
+      eventName,
+      bucket: stats.lastBucket,
+      expected: round2(stats.mean),
+      actual: count,
+      zScore: round2(pctChange),
+      detectedAt: new Date().toISOString(),
+      metric: "percentageSpike",
     }
     : null;
 };
@@ -130,18 +155,15 @@ const handleBucketTransition = async (
   projectId: string,
   eventName: string,
   bucket: string,
-): Promise<Anomaly | null> => {
+): Promise<Anomaly[]> => {
   const prevTotalCount =
     (await kv.get<number>(["counts", projectId, eventName, stats.lastBucket]))
       .value ?? 0;
 
-  const anomaly = detectAnomaly(
-    stats,
-    prevTotalCount,
-    projectId,
-    eventName,
-    "totalCount",
-  );
+  const anomalies = [
+    detectAnomaly(stats, prevTotalCount, projectId, eventName, "totalCount"),
+    detectPercentageSpike(stats, prevTotalCount, projectId, eventName),
+  ].filter((a): a is Anomaly => a !== null);
 
   const prevMaxUserCount = (await kv.get<number>([
     "maxUserCount",
@@ -162,12 +184,14 @@ const handleBucketTransition = async (
       ...updateStats(perUserStats, prevMaxUserCount),
       lastBucket: bucket,
     }),
-    ...(anomaly ? [storeAnomaly(projectId, anomaly)] : []),
+    ...anomalies.map((a) => storeAnomaly(projectId, a)),
   ]);
 
-  if (anomaly) console.warn("ANOMALY DETECTED:", JSON.stringify(anomaly));
+  anomalies.forEach((a) =>
+    console.warn("ANOMALY DETECTED:", JSON.stringify(a))
+  );
 
-  return anomaly;
+  return anomalies;
 };
 
 export const recordEvent = async (
@@ -206,13 +230,14 @@ export const recordEvent = async (
     console.warn("ANOMALY DETECTED:", JSON.stringify(userSpikeAnomaly));
   }
 
-  const bucketAnomaly = totalStats.lastBucket === bucket
-    ? null
+  const bucketAnomalies = totalStats.lastBucket === bucket
+    ? []
     : await handleBucketTransition(totalStats, projectId, eventName, bucket);
 
-  return [userSpikeAnomaly, bucketAnomaly].filter(
-    (a): a is Anomaly => a !== null,
-  );
+  return [
+    ...(userSpikeAnomaly ? [userSpikeAnomaly] : []),
+    ...bucketAnomalies,
+  ];
 };
 
 export const getEventCounts = async (

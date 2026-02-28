@@ -2,6 +2,7 @@ import { assertAlmostEquals, assertEquals } from "@std/assert";
 import {
   type Anomaly,
   detectAnomaly,
+  detectPercentageSpike,
   emptyStats,
   stdDev,
   updateStats,
@@ -150,4 +151,62 @@ Deno.test("Welford's — incremental matches batch calculation", () => {
 
   assertAlmostEquals(stats.mean, batchMean, 0.0001);
   assertAlmostEquals(stdDev(stats), batchStdDev, 0.0001);
+});
+
+Deno.test("detectPercentageSpike — returns null when n < 3", () => {
+  const stats = buildStats([5, 10], "2026-01-01T02");
+  assertEquals(
+    detectPercentageSpike(stats, 20, "proj1", "error"),
+    null,
+  );
+});
+
+Deno.test("detectPercentageSpike — returns null when mean is 0", () => {
+  const stats = buildStats([0, 0, 0, 0], "2026-01-01T04");
+  assertEquals(
+    detectPercentageSpike(stats, 5, "proj1", "error"),
+    null,
+  );
+});
+
+Deno.test("detectPercentageSpike — returns null for normal value", () => {
+  const stats = buildStats([10, 12, 11, 10, 13], "2026-01-01T04");
+  assertEquals(
+    detectPercentageSpike(stats, 15, "proj1", "error"),
+    null,
+  );
+});
+
+Deno.test("detectPercentageSpike — detects doubling", () => {
+  const stats = buildStats([3, 4, 3, 5, 3], "2026-01-01T04");
+  const result = detectPercentageSpike(stats, 8, "proj1", "error");
+  assertEquals(result !== null, true);
+  const anomaly = result as Anomaly;
+  assertEquals(anomaly.metric, "percentageSpike");
+  assertEquals(anomaly.actual, 8);
+  assertEquals(anomaly.zScore > 1, true);
+});
+
+Deno.test("detectPercentageSpike — returns null when absolute diff below threshold", () => {
+  const stats = buildStats([1, 1, 1, 1], "2026-01-01T04");
+  assertEquals(
+    detectPercentageSpike(stats, 3, "proj1", "error"),
+    null,
+  );
+});
+
+Deno.test("detectPercentageSpike — catches doubling that z-score misses in noisy data", () => {
+  const stats = buildStats([1, 3, 7, 2, 13, 5, 4, 8], "2026-01-01T04");
+  const mean = stats.mean;
+  const doubled = Math.ceil(mean * 2.1);
+  const zScoreResult = detectAnomaly(
+    stats,
+    doubled,
+    "proj1",
+    "error",
+    "totalCount",
+  );
+  const pctResult = detectPercentageSpike(stats, doubled, "proj1", "error");
+  assertEquals(zScoreResult, null);
+  assertEquals(pctResult !== null, true);
 });

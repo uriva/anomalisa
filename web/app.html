@@ -694,7 +694,11 @@
             return;
           }
           const metricLabel = (m) =>
-            m === "userSpike" ? "User Spike" : "Total Count";
+            m === "userSpike"
+              ? "User Spike"
+              : m === "percentageSpike"
+              ? "% Spike"
+              : "Total Count";
           list.innerHTML = `
           <table class="anomaly-table">
             <tr><th>Type</th><th>Event</th><th>User</th><th>Bucket</th><th>Expected</th><th>Actual</th><th>Z</th><th>Detected</th></tr>

@@ -218,8 +218,8 @@
         </tr>
         <tr>
           <td><code>metric</code></td>
-          <td>"totalCount" | "userSpike"</td>
-          <td>Whether the spike was global or from a single user</td>
+          <td>"totalCount" | "userSpike" | "percentageSpike"</td>
+          <td>Type of anomaly detected</td>
         </tr>
         <tr>
           <td><code>userId</code></td>
@@ -244,7 +244,10 @@
         <tr>
           <td><code>zScore</code></td>
           <td>number</td>
-          <td>How many standard deviations from the mean</td>
+          <td>
+            Standard deviations from mean (totalCount/userSpike) or percentage
+            change (percentageSpike)
+          </td>
         </tr>
         <tr>
           <td><code>detectedAt</code></td>
@@ -263,10 +266,17 @@
         than 2 standard deviations, it's flagged as an anomaly and you get an
         email.
       </p>
-      <p>Two things are tracked independently:</p>
+      <p>Three things are tracked independently:</p>
       <p>
-        <strong style="color: #ccc">Total count</strong> -- the total number of
-        times an event fires per hour across all users.
+        <strong style="color: #ccc">Total count (z-score)</strong> -- the total
+        number of times an event fires per hour across all users. Fires when
+        count is more than 2 standard deviations from the mean.
+      </p>
+      <p>
+        <strong style="color: #ccc">Percentage spike</strong> -- fires when
+        hourly count more than doubles compared to the rolling mean (and the
+        absolute difference is at least 3). Catches gradual increases that
+        z-score misses in noisy data.
       </p>
       <p>
         <strong style="color: #ccc">Per-user spikes</strong> -- each user's

@@ -14,6 +14,7 @@ type ProjectWithOwner = {
   id: string;
   name: string;
   token: string;
+  webhookUrl?: string;
   owner: { id: string; email: string };
 };
 
@@ -32,6 +33,7 @@ export const lookupProjectByToken = async (
       id: project.id,
       name: project.name,
       token: project.token,
+      webhookUrl: project.webhookUrl,
       owner: project.owner,
     }
     : null;

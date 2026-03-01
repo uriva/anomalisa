@@ -1,13 +1,26 @@
 import { apiHandler, type ApiImplementation } from "@uri/typed-api";
 import { type Api, apiDefinition } from "./api.ts";
-import { getAnomalies, getEventCounts, recordEvent } from "./anomaly.ts";
+import { type Anomaly, getAnomalies, getEventCounts, recordEvent } from "./anomaly.ts";
 import { lookupProjectByToken } from "./db.ts";
 import { sendAnomalyAlert } from "./email.ts";
+import { sendWebhook } from "./webhook.ts";
 
 const resolveProject = async (token: string) => {
   const project = await lookupProjectByToken(token);
   if (!project) throw new Error("Invalid token");
   return project;
+};
+
+const logError = (label: string) => (err: unknown) =>
+  console.error(`Failed to ${label}:`, err);
+
+const notifyAnomaly = (
+  email: string,
+  webhookUrl: string | undefined,
+  anomaly: Anomaly,
+) => {
+  sendAnomalyAlert(email, anomaly).catch(logError("send anomaly email"));
+  if (webhookUrl) sendWebhook(webhookUrl, anomaly).catch(logError("send webhook"));
 };
 
 const endpoints: ApiImplementation<null, Api> = {
@@ -17,9 +30,7 @@ const endpoints: ApiImplementation<null, Api> = {
       const project = await resolveProject(token);
       const anomalies = await recordEvent(project.id, eventName, userId);
       anomalies.forEach((anomaly) =>
-        sendAnomalyAlert(project.owner.email, anomaly).catch((err) =>
-          console.error("Failed to send anomaly alert:", err)
-        )
+        notifyAnomaly(project.owner.email, project.webhookUrl, anomaly)
       );
       return {};
     },

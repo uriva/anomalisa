@@ -8,6 +8,7 @@ const _schema = i.schema({
     projects: i.entity({
       name: i.string().indexed(),
       token: i.string().unique().indexed(),
+      webhookUrl: i.string().optional(),
     }),
   },
   links: {

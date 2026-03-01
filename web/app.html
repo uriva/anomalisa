@@ -591,6 +591,15 @@
           </p>
           <p class="muted" id="last-event" style="margin-bottom:1.5rem">...</p>
 
+          <div class="section">
+            <h2>Webhook</h2>
+            <div class="row">
+              <input id="webhook-url" placeholder="https://example.com/webhook" value="${project.webhookUrl ?? ""}" />
+              <button class="btn-app" id="save-webhook">Save</button>
+            </div>
+            <p class="muted" id="webhook-msg"></p>
+          </div>
+
           <div class="section" id="charts-section">
             <h2>Activity <span style="font-weight:400;font-size:0.8rem;color:#555">events per hour, last 7 days</span></h2>
             <div id="charts"><p class="muted">Loading...</p></div>
@@ -618,6 +627,24 @@
             await db.transact([db.tx.projects[project.id].delete()]);
             selectedProjectId = null;
             renderProjectList();
+          },
+        );
+
+        document.getElementById("save-webhook").addEventListener(
+          "click",
+          async () => {
+            const url = document.getElementById("webhook-url").value.trim();
+            const msg = document.getElementById("webhook-msg");
+            try {
+              await db.transact([
+                db.tx.projects[project.id].update({ webhookUrl: url }),
+              ]);
+              project.webhookUrl = url;
+              msg.textContent = "Saved!";
+              setTimeout(() => { msg.textContent = ""; }, 2000);
+            } catch (e) {
+              msg.textContent = e.message;
+            }
           },
         );
 

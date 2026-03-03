@@ -594,7 +594,9 @@
           <div class="section">
             <h2>Webhook</h2>
             <div class="row">
-              <input id="webhook-url" placeholder="https://example.com/webhook" value="${project.webhookUrl ?? ""}" />
+              <input id="webhook-url" placeholder="https://example.com/webhook" value="${
+          project.webhookUrl ?? ""
+        }" />
               <button class="btn-app" id="save-webhook">Save</button>
             </div>
             <p class="muted" id="webhook-msg"></p>
@@ -633,7 +635,8 @@
         document.getElementById("save-webhook").addEventListener(
           "click",
           async () => {
-            const url = document.getElementById("webhook-url").value.trim();
+            const url = document.getElementById("webhook-url").value
+              .trim();
             const msg = document.getElementById("webhook-msg");
             try {
               await db.transact([
@@ -641,7 +644,9 @@
               ]);
               project.webhookUrl = url;
               msg.textContent = "Saved!";
-              setTimeout(() => { msg.textContent = ""; }, 2000);
+              setTimeout(() => {
+                msg.textContent = "";
+              }, 2000);
             } catch (e) {
               msg.textContent = e.message;
             }

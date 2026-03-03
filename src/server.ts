@@ -1,6 +1,11 @@
 import { apiHandler, type ApiImplementation } from "@uri/typed-api";
 import { type Api, apiDefinition } from "./api.ts";
-import { type Anomaly, getAnomalies, getEventCounts, recordEvent } from "./anomaly.ts";
+import {
+  type Anomaly,
+  getAnomalies,
+  getEventCounts,
+  recordEvent,
+} from "./anomaly.ts";
 import { lookupProjectByToken } from "./db.ts";
 import { sendAnomalyAlert } from "./email.ts";
 import { sendWebhook } from "./webhook.ts";
@@ -20,7 +25,9 @@ const notifyAnomaly = (
   anomaly: Anomaly,
 ) => {
   sendAnomalyAlert(email, anomaly).catch(logError("send anomaly email"));
-  if (webhookUrl) sendWebhook(webhookUrl, anomaly).catch(logError("send webhook"));
+  if (webhookUrl) {
+    sendWebhook(webhookUrl, anomaly).catch(logError("send webhook"));
+  }
 };
 
 const endpoints: ApiImplementation<null, Api> = {

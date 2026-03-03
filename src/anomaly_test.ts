@@ -4,8 +4,10 @@ import {
   detectAnomaly,
   detectPercentageSpike,
   emptyStats,
+  hoursBetween,
   stdDev,
   updateStats,
+  updateStatsWithZeros,
 } from "./anomaly.ts";
 
 const buildStats = (values: number[], lastBucket: string) =>
@@ -209,4 +211,56 @@ Deno.test("detectPercentageSpike — catches doubling that z-score misses in noi
   const pctResult = detectPercentageSpike(stats, doubled, "proj1", "error");
   assertEquals(zScoreResult, null);
   assertEquals(pctResult !== null, true);
+});
+
+Deno.test("hoursBetween — consecutive hours", () => {
+  assertEquals(hoursBetween("2026-01-01T05", "2026-01-01T06"), 1);
+});
+
+Deno.test("hoursBetween — same bucket", () => {
+  assertEquals(hoursBetween("2026-01-01T05", "2026-01-01T05"), 0);
+});
+
+Deno.test("hoursBetween — multi-day gap", () => {
+  assertEquals(hoursBetween("2026-02-26T00", "2026-03-03T15"), 135);
+});
+
+Deno.test("updateStatsWithZeros — adds correct number of zero data points", () => {
+  const stats = emptyStats("x");
+  const result = updateStatsWithZeros(stats, 5);
+  assertEquals(result.n, 5);
+  assertEquals(result.mean, 0);
+});
+
+Deno.test("updateStatsWithZeros — zero count is no-op", () => {
+  const stats = buildStats([10, 20], "x");
+  const result = updateStatsWithZeros(stats, 0);
+  assertEquals(result.n, stats.n);
+  assertEquals(result.mean, stats.mean);
+});
+
+Deno.test("updateStatsWithZeros — shifts mean toward zero", () => {
+  const stats = buildStats([10, 10, 10], "x");
+  const result = updateStatsWithZeros(stats, 7);
+  assertEquals(result.n, 10);
+  assertAlmostEquals(result.mean, 3, 0.001);
+});
+
+Deno.test("rare event with long gap — z-score detects spike after zeros fill in", () => {
+  const stats = updateStatsWithZeros(
+    updateStats(emptyStats("2026-02-26T00"), 1),
+    133,
+  );
+  const anomaly = detectAnomaly(stats, 20, "proj1", "credits", "totalCount");
+  assertEquals(anomaly !== null, true);
+  assertEquals((anomaly as Anomaly).zScore > 2, true);
+});
+
+Deno.test("rare event with long gap — percentage spike detects after zeros fill in", () => {
+  const stats = updateStatsWithZeros(
+    updateStats(emptyStats("2026-02-26T00"), 1),
+    133,
+  );
+  const anomaly = detectPercentageSpike(stats, 20, "proj1", "credits");
+  assertEquals(anomaly !== null, true);
 });

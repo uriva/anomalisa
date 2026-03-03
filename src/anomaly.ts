@@ -51,6 +51,20 @@ export const emptyStats = (lastBucket: string): Stats => ({
   lastBucket,
 });
 
+const bucketToMs = (bucket: string): number =>
+  new Date(bucket + ":00:00Z").getTime();
+
+const msPerHour = 60 * 60 * 1000;
+
+export const hoursBetween = (a: string, b: string): number =>
+  Math.max(0, Math.round((bucketToMs(b) - bucketToMs(a)) / msPerHour));
+
+export const updateStatsWithZeros = (stats: Stats, count: number): Stats =>
+  Array.from({ length: count }).reduce<Stats>(
+    (s) => updateStats(s, 0),
+    stats,
+  );
+
 export const detectAnomaly = (
   stats: Stats,
   count: number,
@@ -160,9 +174,24 @@ const handleBucketTransition = async (
     (await kv.get<number>(["counts", projectId, eventName, stats.lastBucket]))
       .value ?? 0;
 
+  const skippedHours = Math.max(0, hoursBetween(stats.lastBucket, bucket) - 1);
+  const statsWithZeros = updateStatsWithZeros(stats, skippedHours);
+  const updatedStats = updateStats(statsWithZeros, prevTotalCount);
+
   const anomalies = [
-    detectAnomaly(stats, prevTotalCount, projectId, eventName, "totalCount"),
-    detectPercentageSpike(stats, prevTotalCount, projectId, eventName),
+    detectAnomaly(
+      statsWithZeros,
+      prevTotalCount,
+      projectId,
+      eventName,
+      "totalCount",
+    ),
+    detectPercentageSpike(
+      statsWithZeros,
+      prevTotalCount,
+      projectId,
+      eventName,
+    ),
   ].filter((a): a is Anomaly => a !== null);
 
   const prevMaxUserCount = (await kv.get<number>([
@@ -174,14 +203,15 @@ const handleBucketTransition = async (
 
   const perUserStatsKey = ["stats", "perUser", projectId, eventName];
   const perUserStats = await getOrInitStats(perUserStatsKey, bucket);
+  const perUserSkippedZeros = updateStatsWithZeros(perUserStats, skippedHours);
 
   await Promise.all([
     kv.set(["stats", "total", projectId, eventName], {
-      ...updateStats(stats, prevTotalCount),
+      ...updatedStats,
       lastBucket: bucket,
     }),
     kv.set(perUserStatsKey, {
-      ...updateStats(perUserStats, prevMaxUserCount),
+      ...updateStats(perUserSkippedZeros, prevMaxUserCount),
       lastBucket: bucket,
     }),
     ...anomalies.map((a) => storeAnomaly(projectId, a)),

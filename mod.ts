@@ -24,3 +24,9 @@ export const getAnomalies: (
   payload: { token: string },
 ) => Promise<{ anomalies: Anomaly[] }> = (payload) =>
   client({ endpoint: "getAnomalies", payload });
+
+export const getEventCounts: (
+  payload: { token: string },
+) => Promise<{
+  events: Record<string, { bucket: string; count: number }[]>;
+}> = (payload) => client({ endpoint: "getEventCounts", payload });

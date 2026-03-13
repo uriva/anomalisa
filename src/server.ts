@@ -7,7 +7,7 @@ import {
   recordEvent,
 } from "./anomaly.ts";
 import { lookupProjectByToken } from "./db.ts";
-import { sendAnomalyAlert } from "./email.ts";
+import { sendAnomalyAlerts } from "./email.ts";
 import { sendWebhook } from "./webhook.ts";
 
 const resolveProject = async (token: string) => {
@@ -19,14 +19,17 @@ const resolveProject = async (token: string) => {
 const logError = (label: string) => (err: unknown) =>
   console.error(`Failed to ${label}:`, err);
 
-const notifyAnomaly = (
+const notifyAnomalies = (
   email: string,
   webhookUrl: string | undefined,
-  anomaly: Anomaly,
+  anomalies: Anomaly[],
 ) => {
-  sendAnomalyAlert(email, anomaly).catch(logError("send anomaly email"));
+  if (anomalies.length === 0) return;
+  sendAnomalyAlerts(email, anomalies).catch(logError("send anomaly email"));
   if (webhookUrl) {
-    sendWebhook(webhookUrl, anomaly).catch(logError("send webhook"));
+    anomalies.forEach((anomaly) =>
+      sendWebhook(webhookUrl, anomaly).catch(logError("send webhook"))
+    );
   }
 };
 
@@ -36,9 +39,7 @@ const endpoints: ApiImplementation<null, Api> = {
     sendEvent: async ({ token, eventName, userId }) => {
       const project = await resolveProject(token);
       const anomalies = await recordEvent(project.id, eventName, userId);
-      anomalies.forEach((anomaly) =>
-        notifyAnomaly(project.owner.email, project.webhookUrl, anomaly)
-      );
+      notifyAnomalies(project.owner.email, project.webhookUrl, anomalies);
       return {};
     },
     getAnomalies: async ({ token }) => {

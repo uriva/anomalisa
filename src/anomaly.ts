@@ -114,10 +114,19 @@ export const detectPercentageSpike = (
     : null;
 };
 
-const storeAnomaly = (projectId: string, anomaly: Anomaly) =>
-  kv.set(["anomalies", projectId, anomaly.detectedAt], anomaly, {
-    expireIn: anomalyTtlMs,
-  });
+const anomalyKey = (
+  { projectId, eventName, bucket, metric, userId }: Anomaly,
+): Deno.KvKey => ["anomalies", projectId, eventName, bucket, metric, userId ?? "_"];
+
+const storeAnomaly = async (anomaly: Anomaly): Promise<boolean> => {
+  const existing = await kv.get(anomalyKey(anomaly));
+  return existing.value
+    ? false
+    : (await kv.atomic()
+      .check(existing)
+      .set(anomalyKey(anomaly), anomaly, { expireIn: anomalyTtlMs })
+      .commit()).ok;
+};
 
 const getOrInitStats = async (
   key: Deno.KvKey,
@@ -205,7 +214,8 @@ const handleBucketTransition = async (
   const perUserStats = await getOrInitStats(perUserStatsKey, bucket);
   const perUserSkippedZeros = updateStatsWithZeros(perUserStats, skippedHours);
 
-  await Promise.all([
+  const [stored] = await Promise.all([
+    Promise.all(anomalies.map(storeAnomaly)),
     kv.set(["stats", "total", projectId, eventName], {
       ...updatedStats,
       lastBucket: bucket,
@@ -214,14 +224,15 @@ const handleBucketTransition = async (
       ...updateStats(perUserSkippedZeros, prevMaxUserCount),
       lastBucket: bucket,
     }),
-    ...anomalies.map((a) => storeAnomaly(projectId, a)),
   ]);
 
-  anomalies.forEach((a) =>
+  const newAnomalies = anomalies.filter((_, i) => stored[i]);
+
+  newAnomalies.forEach((a) =>
     console.warn("ANOMALY DETECTED:", JSON.stringify(a))
   );
 
-  return anomalies;
+  return newAnomalies;
 };
 
 export const recordEvent = async (
@@ -255,19 +266,20 @@ export const recordEvent = async (
     userCount,
   );
 
-  if (userSpikeAnomaly) {
-    await storeAnomaly(projectId, userSpikeAnomaly);
-    console.warn("ANOMALY DETECTED:", JSON.stringify(userSpikeAnomaly));
-  }
+  const newUserSpike =
+    userSpikeAnomaly && await storeAnomaly(userSpikeAnomaly)
+      ? [userSpikeAnomaly]
+      : [];
+
+  newUserSpike.forEach((a) =>
+    console.warn("ANOMALY DETECTED:", JSON.stringify(a))
+  );
 
   const bucketAnomalies = totalStats.lastBucket === bucket
     ? []
     : await handleBucketTransition(totalStats, projectId, eventName, bucket);
 
-  return [
-    ...(userSpikeAnomaly ? [userSpikeAnomaly] : []),
-    ...bucketAnomalies,
-  ];
+  return [...newUserSpike, ...bucketAnomalies];
 };
 
 export const getEventCounts = async (

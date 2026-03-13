@@ -31,7 +31,11 @@ const sendEmail = async (email: Email) => {
 };
 
 const metricLabel = (metric: Anomaly["metric"]) =>
-  metric === "userSpike" ? "User Spike" : "Total Count";
+  metric === "userSpike"
+    ? "User Spike"
+    : metric === "percentageSpike"
+    ? "Percentage Spike"
+    : "Total Count";
 
 const userIdCell = (userId?: string) =>
   userId ? `<td>${userId}</td>` : `<td class="muted">-</td>`;
@@ -49,11 +53,11 @@ const formatAnomaly = (
     <td>${zScore}</td>
   </tr>`;
 
-const anomalyHtml = (anomaly: Anomaly) =>
-  `<h2>Anomaly Detected</h2>
+const anomaliesHtml = (anomalies: Anomaly[]) =>
+  `<h2>${anomalies.length} Anomal${anomalies.length === 1 ? "y" : "ies"} Detected</h2>
   <table border="1" cellpadding="8" cellspacing="0">
-    <tr><th>Type</th><th>Event</th><th>User</th><th>Bucket</th><th>Expected</th><th>Actual</th><th>Z-Score</th></tr>
-    ${formatAnomaly(anomaly)}
+    <tr><th>Type</th><th>Event</th><th>User</th><th>Bucket</th><th>Expected</th><th>Actual</th><th>Score</th></tr>
+    ${anomalies.map(formatAnomaly).join("\n    ")}
   </table>`;
 
 const anomalyText = (
@@ -61,18 +65,26 @@ const anomalyText = (
 ) =>
   `${metricLabel(metric)} Anomaly: ${eventName}${
     userId ? ` (user: ${userId})` : ""
-  } in ${bucket} — expected ${expected}, got ${actual} (z=${zScore})`;
+  } in ${bucket} — expected ${expected}, got ${actual} (score=${zScore})`;
+
+const anomaliesText = (anomalies: Anomaly[]) =>
+  anomalies.map(anomalyText).join("\n");
 
 const subjectLine = ({ metric, eventName, userId }: Anomaly) =>
   `[anomalisa] ${metricLabel(metric)}: ${eventName}${
     userId ? ` (${userId})` : ""
   }`;
 
-export const sendAnomalyAlert = (toEmail: string, anomaly: Anomaly) =>
+const batchSubject = (anomalies: Anomaly[]) =>
+  anomalies.length === 1
+    ? subjectLine(anomalies[0])
+    : `[anomalisa] ${anomalies.length} anomalies detected`;
+
+export const sendAnomalyAlerts = (toEmail: string, anomalies: Anomaly[]) =>
   sendEmail({
     from: `alerts@${emailDomain}`,
     to: toEmail,
-    subject: subjectLine(anomaly),
-    html: anomalyHtml(anomaly),
-    text: anomalyText(anomaly),
+    subject: batchSubject(anomalies),
+    html: anomaliesHtml(anomalies),
+    text: anomaliesText(anomalies),
   });

@@ -75,7 +75,11 @@ export const detectAnomaly = (
 ): Anomaly | null => {
   if (stats.n < minDataPoints) return null;
   const sd = stdDev(stats);
-  const z = sd > 0 ? Math.abs(count - stats.mean) / sd : 0;
+  const z = sd > 0
+    ? Math.abs(count - stats.mean) / sd
+    : count !== stats.mean
+    ? Infinity
+    : 0;
   return z > zScoreThreshold
     ? {
       projectId,
@@ -97,8 +101,12 @@ export const detectPercentageSpike = (
   projectId: string,
   eventName: string,
 ): Anomaly | null => {
-  if (stats.n < minDataPoints || stats.mean <= 0) return null;
-  const pctChange = (count - stats.mean) / stats.mean;
+  if (stats.n < minDataPoints) return null;
+  const pctChange = stats.mean > 0
+    ? (count - stats.mean) / stats.mean
+    : count > 0
+    ? Infinity
+    : 0;
   return pctChange > percentageThreshold &&
       count - stats.mean >= minAbsoluteDiff
     ? {

@@ -163,8 +163,15 @@ Deno.test("detectPercentageSpike — returns null when n < 3", () => {
   );
 });
 
-Deno.test("detectPercentageSpike — returns null when mean is 0", () => {
+Deno.test("detectPercentageSpike — detects spike when mean is 0 and count is above absolute threshold", () => {
   const stats = buildStats([0, 0, 0, 0], "2026-01-01T04");
+  const result = detectPercentageSpike(stats, 5, "proj1", "error");
+  assertEquals(result !== null, true);
+  assertEquals((result as Anomaly).actual, 5);
+});
+
+Deno.test("detectPercentageSpike — returns null when mean is 0 and n < 3", () => {
+  const stats = buildStats([0, 0], "2026-01-01T04");
   assertEquals(
     detectPercentageSpike(stats, 5, "proj1", "error"),
     null,
@@ -244,6 +251,21 @@ Deno.test("updateStatsWithZeros — shifts mean toward zero", () => {
   const result = updateStatsWithZeros(stats, 7);
   assertEquals(result.n, 10);
   assertAlmostEquals(result.mean, 3, 0.001);
+});
+
+Deno.test("detectAnomaly — detects anomaly when stdDev is 0 and value differs from mean", () => {
+  const stats = buildStats([0, 0, 0, 0, 0], "2026-01-01T04");
+  const result = detectAnomaly(stats, 1, "proj1", "Bot Created", "totalCount");
+  assertEquals(result !== null, true);
+  assertEquals((result as Anomaly).actual, 1);
+});
+
+Deno.test("detectPercentageSpike — returns null when mean is 0 and value below absolute threshold", () => {
+  const stats = buildStats([0, 0, 0, 0, 0], "2026-01-01T04");
+  assertEquals(
+    detectPercentageSpike(stats, 1, "proj1", "Bot Created"),
+    null,
+  );
 });
 
 Deno.test("rare event with long gap — z-score detects spike after zeros fill in", () => {

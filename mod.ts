@@ -9,7 +9,7 @@ const client = apiClient(
 
 type SendEventPayload = {
   token: string;
-  userId: string;
+  userId?: string;
   eventName: string;
 };
 

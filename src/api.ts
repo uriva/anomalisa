@@ -6,7 +6,7 @@ export const apiDefinition = {
     authRequired: false,
     input: z.object({
       token: z.string(),
-      userId: z.string(),
+      userId: z.string().optional(),
       eventName: z.string(),
     }),
     output: z.object({}),

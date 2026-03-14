@@ -39,7 +39,7 @@ const endpoints: ApiImplementation<null, Api> = {
   handlers: {
     sendEvent: async ({ token, eventName, userId }) => {
       const project = await resolveProject(token);
-      const anomalies = await recordEvent(project.id, eventName, userId);
+      const anomalies = await recordEvent(project.id, eventName, userId ?? undefined);
       notifyAnomalies(project.owner.email, project.name, project.webhookUrl, anomalies);
       return {};
     },

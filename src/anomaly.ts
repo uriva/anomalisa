@@ -243,28 +243,21 @@ const handleBucketTransition = async (
   return newAnomalies;
 };
 
-export const recordEvent = async (
+const trackUserSpike = async (
   projectId: string,
   eventName: string,
+  bucket: string,
   userId: string,
 ): Promise<Anomaly[]> => {
-  const bucket = getHourBucket();
-
-  const [, userCount] = await Promise.all([
-    incrementAndGet(["counts", projectId, eventName, bucket], countTtlMs),
-    incrementAndGet(
-      ["userCounts", projectId, eventName, bucket, userId],
-      countTtlMs,
-    ),
-  ]);
+  const userCount = await incrementAndGet(
+    ["userCounts", projectId, eventName, bucket, userId],
+    countTtlMs,
+  );
 
   await updateMaxUserCount(
     ["maxUserCount", projectId, eventName, bucket],
     userCount,
   );
-
-  const totalStatsKey = ["stats", "total", projectId, eventName];
-  const totalStats = await getOrInitStats(totalStatsKey, bucket);
 
   const userSpikeAnomaly = await checkUserSpike(
     projectId,
@@ -274,10 +267,25 @@ export const recordEvent = async (
     userCount,
   );
 
-  const newUserSpike =
-    userSpikeAnomaly && await storeAnomaly(userSpikeAnomaly)
-      ? [userSpikeAnomaly]
-      : [];
+  const stored = userSpikeAnomaly && await storeAnomaly(userSpikeAnomaly);
+  return stored ? [userSpikeAnomaly] : [];
+};
+
+export const recordEvent = async (
+  projectId: string,
+  eventName: string,
+  userId?: string,
+): Promise<Anomaly[]> => {
+  const bucket = getHourBucket();
+
+  await incrementAndGet(["counts", projectId, eventName, bucket], countTtlMs);
+
+  const totalStatsKey = ["stats", "total", projectId, eventName];
+  const totalStats = await getOrInitStats(totalStatsKey, bucket);
+
+  const newUserSpike = userId
+    ? await trackUserSpike(projectId, eventName, bucket, userId)
+    : [];
 
   newUserSpike.forEach((a) =>
     console.warn("ANOMALY DETECTED:", JSON.stringify(a))

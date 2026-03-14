@@ -3,6 +3,8 @@ import type { Anomaly } from "./anomaly.ts";
 const apiKey = Deno.env.get("FORWARD_EMAIL_API_KEY") ?? "";
 const emailDomain = Deno.env.get("EMAIL_DOMAIN") ?? "";
 const authHeader = `Basic ${btoa(apiKey + ":")}`;
+const kv = await Deno.openKv();
+const maxEmailsPerDay = 5;
 
 type Email = {
   from: string;
@@ -10,6 +12,18 @@ type Email = {
   subject: string;
   html: string;
   text: string;
+};
+
+const getDayBucket = (): string => new Date().toISOString().slice(0, 10);
+
+const incrementEmailCount = async (to: string): Promise<number> => {
+  const key = ["emailCount", to, getDayBucket()];
+  const entry = await kv.get<number>(key);
+  const count = (entry.value ?? 0) + 1;
+  await kv.atomic().check(entry).set(key, count, {
+    expireIn: 24 * 60 * 60 * 1000,
+  }).commit();
+  return count;
 };
 
 const sendEmail = async (email: Email) => {
@@ -37,6 +51,25 @@ const metricLabel = (metric: Anomaly["metric"]) =>
     ? "Percentage Spike"
     : "Total Count";
 
+const metricExplanation = (metric: Anomaly["metric"]) =>
+  metric === "userSpike"
+    ? "A single user sent way more events than usual for this hour."
+    : metric === "percentageSpike"
+    ? "Event count jumped by an unusually large percentage compared to the hourly average."
+    : "The total event count for this hour is statistically unusual (z-score > 2).";
+
+const uniqueMetrics = (anomalies: Anomaly[]) =>
+  [...new Set(anomalies.map(({ metric }) => metric))];
+
+const legendHtml = (metrics: Anomaly["metric"][]) =>
+  `<div style="margin-top:1rem;padding:0.75rem 1rem;background:#f8f8f8;border-radius:6px;font-size:0.9em;color:#444;">
+    <strong>What do these mean?</strong>
+    <ul style="margin:0.5rem 0 0;padding-left:1.2rem;">
+      ${metrics.map((m) => `<li><strong>${metricLabel(m)}</strong> — ${metricExplanation(m)}</li>`).join("\n      ")}
+    </ul>
+    <p style="margin:0.5rem 0 0;font-size:0.85em;color:#888;">Expected = hourly average so far. Actual = this hour's count. Score = how many standard deviations from the mean.</p>
+  </div>`;
+
 const userIdCell = (userId?: string) =>
   userId ? `<td>${userId}</td>` : `<td class="muted">-</td>`;
 
@@ -53,12 +86,13 @@ const formatAnomaly = (
     <td>${zScore}</td>
   </tr>`;
 
-const anomaliesHtml = (anomalies: Anomaly[]) =>
-  `<h2>${anomalies.length} Anomal${anomalies.length === 1 ? "y" : "ies"} Detected</h2>
+const anomaliesHtml = (projectName: string, anomalies: Anomaly[]) =>
+  `<h2>${projectName}: ${anomalies.length} Anomal${anomalies.length === 1 ? "y" : "ies"} Detected</h2>
   <table border="1" cellpadding="8" cellspacing="0">
     <tr><th>Type</th><th>Event</th><th>User</th><th>Bucket</th><th>Expected</th><th>Actual</th><th>Score</th></tr>
     ${anomalies.map(formatAnomaly).join("\n    ")}
-  </table>`;
+  </table>
+  ${legendHtml(uniqueMetrics(anomalies))}`;
 
 const anomalyText = (
   { eventName, bucket, expected, actual, zScore, metric, userId }: Anomaly,
@@ -70,21 +104,31 @@ const anomalyText = (
 const anomaliesText = (anomalies: Anomaly[]) =>
   anomalies.map(anomalyText).join("\n");
 
-const subjectLine = ({ metric, eventName, userId }: Anomaly) =>
-  `[anomalisa] ${metricLabel(metric)}: ${eventName}${
+const subjectLine = (projectName: string, { metric, eventName, userId }: Anomaly) =>
+  `[${projectName}] ${metricLabel(metric)}: ${eventName}${
     userId ? ` (${userId})` : ""
   }`;
 
-const batchSubject = (anomalies: Anomaly[]) =>
+const batchSubject = (projectName: string, anomalies: Anomaly[]) =>
   anomalies.length === 1
-    ? subjectLine(anomalies[0])
-    : `[anomalisa] ${anomalies.length} anomalies detected`;
+    ? subjectLine(projectName, anomalies[0])
+    : `[${projectName}] ${anomalies.length} anomalies detected`;
 
-export const sendAnomalyAlerts = (toEmail: string, anomalies: Anomaly[]) =>
-  sendEmail({
+export const sendAnomalyAlerts = async (
+  toEmail: string,
+  projectName: string,
+  anomalies: Anomaly[],
+) => {
+  const count = await incrementEmailCount(toEmail);
+  if (count > maxEmailsPerDay) {
+    console.log(`Email limit reached for ${toEmail} (${count}/${maxEmailsPerDay})`);
+    return;
+  }
+  return sendEmail({
     from: `alerts@${emailDomain}`,
     to: toEmail,
-    subject: batchSubject(anomalies),
-    html: anomaliesHtml(anomalies),
+    subject: batchSubject(projectName, anomalies),
+    html: anomaliesHtml(projectName, anomalies),
     text: anomaliesText(anomalies),
   });
+};

@@ -127,6 +127,8 @@
         font-size: 0.82rem;
         line-height: 1.65;
         color: #c8d3e0;
+        margin: 0;
+        font-family: inherit;
       }
       .code-block .kw {
         color: #c586c0;
@@ -243,18 +245,9 @@
 
       <div class="code-section">
         <h2>Three lines to get started</h2>
-        <div class="code-block">
-          <span class="comment">// deno add jsr:@uri/anomalisa</span>
-          <span class="kw">import</span> { <span class="fn">sendEvent</span> }
-          <span class="kw">from</span> <span class="str"
-          >"@uri/anomalisa"</span>;
-
-          <span class="kw">await</span> <span class="fn">sendEvent</span>({
-          token: <span class="str">"your-project-token"</span>, userId: <span
-            class="str"
-          >"user-123"</span>, eventName: <span class="str">"purchase"</span>,
-          });
-        </div>
+        <pre class="code-block"><span class="comment">// deno add jsr:@uri/anomalisa</span>
+<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
+<span class="kw">await</span> <span class="fn">sendEvent</span>({ token: <span class="str">"your-token"</span>, userId: <span class="str">"user-123"</span>, eventName: <span class="str">"purchase"</span> });</pre>
       </div>
 
       <div class="how-section">

@@ -21,11 +21,12 @@ const logError = (label: string) => (err: unknown) =>
 
 const notifyAnomalies = (
   email: string,
+  projectName: string,
   webhookUrl: string | undefined,
   anomalies: Anomaly[],
 ) => {
   if (anomalies.length === 0) return;
-  sendAnomalyAlerts(email, anomalies).catch(logError("send anomaly email"));
+  sendAnomalyAlerts(email, projectName, anomalies).catch(logError("send anomaly email"));
   if (webhookUrl) {
     anomalies.forEach((anomaly) =>
       sendWebhook(webhookUrl, anomaly).catch(logError("send webhook"))
@@ -39,7 +40,7 @@ const endpoints: ApiImplementation<null, Api> = {
     sendEvent: async ({ token, eventName, userId }) => {
       const project = await resolveProject(token);
       const anomalies = await recordEvent(project.id, eventName, userId);
-      notifyAnomalies(project.owner.email, project.webhookUrl, anomalies);
+      notifyAnomalies(project.owner.email, project.name, project.webhookUrl, anomalies);
       return {};
     },
     getAnomalies: async ({ token }) => {

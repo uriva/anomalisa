@@ -130,3 +130,4 @@ const httpHandler = async (req: Request) => {
 };
 
 Deno.serve(httpHandler);
+console.log("server.ts executing...");

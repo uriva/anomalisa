@@ -1,14 +1,23 @@
 import { init } from "@instantdb/admin";
 import schema from "../instant.schema.ts";
 
-const appId = Deno.env.get("INSTANTDB_APP_ID") ?? "";
-const adminToken = Deno.env.get("INSTANTDB_ADMIN_TOKEN") ?? "";
+const createDb = () => {
+  const appId = Deno.env.get("INSTANTDB_APP_ID") ?? "";
+  const adminToken = Deno.env.get("INSTANTDB_ADMIN_TOKEN") ?? "";
+  return init({
+    appId,
+    adminToken,
+    schema,
+  });
+};
 
-export const { transact, tx, query, auth } = init({
-  appId,
-  adminToken,
-  schema,
-});
+let _db: ReturnType<typeof createDb> | null = null;
+const getDb = () => {
+  if (!_db) {
+    _db = createDb();
+  }
+  return _db;
+};
 
 type ProjectWithOwner = {
   id: string;
@@ -21,6 +30,7 @@ type ProjectWithOwner = {
 export const lookupProjectByToken = async (
   token: string,
 ): Promise<ProjectWithOwner | null> => {
+  const { query } = getDb();
   const { projects } = await query({
     projects: {
       $: { where: { token } },
@@ -28,13 +38,18 @@ export const lookupProjectByToken = async (
     },
   });
   const project = projects[0];
-  return project?.owner
-    ? {
-      id: project.id,
-      name: project.name,
-      token: project.token,
-      webhookUrl: project.webhookUrl,
-      owner: project.owner,
-    }
-    : null;
+  if (!project || !project.owner) return null;
+  // We assert it's an array with at least one element or just a single element based on relation
+  // Wait, owner is probably a single entity or array of entities, assuming single for project.owner
+  const owner = Array.isArray(project.owner) ? project.owner[0] : project.owner;
+  
+  if (!owner) return null;
+
+  return {
+    id: project.id,
+    name: project.name,
+    token: project.token,
+    webhookUrl: project.webhookUrl,
+    owner: { id: owner.id, email: owner.email as string },
+  };
 };

@@ -3,7 +3,7 @@ import { apiDefinition } from "./src/api.ts";
 import type { Anomaly } from "./src/anomaly.ts";
 
 const client = apiClient(
-  httpCommunication("https://anomalisa.deno.dev"),
+  httpCommunication("https://anomalisa.uriva.deno.net"),
   apiDefinition,
 );
 

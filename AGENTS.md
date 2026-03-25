@@ -63,7 +63,7 @@ reason not to. Prefer typing inputs strictly.
 
 This is a deno project. Deps are in deno.json, there is no package.json.
 
-Deployed to Deno Deploy at `https://anomalisa.deno.dev`. Published to JSR as
+Deployed to Deno Deploy at `https://anomalisa.uriva.deno.net`. Published to JSR as
 `@uri/anomalisa`.
 
 To deploy a new version, update the version in deno.json and push to main.

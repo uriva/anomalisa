@@ -11,7 +11,7 @@ tells you when things aren't.
 No dashboards to check. No thresholds to configure. Just email alerts when the
 math says something is off.
 
-**Try it now at [anomalisa.deno.dev](https://anomalisa.deno.dev)**
+**Try it now at [anomalisa.uriva.deno.net](https://anomalisa.uriva.deno.net)**
 
 This is also fully open source. Run it yourself, fork it, rip it apart.
 
@@ -56,7 +56,7 @@ await sendEvent({
 ```
 
 Get your token by signing up at
-[anomalisa.deno.dev](https://anomalisa.deno.dev), creating a project, and
+[anomalisa.uriva.deno.net](https://anomalisa.uriva.deno.net), creating a project, and
 copying the token.
 
 Check detected anomalies:

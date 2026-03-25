@@ -1,11 +1,14 @@
 {
+  "name": "@uri/anomalisa",
+  "version": "0.0.11",
   "license": "MIT",
+  "exports": "./mod.ts",
   "tasks": {
     "test": "deno test --unstable-kv"
   },
   "deploy": {
     "org": "uriva",
-    "app": "anomalisa-test-dummy7"
+    "app": "anomalisa"
   },
   "imports": {
     "gamla": "npm:gamla@124.0.0",

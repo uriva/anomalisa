@@ -62,12 +62,17 @@ const corsHeaders = {
 
 const instantdbAppId = Deno.env.get("INSTANTDB_APP_ID") ?? "";
 
-const readWebFile = (name: string) =>
-  Deno.readTextFile(new URL(`../web/${name}`, import.meta.url));
-
-const [landingHtml, appHtml, docsHtml] = await Promise.all(
-  ["index.html", "app.html", "docs.html"].map(readWebFile),
-);
+const readWebFile = (name: string) => Deno.readTextFile(new URL(`../web/${name}`, import.meta.url));
+  
+let _htmlCache: { landingHtml: string, appHtml: string, docsHtml: string } | null = null;
+const getHtml = async () => {
+  if (_htmlCache) return _htmlCache;
+  const [landingHtml, appHtml, docsHtml] = await Promise.all(
+    ["index.html", "app.html", "docs.html"].map(readWebFile),
+  );
+  _htmlCache = { landingHtml, appHtml, docsHtml };
+  return _htmlCache;
+};
 
 const jsonResponse = (data: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -81,16 +86,21 @@ const htmlResponse = (html: string) =>
     headers: { ...corsHeaders, "Content-Type": "text/html" },
   });
 
-const htmlByPath: Record<string, string> = {
-  "/": landingHtml,
-  "/app": appHtml,
-  "/docs": docsHtml,
+const getHtmlByPath = async () => {
+  const { landingHtml, appHtml, docsHtml } = await getHtml();
+  return {
+    "/": landingHtml,
+    "/app": appHtml,
+    "/docs": docsHtml,
+  };
 };
 
-const handleGet = (url: URL) =>
-  url.pathname === "/config"
-    ? jsonResponse({ instantdbAppId })
-    : htmlResponse(htmlByPath[url.pathname] ?? landingHtml);
+const handleGet = async (url: URL) => {
+  if (url.pathname === "/config") return jsonResponse({ instantdbAppId });
+  const htmlByPath = await getHtmlByPath();
+  const { landingHtml } = await getHtml();
+  return htmlResponse((htmlByPath as Record<string, string>)[url.pathname] ?? landingHtml);
+};
 
 const handlePost = async (req: Request) => {
   const bodyText = await req.text();
@@ -110,12 +120,12 @@ const handlePost = async (req: Request) => {
   }
 };
 
-const httpHandler = (req: Request) => {
+const httpHandler = async (req: Request) => {
   const url = new URL(req.url);
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
-  if (req.method === "GET") return handleGet(url);
+  if (req.method === "GET") return await handleGet(url);
   return handlePost(req);
 };
 

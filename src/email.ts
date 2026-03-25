@@ -3,7 +3,8 @@ import type { Anomaly } from "./anomaly.ts";
 const apiKey = Deno.env.get("FORWARD_EMAIL_API_KEY") ?? "";
 const emailDomain = Deno.env.get("EMAIL_DOMAIN") ?? "";
 const authHeader = `Basic ${btoa(apiKey + ":")}`;
-const kv = await Deno.openKv();
+let _kv: Deno.Kv | null = null;
+const getKv = async () => _kv ??= await Deno.openKv();
 const maxEmailsPerDay = 5;
 
 type Email = {
@@ -18,9 +19,9 @@ const getDayBucket = (): string => new Date().toISOString().slice(0, 10);
 
 const incrementEmailCount = async (to: string): Promise<number> => {
   const key = ["emailCount", to, getDayBucket()];
-  const entry = await kv.get<number>(key);
+  const entry = await (await getKv()).get<number>(key);
   const count = (entry.value ?? 0) + 1;
-  await kv.atomic().check(entry).set(key, count, {
+  await (await getKv()).atomic().check(entry).set(key, count, {
     expireIn: 24 * 60 * 60 * 1000,
   }).commit();
   return count;

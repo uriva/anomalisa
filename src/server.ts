@@ -2,11 +2,12 @@ import { apiHandler, type ApiImplementation } from "@uri/typed-api";
 import { type Api, apiDefinition } from "./api.ts";
 import {
   type Anomaly,
+  checkAllEmptyBuckets,
   getAnomalies,
   getEventCounts,
   recordEvent,
 } from "./anomaly.ts";
-import { lookupProjectByToken } from "./db.ts";
+import { lookupProjectById, lookupProjectByToken } from "./db.ts";
 import { sendAnomalyAlerts } from "./email.ts";
 import { sendWebhook } from "./webhook.ts";
 
@@ -26,7 +27,9 @@ const notifyAnomalies = (
   anomalies: Anomaly[],
 ) => {
   if (anomalies.length === 0) return;
-  sendAnomalyAlerts(email, projectName, anomalies).catch(logError("send anomaly email"));
+  sendAnomalyAlerts(email, projectName, anomalies).catch(
+    logError("send anomaly email"),
+  );
   if (webhookUrl) {
     anomalies.forEach((anomaly) =>
       sendWebhook(webhookUrl, anomaly).catch(logError("send webhook"))
@@ -39,8 +42,17 @@ const endpoints: ApiImplementation<null, Api> = {
   handlers: {
     sendEvent: async ({ token, eventName, userId }) => {
       const project = await resolveProject(token);
-      const anomalies = await recordEvent(project.id, eventName, userId ?? undefined);
-      notifyAnomalies(project.owner.email, project.name, project.webhookUrl, anomalies);
+      const anomalies = await recordEvent(
+        project.id,
+        eventName,
+        userId ?? undefined,
+      );
+      notifyAnomalies(
+        project.owner.email,
+        project.name,
+        project.webhookUrl,
+        anomalies,
+      );
       return {};
     },
     getAnomalies: async ({ token }) => {
@@ -62,17 +74,22 @@ const corsHeaders = {
 
 const instantdbAppId = Deno.env.get("INSTANTDB_APP_ID") ?? "";
 
-const readWebFile = (name: string) => Deno.readTextFile(new URL(`../web/${name}`, import.meta.url));
-  
-let _htmlCache: { landingHtml: string, appHtml: string, docsHtml: string } | null = null;
-const getHtml = async () => {
-  if (_htmlCache) return _htmlCache;
-  const [landingHtml, appHtml, docsHtml] = await Promise.all(
+const readWebFile = (name: string) =>
+  Deno.readTextFile(new URL(`../web/${name}`, import.meta.url));
+
+let _htmlCachePromise:
+  | Promise<
+    { landingHtml: string; appHtml: string; docsHtml: string }
+  >
+  | null = null;
+const getHtml = () =>
+  _htmlCachePromise ??= Promise.all(
     ["index.html", "app.html", "docs.html"].map(readWebFile),
-  );
-  _htmlCache = { landingHtml, appHtml, docsHtml };
-  return _htmlCache;
-};
+  ).then(([landingHtml, appHtml, docsHtml]) => ({
+    landingHtml,
+    appHtml,
+    docsHtml,
+  }));
 
 const jsonResponse = (data: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -99,7 +116,9 @@ const handleGet = async (url: URL) => {
   if (url.pathname === "/config") return jsonResponse({ instantdbAppId });
   const htmlByPath = await getHtmlByPath();
   const { landingHtml } = await getHtml();
-  return htmlResponse((htmlByPath as Record<string, string>)[url.pathname] ?? landingHtml);
+  return htmlResponse(
+    (htmlByPath as Record<string, string>)[url.pathname] ?? landingHtml,
+  );
 };
 
 const handlePost = async (req: Request) => {
@@ -131,3 +150,26 @@ const httpHandler = async (req: Request) => {
 
 Deno.serve(httpHandler);
 console.log("server.ts executing...");
+
+Deno.cron("Check empty buckets", "5 * * * *", async () => {
+  const anomaliesByProject = await checkAllEmptyBuckets();
+  for (const projectId of Object.keys(anomaliesByProject)) {
+    const anomalies = anomaliesByProject[projectId];
+    try {
+      const project = await lookupProjectById(projectId);
+      if (project) {
+        notifyAnomalies(
+          project.owner.email,
+          project.name,
+          project.webhookUrl,
+          anomalies,
+        );
+      }
+    } catch (e) {
+      console.error(
+        `Failed to notify empty bucket anomalies for ${projectId}:`,
+        e,
+      );
+    }
+  }
+});

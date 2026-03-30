@@ -42,7 +42,31 @@ export const lookupProjectByToken = async (
   // We assert it's an array with at least one element or just a single element based on relation
   // Wait, owner is probably a single entity or array of entities, assuming single for project.owner
   const owner = Array.isArray(project.owner) ? project.owner[0] : project.owner;
-  
+
+  if (!owner) return null;
+
+  return {
+    id: project.id,
+    name: project.name,
+    token: project.token,
+    webhookUrl: project.webhookUrl,
+    owner: { id: owner.id, email: owner.email as string },
+  };
+};
+
+export const lookupProjectById = async (
+  id: string,
+): Promise<ProjectWithOwner | null> => {
+  const { query } = getDb();
+  const { projects } = await query({
+    projects: {
+      $: { where: { id } },
+      owner: {},
+    },
+  });
+  const project = projects[0];
+  if (!project || !project.owner) return null;
+  const owner = Array.isArray(project.owner) ? project.owner[0] : project.owner;
   if (!owner) return null;
 
   return {

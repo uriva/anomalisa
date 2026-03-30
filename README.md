@@ -56,8 +56,8 @@ await sendEvent({
 ```
 
 Get your token by signing up at
-[anomalisa.uriva.deno.net](https://anomalisa.uriva.deno.net), creating a project, and
-copying the token.
+[anomalisa.uriva.deno.net](https://anomalisa.uriva.deno.net), creating a
+project, and copying the token.
 
 Check detected anomalies:
 

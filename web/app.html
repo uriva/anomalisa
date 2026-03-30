@@ -265,10 +265,7 @@
     <div id="app"></div>
 
     <script type="module">
-      import {
-        id,
-        init,
-      } from "https://esm.sh/@instantdb/core@0.22.135";
+      import { id, init } from "https://esm.sh/@instantdb/core@0.22.135";
 
       const app = document.getElementById("app");
       const apiUrl = "https://anomalisa.uriva.deno.net";
@@ -330,13 +327,11 @@
             sentEmail = email;
             try {
               await db.auth.sendMagicCode({ email });
-              document.getElementById("code-section").style.display =
-                "block";
+              document.getElementById("code-section").style.display = "block";
               document.getElementById("login-msg").textContent =
                 "Code sent to " + email;
             } catch (e) {
-              document.getElementById("login-msg").textContent =
-                e.message;
+              document.getElementById("login-msg").textContent = e.message;
             }
           },
         );
@@ -353,8 +348,7 @@
               });
               overlay.remove();
             } catch (e) {
-              document.getElementById("login-msg").textContent =
-                e.message;
+              document.getElementById("login-msg").textContent = e.message;
             }
           },
         );
@@ -499,14 +493,12 @@
                 }),
               ]);
               document.getElementById("project-name").value = "";
-              document.getElementById("create-msg").textContent =
-                "Created!";
+              document.getElementById("create-msg").textContent = "Created!";
               setTimeout(() => {
                 document.getElementById("create-msg").textContent = "";
               }, 2000);
             } catch (e) {
-              document.getElementById("create-msg").textContent =
-                e.message;
+              document.getElementById("create-msg").textContent = e.message;
             }
           },
         );
@@ -557,8 +549,7 @@
                 const last = lastBucket(events);
                 const eventNames = Object.keys(events);
                 const total = eventNames.reduce(
-                  (s, n) =>
-                    s + events[n].reduce((a, b) => a + b.count, 0),
+                  (s, n) => s + events[n].reduce((a, b) => a + b.count, 0),
                   0,
                 );
                 meta.textContent = last
@@ -571,9 +562,7 @@
       };
 
       const renderProjectDetail = () => {
-        const project = projects.find((p) =>
-          p.id === selectedProjectId
-        );
+        const project = projects.find((p) => p.id === selectedProjectId);
         if (!project) return renderProjectList();
 
         render(`
@@ -721,8 +710,7 @@
           const anomalies = result.anomalies ?? [];
           const list = document.getElementById("anomalies-list");
           if (anomalies.length === 0) {
-            list.innerHTML =
-              "<p class='muted'>No anomalies detected.</p>";
+            list.innerHTML = "<p class='muted'>No anomalies detected.</p>";
             return;
           }
           const metricLabel = (m) =>
@@ -763,9 +751,7 @@
       db.subscribeAuth((auth) => {
         currentUser = auth.user;
         if (auth.user) {
-          selectedProjectId
-            ? renderProjectDetail()
-            : renderProjectList();
+          selectedProjectId ? renderProjectDetail() : renderProjectList();
         } else {
           selectedProjectId = null;
           renderLogin();

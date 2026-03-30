@@ -125,16 +125,21 @@ export const detectPercentageSpike = (
 
 const anomalyKey = (
   { projectId, eventName, bucket, metric, userId }: Anomaly,
-): Deno.KvKey => ["anomalies", projectId, eventName, bucket, metric, userId ?? "_"];
+): Deno.KvKey => [
+  "anomalies",
+  projectId,
+  eventName,
+  bucket,
+  metric,
+  userId ?? "_",
+];
 
 const storeAnomaly = async (anomaly: Anomaly): Promise<boolean> => {
   const existing = await (await getKv()).get(anomalyKey(anomaly));
-  return existing.value
-    ? false
-    : (await (await getKv()).atomic()
-      .check(existing)
-      .set(anomalyKey(anomaly), anomaly, { expireIn: anomalyTtlMs })
-      .commit()).ok;
+  return existing.value ? false : (await (await getKv()).atomic()
+    .check(existing)
+    .set(anomalyKey(anomaly), anomaly, { expireIn: anomalyTtlMs })
+    .commit()).ok;
 };
 
 const getOrInitStats = async (
@@ -188,9 +193,13 @@ const handleBucketTransition = async (
   eventName: string,
   bucket: string,
 ): Promise<Anomaly[]> => {
-  const prevTotalCount =
-    (await (await getKv()).get<number>(["counts", projectId, eventName, stats.lastBucket]))
-      .value ?? 0;
+  const prevTotalCount = (await (await getKv()).get<number>([
+    "counts",
+    projectId,
+    eventName,
+    stats.lastBucket,
+  ]))
+    .value ?? 0;
 
   const skippedHours = Math.max(0, hoursBetween(stats.lastBucket, bucket) - 1);
   const statsWithZeros = updateStatsWithZeros(stats, skippedHours);
@@ -322,4 +331,31 @@ export const getAnomalies = async (projectId: string): Promise<Anomaly[]> => {
     (await getKv()).list<Anomaly>({ prefix: ["anomalies", projectId] }),
   );
   return entries.map(({ value }) => value);
+};
+
+export const checkAllEmptyBuckets = async (): Promise<
+  Record<string, Anomaly[]>
+> => {
+  const currentBucket = getHourBucket();
+  const entries = await Array.fromAsync(
+    (await getKv()).list<Stats>({ prefix: ["stats", "total"] }),
+  );
+
+  const anomaliesByProject: Record<string, Anomaly[]> = {};
+  for (const { key, value } of entries) {
+    const projectId = String(key[2]);
+    const eventName = String(key[3]);
+    if (value.lastBucket !== currentBucket) {
+      const anomalies = await handleBucketTransition(
+        value,
+        projectId,
+        eventName,
+        currentBucket,
+      );
+      if (anomalies.length > 0) {
+        (anomaliesByProject[projectId] ??= []).push(...anomalies);
+      }
+    }
+  }
+  return anomaliesByProject;
 };

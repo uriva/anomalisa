@@ -59,14 +59,19 @@ const metricExplanation = (metric: Anomaly["metric"]) =>
     ? "Event count jumped by an unusually large percentage compared to the hourly average."
     : "The total event count for this hour is statistically unusual (z-score > 2).";
 
-const uniqueMetrics = (anomalies: Anomaly[]) =>
-  [...new Set(anomalies.map(({ metric }) => metric))];
+const uniqueMetrics = (
+  anomalies: Anomaly[],
+) => [...new Set(anomalies.map(({ metric }) => metric))];
 
 const legendHtml = (metrics: Anomaly["metric"][]) =>
   `<div style="margin-top:1rem;padding:0.75rem 1rem;background:#f8f8f8;border-radius:6px;font-size:0.9em;color:#444;">
     <strong>What do these mean?</strong>
     <ul style="margin:0.5rem 0 0;padding-left:1.2rem;">
-      ${metrics.map((m) => `<li><strong>${metricLabel(m)}</strong> — ${metricExplanation(m)}</li>`).join("\n      ")}
+      ${
+    metrics.map((m) =>
+      `<li><strong>${metricLabel(m)}</strong> — ${metricExplanation(m)}</li>`
+    ).join("\n      ")
+  }
     </ul>
     <p style="margin:0.5rem 0 0;font-size:0.85em;color:#888;">Expected = hourly average so far. Actual = this hour's count. Score = how many standard deviations from the mean.</p>
   </div>`;
@@ -88,7 +93,9 @@ const formatAnomaly = (
   </tr>`;
 
 const anomaliesHtml = (projectName: string, anomalies: Anomaly[]) =>
-  `<h2>${projectName}: ${anomalies.length} Anomal${anomalies.length === 1 ? "y" : "ies"} Detected</h2>
+  `<h2>${projectName}: ${anomalies.length} Anomal${
+    anomalies.length === 1 ? "y" : "ies"
+  } Detected</h2>
   <table border="1" cellpadding="8" cellspacing="0">
     <tr><th>Type</th><th>Event</th><th>User</th><th>Bucket</th><th>Expected</th><th>Actual</th><th>Score</th></tr>
     ${anomalies.map(formatAnomaly).join("\n    ")}
@@ -105,7 +112,10 @@ const anomalyText = (
 const anomaliesText = (anomalies: Anomaly[]) =>
   anomalies.map(anomalyText).join("\n");
 
-const subjectLine = (projectName: string, { metric, eventName, userId }: Anomaly) =>
+const subjectLine = (
+  projectName: string,
+  { metric, eventName, userId }: Anomaly,
+) =>
   `[${projectName}] ${metricLabel(metric)}: ${eventName}${
     userId ? ` (${userId})` : ""
   }`;
@@ -122,7 +132,9 @@ export const sendAnomalyAlerts = async (
 ) => {
   const count = await incrementEmailCount(toEmail);
   if (count > maxEmailsPerDay) {
-    console.log(`Email limit reached for ${toEmail} (${count}/${maxEmailsPerDay})`);
+    console.log(
+      `Email limit reached for ${toEmail} (${count}/${maxEmailsPerDay})`,
+    );
     return;
   }
   return sendEmail({

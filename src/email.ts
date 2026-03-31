@@ -63,54 +63,64 @@ const uniqueMetrics = (
   anomalies: Anomaly[],
 ) => [...new Set(anomalies.map(({ metric }) => metric))];
 
-const legendHtml = (metrics: Anomaly["metric"][]) =>
-  `<div style="margin-top:1rem;padding:0.75rem 1rem;background:#f8f8f8;border-radius:6px;font-size:0.9em;color:#444;">
-    <strong>What do these mean?</strong>
-    <ul style="margin:0.5rem 0 0;padding-left:1.2rem;">
-      ${
-    metrics.map((m) =>
-      `<li><strong>${metricLabel(m)}</strong> — ${metricExplanation(m)}</li>`
-    ).join("\n      ")
-  }
-    </ul>
-    <p style="margin:0.5rem 0 0;font-size:0.85em;color:#888;">Expected = hourly average so far. Actual = this hour's count. Score = how many standard deviations from the mean.</p>
-  </div>`;
+const hasUserId = (anomalies: Anomaly[]) =>
+  anomalies.some(({ userId }) => userId);
 
-const userIdCell = (userId?: string) =>
-  userId ? `<td>${userId}</td>` : `<td class="muted">-</td>`;
-
-const formatAnomaly = (
-  { eventName, bucket, expected, actual, zScore, metric, userId }: Anomaly,
+const formatAnomaly = (showUser: boolean) =>
+(
+  { eventName, bucket, expected, actual, zScore, userId }: Anomaly,
 ) =>
   `<tr>
-    <td>${metricLabel(metric)}</td>
     <td>${eventName}</td>
-    ${userIdCell(userId)}
+    ${showUser ? `<td>${userId ?? "-"}</td>` : ""}
     <td>${bucket}</td>
     <td>${expected}</td>
     <td>${actual}</td>
     <td>${zScore}</td>
   </tr>`;
 
+const sectionHtml = (metric: Anomaly["metric"], anomalies: Anomaly[]) => {
+  const showUser = hasUserId(anomalies);
+  return `<h3 style="margin-top:1.5rem;">${metricLabel(metric)}</h3>
+  <p style="margin:0.25rem 0 0.5rem;font-size:0.9em;color:#666;">${
+    metricExplanation(metric)
+  }</p>
+  <table border="1" cellpadding="8" cellspacing="0">
+    <tr><th>Event</th>${
+    showUser ? "<th>User</th>" : ""
+  }<th>Bucket</th><th>Expected</th><th>Actual</th><th>Score</th></tr>
+    ${anomalies.map(formatAnomaly(showUser)).join("\n    ")}
+  </table>`;
+};
+
+const groupByMetric = (anomalies: Anomaly[]) =>
+  uniqueMetrics(anomalies).map((metric) => [
+    metric,
+    anomalies.filter((a) => a.metric === metric),
+  ] as const);
+
 const anomaliesHtml = (projectName: string, anomalies: Anomaly[]) =>
   `<h2>${projectName}: ${anomalies.length} Anomal${
     anomalies.length === 1 ? "y" : "ies"
   } Detected</h2>
-  <table border="1" cellpadding="8" cellspacing="0">
-    <tr><th>Type</th><th>Event</th><th>User</th><th>Bucket</th><th>Expected</th><th>Actual</th><th>Score</th></tr>
-    ${anomalies.map(formatAnomaly).join("\n    ")}
-  </table>
-  ${legendHtml(uniqueMetrics(anomalies))}`;
+  ${
+    groupByMetric(anomalies).map(([metric, group]) =>
+      sectionHtml(metric, group)
+    ).join("\n  ")
+  }
+  <p style="margin-top:1rem;font-size:0.85em;color:#888;">Expected = hourly average so far. Actual = this hour's count. Score = how many standard deviations from the mean.</p>`;
 
 const anomalyText = (
-  { eventName, bucket, expected, actual, zScore, metric, userId }: Anomaly,
+  { eventName, bucket, expected, actual, zScore, userId }: Anomaly,
 ) =>
-  `${metricLabel(metric)} Anomaly: ${eventName}${
+  `  ${eventName}${
     userId ? ` (user: ${userId})` : ""
   } in ${bucket} — expected ${expected}, got ${actual} (score=${zScore})`;
 
 const anomaliesText = (anomalies: Anomaly[]) =>
-  anomalies.map(anomalyText).join("\n");
+  groupByMetric(anomalies).map(([metric, group]) =>
+    `${metricLabel(metric)}:\n${group.map(anomalyText).join("\n")}`
+  ).join("\n\n");
 
 const subjectLine = (
   projectName: string,

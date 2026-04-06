@@ -59,6 +59,8 @@ to inline, make them a function.
 No defensive programming, assume inputs are correct unless there is a good
 reason not to. Prefer typing inputs strictly.
 
+Never fix a quality issue without a failing test first.
+
 # Deno stuff
 
 This is a deno project. Deps are in deno.json, there is no package.json.

@@ -59,29 +59,29 @@ Deno.test("anomaliesHtml shows count for multiple anomalies", () => {
 });
 
 Deno.test("formatBucket renders human-readable date", () => {
-  assertEquals(formatBucket("2026-04-06T23"), "Mon Apr 6, 11pm");
+  assertEquals(formatBucket("2026-04-06T23"), "Mon Apr 6, 11pm UTC");
 });
 
 Deno.test("formatBucket renders midnight as 12am", () => {
-  assertEquals(formatBucket("2026-04-07T00"), "Tue Apr 7, 12am");
+  assertEquals(formatBucket("2026-04-07T00"), "Tue Apr 7, 12am UTC");
 });
 
 Deno.test("formatBucket renders noon as 12pm", () => {
-  assertEquals(formatBucket("2026-04-07T12"), "Tue Apr 7, 12pm");
+  assertEquals(formatBucket("2026-04-07T12"), "Tue Apr 7, 12pm UTC");
 });
 
 Deno.test("formatBucket renders morning hour", () => {
-  assertEquals(formatBucket("2026-04-07T09"), "Tue Apr 7, 9am");
+  assertEquals(formatBucket("2026-04-07T09"), "Tue Apr 7, 9am UTC");
 });
 
 Deno.test("anomaliesHtml uses formatted bucket not raw ISO", () => {
   const html = anomaliesHtml("myapp", [singleAnomaly]);
   assertEquals(html.includes("2026-04-06T23"), false);
-  assertEquals(html.includes("Mon Apr 6, 11pm"), true);
+  assertEquals(html.includes("Mon Apr 6, 11pm UTC"), true);
 });
 
 Deno.test("anomaliesText uses formatted bucket not raw ISO", () => {
   const text = anomaliesText([singleAnomaly]);
   assertEquals(text.includes("2026-04-06T23"), false);
-  assertEquals(text.includes("Mon Apr 6, 11pm"), true);
+  assertEquals(text.includes("Mon Apr 6, 11pm UTC"), true);
 });

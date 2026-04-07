@@ -56,7 +56,7 @@ const hourLabel = (h: number) =>
 
 export const formatBucket = (bucket: string) => {
   const d = new Date(`${bucket}:00:00Z`);
-  return `${days[d.getUTCDay()]} ${months[d.getUTCMonth()]} ${d.getUTCDate()}, ${hourLabel(d.getUTCHours())}`;
+  return `${days[d.getUTCDay()]} ${months[d.getUTCMonth()]} ${d.getUTCDate()}, ${hourLabel(d.getUTCHours())} UTC`;
 };
 
 const metricLabel = (metric: Anomaly["metric"]) =>

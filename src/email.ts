@@ -45,6 +45,20 @@ const sendEmail = async (email: Email) => {
   return response;
 };
 
+const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const months = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+const hourLabel = (h: number) =>
+  h === 0 ? "12am" : h < 12 ? `${h}am` : h === 12 ? "12pm" : `${h - 12}pm`;
+
+export const formatBucket = (bucket: string) => {
+  const d = new Date(`${bucket}:00:00Z`);
+  return `${days[d.getUTCDay()]} ${months[d.getUTCMonth()]} ${d.getUTCDate()}, ${hourLabel(d.getUTCHours())}`;
+};
+
 const metricLabel = (metric: Anomaly["metric"]) =>
   metric === "userSpike"
     ? "User Spike"
@@ -73,7 +87,7 @@ const formatAnomaly = (showUser: boolean) =>
   `<tr>
     <td>${eventName}</td>
     ${showUser ? `<td>${userId ?? "-"}</td>` : ""}
-    <td>${bucket}</td>
+    <td>${formatBucket(bucket)}</td>
     <td>${expected}</td>
     <td>${actual}</td>
     <td>${zScore}</td>
@@ -99,10 +113,12 @@ const groupByMetric = (anomalies: Anomaly[]) =>
     anomalies.filter((a) => a.metric === metric),
   ] as const);
 
-const anomaliesHtml = (projectName: string, anomalies: Anomaly[]) =>
-  `<h2>${projectName}: ${anomalies.length} Anomal${
-    anomalies.length === 1 ? "y" : "ies"
-  } Detected</h2>
+export const anomaliesHtml = (projectName: string, anomalies: Anomaly[]) =>
+  `<h2>${projectName}: ${
+    anomalies.length === 1
+      ? "Anomaly Detected"
+      : `${anomalies.length} Anomalies Detected`
+  }</h2>
   ${
     groupByMetric(anomalies).map(([metric, group]) =>
       sectionHtml(metric, group)
@@ -115,9 +131,9 @@ const anomalyText = (
 ) =>
   `  ${eventName}${
     userId ? ` (user: ${userId})` : ""
-  } in ${bucket} — expected ${expected}, got ${actual} (score=${zScore})`;
+  } in ${formatBucket(bucket)} — expected ${expected}, got ${actual} (score=${zScore})`;
 
-const anomaliesText = (anomalies: Anomaly[]) =>
+export const anomaliesText = (anomalies: Anomaly[]) =>
   groupByMetric(anomalies).map(([metric, group]) =>
     `${metricLabel(metric)}:\n${group.map(anomalyText).join("\n")}`
   ).join("\n\n");
@@ -130,7 +146,7 @@ const subjectLine = (
     userId ? ` (${userId})` : ""
   }`;
 
-const batchSubject = (projectName: string, anomalies: Anomaly[]) =>
+export const batchSubject = (projectName: string, anomalies: Anomaly[]) =>
   anomalies.length === 1
     ? subjectLine(projectName, anomalies[0])
     : `[${projectName}] ${anomalies.length} anomalies detected`;

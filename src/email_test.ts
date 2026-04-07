@@ -1,0 +1,87 @@
+import { assertEquals } from "jsr:@std/assert";
+import type { Anomaly } from "./anomaly.ts";
+import {
+  anomaliesHtml,
+  anomaliesText,
+  batchSubject,
+  formatBucket,
+} from "./email.ts";
+
+const singleAnomaly: Anomaly = {
+  projectId: "proj1",
+  eventName: "login",
+  bucket: "2026-04-06T23",
+  expected: 10,
+  actual: 30,
+  zScore: 3.5,
+  metric: "totalCount",
+  detectedAt: "2026-04-06T23:30:00Z",
+};
+
+const twoAnomalies: Anomaly[] = [
+  singleAnomaly,
+  {
+    projectId: "proj1",
+    eventName: "signup",
+    bucket: "2026-04-07T09",
+    expected: 5,
+    actual: 20,
+    zScore: 4.1,
+    metric: "percentageSpike",
+    detectedAt: "2026-04-07T09:15:00Z",
+    userId: "user123",
+  },
+];
+
+Deno.test("batchSubject uses specific subject for single anomaly", () => {
+  assertEquals(
+    batchSubject("myapp", [singleAnomaly]),
+    "[myapp] Total Count: login",
+  );
+});
+
+Deno.test("batchSubject shows count for multiple anomalies", () => {
+  assertEquals(
+    batchSubject("myapp", twoAnomalies),
+    "[myapp] 2 anomalies detected",
+  );
+});
+
+Deno.test("anomaliesHtml says 'Anomaly Detected' without count for single anomaly", () => {
+  const html = anomaliesHtml("myapp", [singleAnomaly]);
+  assertEquals(html.includes("1 Anomaly"), false);
+  assertEquals(html.includes("Anomaly Detected"), true);
+});
+
+Deno.test("anomaliesHtml shows count for multiple anomalies", () => {
+  const html = anomaliesHtml("myapp", twoAnomalies);
+  assertEquals(html.includes("2 Anomalies Detected"), true);
+});
+
+Deno.test("formatBucket renders human-readable date", () => {
+  assertEquals(formatBucket("2026-04-06T23"), "Mon Apr 6, 11pm");
+});
+
+Deno.test("formatBucket renders midnight as 12am", () => {
+  assertEquals(formatBucket("2026-04-07T00"), "Tue Apr 7, 12am");
+});
+
+Deno.test("formatBucket renders noon as 12pm", () => {
+  assertEquals(formatBucket("2026-04-07T12"), "Tue Apr 7, 12pm");
+});
+
+Deno.test("formatBucket renders morning hour", () => {
+  assertEquals(formatBucket("2026-04-07T09"), "Tue Apr 7, 9am");
+});
+
+Deno.test("anomaliesHtml uses formatted bucket not raw ISO", () => {
+  const html = anomaliesHtml("myapp", [singleAnomaly]);
+  assertEquals(html.includes("2026-04-06T23"), false);
+  assertEquals(html.includes("Mon Apr 6, 11pm"), true);
+});
+
+Deno.test("anomaliesText uses formatted bucket not raw ISO", () => {
+  const text = anomaliesText([singleAnomaly]);
+  assertEquals(text.includes("2026-04-06T23"), false);
+  assertEquals(text.includes("Mon Apr 6, 11pm"), true);
+});

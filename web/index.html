@@ -142,6 +142,32 @@
       .code-block .comment {
         color: #6a9955;
       }
+      .install-tabs {
+        display: flex;
+        gap: 0;
+        margin-bottom: -1px;
+        position: relative;
+        z-index: 1;
+      }
+      .install-tab {
+        background: transparent;
+        color: #666;
+        border: 1px solid #1a1a1a;
+        border-bottom: none;
+        padding: 0.4rem 1rem;
+        border-radius: 6px 6px 0 0;
+        cursor: pointer;
+        font-size: 0.82rem;
+        font-family: "SF Mono", "Fira Code", monospace;
+      }
+      .install-tab.active {
+        background: #111;
+        color: #ccc;
+        border-color: #1a1a1a;
+      }
+      .install-tab:not(.active):hover {
+        color: #999;
+      }
       .how-section {
         margin-bottom: 4rem;
       }
@@ -266,9 +292,14 @@
 
       <div class="code-section">
         <h2>Three lines to get started</h2>
-        <pre
-          class="code-block"
-        ><span class="comment">// deno add jsr:@uri/anomalisa</span>
+        <div class="install-tabs">
+          <button class="install-tab active" onclick="showTab('deno')">deno</button>
+          <button class="install-tab" onclick="showTab('npm')">npm</button>
+        </div>
+        <pre class="code-block" id="tab-deno"><span class="comment">// deno add jsr:@uri/anomalisa</span>
+<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
+<span class="kw">await</span> <span class="fn">sendEvent</span>({ token: <span class="str">"your-token"</span>, userId: <span class="str">"user-123"</span>, eventName: <span class="str">"purchase"</span> });</pre>
+        <pre class="code-block" id="tab-npm" style="display:none"><span class="comment">// npx jsr add @uri/anomalisa</span>
 <span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
 <span class="kw">await</span> <span class="fn">sendEvent</span>({ token: <span class="str">"your-token"</span>, userId: <span class="str">"user-123"</span>, eventName: <span class="str">"purchase"</span> });</pre>
       </div>
@@ -326,7 +357,7 @@
         </div>
 
         <p class="how-prose">
-          The entire storage layer is Deno KV. Event counts in hourly buckets
+          The entire storage layer is a key-value store. Event counts in hourly buckets
           with a 7-day TTL, three Welford states per event name, detected
           anomalies with a 30-day TTL. No relational queries, no migrations.
           TTLs handle cleanup. The detection engine is
@@ -359,5 +390,13 @@
         </div>
       </div>
     </div>
+    <script>
+      const showTab = (id) => {
+        document.querySelectorAll(".install-tab").forEach((t) => t.classList.remove("active"));
+        document.querySelectorAll("[id^='tab-']").forEach((p) => (p.style.display = "none"));
+        document.getElementById("tab-" + id).style.display = "";
+        document.querySelector("[onclick*=\"'" + id + "'\"]").classList.add("active");
+      };
+    </script>
   </body>
 </html>

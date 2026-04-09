@@ -37,7 +37,13 @@ collects baseline data without alerting.
 
 ## quickstart
 
-Install from JSR:
+Install with npm:
+
+```
+npx jsr add @uri/anomalisa
+```
+
+Or with Deno:
 
 ```
 deno add jsr:@uri/anomalisa

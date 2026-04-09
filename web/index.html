@@ -293,13 +293,13 @@
       <div class="code-section">
         <h2>Three lines to get started</h2>
         <div class="install-tabs">
-          <button class="install-tab active" onclick="showTab('deno')">deno</button>
-          <button class="install-tab" onclick="showTab('npm')">npm</button>
+          <button class="install-tab active" onclick="showTab('npm')">npm</button>
+          <button class="install-tab" onclick="showTab('deno')">deno</button>
         </div>
-        <pre class="code-block" id="tab-deno"><span class="comment">// deno add jsr:@uri/anomalisa</span>
+        <pre class="code-block" id="tab-npm"><span class="comment">// npx jsr add @uri/anomalisa</span>
 <span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
 <span class="kw">await</span> <span class="fn">sendEvent</span>({ token: <span class="str">"your-token"</span>, userId: <span class="str">"user-123"</span>, eventName: <span class="str">"purchase"</span> });</pre>
-        <pre class="code-block" id="tab-npm" style="display:none"><span class="comment">// npx jsr add @uri/anomalisa</span>
+        <pre class="code-block" id="tab-deno" style="display:none"><span class="comment">// deno add jsr:@uri/anomalisa</span>
 <span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
 <span class="kw">await</span> <span class="fn">sendEvent</span>({ token: <span class="str">"your-token"</span>, userId: <span class="str">"user-123"</span>, eventName: <span class="str">"purchase"</span> });</pre>
       </div>

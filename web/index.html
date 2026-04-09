@@ -146,30 +146,51 @@
         margin-bottom: 4rem;
       }
       .how-section h2 {
-        font-size: 1rem;
-        color: #ccc;
-        margin-bottom: 1rem;
-        font-weight: 500;
+        font-size: 1.15rem;
+        color: #fff;
+        margin-bottom: 1.25rem;
+        font-weight: 600;
       }
-      .how-steps {
-        display: grid;
-        gap: 0.75rem;
-      }
-      .how-step {
-        display: flex;
-        gap: 1rem;
-        align-items: baseline;
-      }
-      .step-num {
-        color: #555;
-        font-size: 0.8rem;
-        font-weight: 700;
-        min-width: 1.5rem;
-      }
-      .step-text {
+      .how-prose {
         font-size: 0.88rem;
         color: #999;
-        line-height: 1.5;
+        line-height: 1.7;
+        margin-bottom: 1.25rem;
+      }
+      .how-prose strong {
+        color: #ccc;
+        font-weight: 600;
+      }
+      .how-subsection {
+        margin-bottom: 1.5rem;
+      }
+      .how-subsection h3 {
+        font-size: 0.92rem;
+        color: #ccc;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+      }
+      .detection-modes {
+        display: grid;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+      }
+      .detection-mode {
+        background: #111;
+        border: 1px solid #1a1a1a;
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+      }
+      .detection-mode-title {
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #fff;
+        margin-bottom: 0.3rem;
+      }
+      .detection-mode-desc {
+        font-size: 0.82rem;
+        color: #888;
+        line-height: 1.55;
       }
       .footer {
         border-top: 1px solid #1a1a1a;
@@ -253,27 +274,79 @@
       </div>
 
       <div class="how-section">
-        <h2>How it works</h2>
-        <div class="how-steps">
-          <div class="how-step">
-            <span class="step-num">1</span>
-            <span class="step-text"
-            >Sign up, create a project, grab your token.</span>
-          </div>
-          <div class="how-step">
-            <span class="step-num">2</span>
-            <span class="step-text"
-            >Send events from your app with the SDK. Just a token, user id, and
-              event name.</span>
-          </div>
-          <div class="how-step">
-            <span class="step-num">3</span>
-            <span class="step-text"
-            >Anomalisa counts events in hourly buckets, builds a running
-              statistical model, and emails you when something deviates more
-              than 2 standard deviations.</span>
+        <h2>How does this actually work?</h2>
+
+        <p class="how-prose">
+          Most anomaly detection tools want you to set thresholds. "Alert me if
+          signups drop below 40 per hour." That means you need to already know
+          what normal looks like, which defeats the purpose.
+        </p>
+
+        <p class="how-prose">
+          Anomalisa uses
+          <a href="https://en.wikipedia.org/wiki/Welford%27s_online_algorithm"
+            target="_blank">Welford's online algorithm</a>
+          to maintain a running mean and variance from your data. Three numbers
+          in memory: count, mean, and sum of squared deviations. Each hour, the
+          event count gets fed into the model. If the new count is more than 2
+          standard deviations from the running mean, you get an email. That's it.
+        </p>
+
+        <p class="how-prose">
+          No batch jobs, no time-series database. The model updates incrementally
+          with constant memory and stays numerically stable even over millions of
+          updates.
+        </p>
+
+        <div class="how-subsection">
+          <h3>Three detection modes from one event stream</h3>
+          <div class="detection-modes">
+            <div class="detection-mode">
+              <div class="detection-mode-title">Total count</div>
+              <div class="detection-mode-desc">
+                Your signup event usually gets ~50/hour, suddenly it's 200 or 3.
+                Works in both directions, catches drops as well as spikes.
+              </div>
+            </div>
+            <div class="detection-mode">
+              <div class="detection-mode-title">Percentage spike</div>
+              <div class="detection-mode-desc">
+                Errors go from 2% to 30% of your traffic while total volume
+                stays flat. Absolute counts look fine, but the ratio is off.
+              </div>
+            </div>
+            <div class="detection-mode">
+              <div class="detection-mode-title">Per-user anomaly</div>
+              <div class="detection-mode-desc">
+                One user generating 100x their normal volume. Could be a bot,
+                abuse, or a bug in their integration.
+              </div>
+            </div>
           </div>
         </div>
+
+        <p class="how-prose">
+          The entire storage layer is Deno KV. Event counts in hourly buckets
+          with a 7-day TTL, three Welford states per event name, detected
+          anomalies with a 30-day TTL. No relational queries, no migrations.
+          TTLs handle cleanup. The detection engine is
+          <a href="https://github.com/uriva/anomalisa/blob/main/src/anomaly.ts"
+            target="_blank">one file</a>
+          you can read in five minutes.
+        </p>
+
+        <p class="how-prose">
+          It won't catch everything. If your system fails in a way that doesn't
+          affect event counts, you're on your own. But most real failures do show
+          up as something spiking or dropping, and the simplicity means there's
+          almost nothing to debug.
+        </p>
+
+        <p class="how-prose" style="color: #888; font-size: 0.82rem;">
+          Deeper technical writeup:
+          <a href="https://uriv.me/blog/anomaly-detection-with-welford-and-kv"
+            target="_blank">anomaly detection with nothing but math and a key-value store</a>
+        </p>
       </div>
 
       <div class="footer">

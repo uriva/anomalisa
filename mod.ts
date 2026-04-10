@@ -1,9 +1,13 @@
 import { apiClient, httpCommunication } from "@uri/typed-api";
 import { apiDefinition } from "./src/api.ts";
 import type { Anomaly } from "./src/anomaly.ts";
+import { withRetry } from "./src/retry.ts";
+
+const communication = httpCommunication("https://anomalisa.uriva.deno.net");
 
 const client = apiClient(
-  httpCommunication("https://anomalisa.uriva.deno.net"),
+  <input, output>(params: input) =>
+    withRetry(2, 500, (p: input) => communication<input, output>(p))(params),
   apiDefinition,
 );
 

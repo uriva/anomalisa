@@ -33,6 +33,18 @@ const twoAnomalies: Anomaly[] = [
   },
 ];
 
+const longUserAnomaly: Anomaly = {
+  projectId: "proj1",
+  eventName: "click",
+  bucket: "2026-04-07T09",
+  expected: 5,
+  actual: 20,
+  zScore: 4.1,
+  metric: "userSpike",
+  detectedAt: "2026-04-07T09:15:00Z",
+  userId: "this_is_a_very_long_user_id_that_should_be_truncated",
+};
+
 Deno.test("batchSubject uses specific subject for single anomaly", () => {
   assertEquals(
     batchSubject("myapp", [singleAnomaly]),
@@ -47,6 +59,13 @@ Deno.test("batchSubject shows count for multiple anomalies", () => {
   );
 });
 
+Deno.test("batchSubject truncates long user id", () => {
+  assertEquals(
+    batchSubject("myapp", [longUserAnomaly]),
+    "[myapp] User Spike: click (this_is_a_very_long_...)",
+  );
+});
+
 Deno.test("anomaliesHtml says 'Anomaly Detected' without count for single anomaly", () => {
   const html = anomaliesHtml("myapp", [singleAnomaly]);
   assertEquals(html.includes("1 Anomaly"), false);
@@ -56,6 +75,12 @@ Deno.test("anomaliesHtml says 'Anomaly Detected' without count for single anomal
 Deno.test("anomaliesHtml shows count for multiple anomalies", () => {
   const html = anomaliesHtml("myapp", twoAnomalies);
   assertEquals(html.includes("2 Anomalies Detected"), true);
+});
+
+Deno.test("anomaliesHtml truncates long user id", () => {
+  const html = anomaliesHtml("myapp", [longUserAnomaly]);
+  assertEquals(html.includes("this_is_a_very_long_user_id"), false);
+  assertEquals(html.includes("this_is_a_very_long_..."), true);
 });
 
 Deno.test("formatBucket renders human-readable date", () => {
@@ -84,4 +109,10 @@ Deno.test("anomaliesText uses formatted bucket not raw ISO", () => {
   const text = anomaliesText([singleAnomaly]);
   assertEquals(text.includes("2026-04-06T23"), false);
   assertEquals(text.includes("Mon Apr 6, 11pm UTC"), true);
+});
+
+Deno.test("anomaliesText truncates long user id", () => {
+  const text = anomaliesText([longUserAnomaly]);
+  assertEquals(text.includes("this_is_a_very_long_user_id"), false);
+  assertEquals(text.includes("this_is_a_very_long_..."), true);
 });

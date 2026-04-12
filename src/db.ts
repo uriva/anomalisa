@@ -45,18 +45,25 @@ const cacheGet = (cache: Map<string, CacheEntry>, key: string) => {
 };
 
 const parseProject = (
-  project: { id: string; name: string; token: string; webhookUrl?: string; owner?: unknown },
+  project: {
+    id: string;
+    name: string;
+    token: string;
+    webhookUrl?: string;
+    owner?: unknown;
+  },
 ): ProjectWithOwner | null => {
-  const owner = Array.isArray(project.owner)
-    ? project.owner[0]
-    : project.owner;
+  const owner = Array.isArray(project.owner) ? project.owner[0] : project.owner;
   return owner
     ? {
       id: project.id,
       name: project.name,
       token: project.token,
       webhookUrl: project.webhookUrl,
-      owner: { id: (owner as { id: string }).id, email: (owner as { email: string }).email },
+      owner: {
+        id: (owner as { id: string }).id,
+        email: (owner as { email: string }).email,
+      },
     }
     : null;
 };

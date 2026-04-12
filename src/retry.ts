@@ -4,7 +4,7 @@ export const withRetry = <T, O>(
   retries: number,
   ms: number,
   fn: (params: T) => Promise<O>,
-): ((params: T) => Promise<O>) =>
+): (params: T) => Promise<O> =>
 (params) =>
   fn(params).catch((err) =>
     retries > 0

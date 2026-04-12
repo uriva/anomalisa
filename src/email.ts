@@ -47,8 +47,18 @@ const sendEmail = async (email: Email) => {
 
 const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const months = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
 
 const hourLabel = (h: number) =>
@@ -56,7 +66,9 @@ const hourLabel = (h: number) =>
 
 export const formatBucket = (bucket: string) => {
   const d = new Date(`${bucket}:00:00Z`);
-  return `${days[d.getUTCDay()]} ${months[d.getUTCMonth()]} ${d.getUTCDate()}, ${hourLabel(d.getUTCHours())} UTC`;
+  return `${days[d.getUTCDay()]} ${
+    months[d.getUTCMonth()]
+  } ${d.getUTCDate()}, ${hourLabel(d.getUTCHours())} UTC`;
 };
 
 const metricLabel = (metric: Anomaly["metric"]) =>
@@ -80,13 +92,16 @@ const uniqueMetrics = (
 const hasUserId = (anomalies: Anomaly[]) =>
   anomalies.some(({ userId }) => userId);
 
+const truncate = (s: string, max: number) =>
+  s.length > max ? `${s.slice(0, max)}...` : s;
+
 const formatAnomaly = (showUser: boolean) =>
 (
   { eventName, bucket, expected, actual, zScore, userId }: Anomaly,
 ) =>
   `<tr>
     <td>${eventName}</td>
-    ${showUser ? `<td>${userId ?? "-"}</td>` : ""}
+    ${showUser ? `<td>${userId ? truncate(userId, 20) : "-"}</td>` : ""}
     <td>${formatBucket(bucket)}</td>
     <td>${expected}</td>
     <td>${actual}</td>
@@ -108,10 +123,12 @@ const sectionHtml = (metric: Anomaly["metric"], anomalies: Anomaly[]) => {
 };
 
 const groupByMetric = (anomalies: Anomaly[]) =>
-  uniqueMetrics(anomalies).map((metric) => [
-    metric,
-    anomalies.filter((a) => a.metric === metric),
-  ] as const);
+  uniqueMetrics(anomalies).map((metric) =>
+    [
+      metric,
+      anomalies.filter((a) => a.metric === metric),
+    ] as const
+  );
 
 export const anomaliesHtml = (projectName: string, anomalies: Anomaly[]) =>
   `<h2>${projectName}: ${
@@ -129,9 +146,9 @@ export const anomaliesHtml = (projectName: string, anomalies: Anomaly[]) =>
 const anomalyText = (
   { eventName, bucket, expected, actual, zScore, userId }: Anomaly,
 ) =>
-  `  ${eventName}${
-    userId ? ` (user: ${userId})` : ""
-  } in ${formatBucket(bucket)} — expected ${expected}, got ${actual} (score=${zScore})`;
+  `  ${eventName}${userId ? ` (user: ${truncate(userId, 20)})` : ""} in ${
+    formatBucket(bucket)
+  } — expected ${expected}, got ${actual} (score=${zScore})`;
 
 export const anomaliesText = (anomalies: Anomaly[]) =>
   groupByMetric(anomalies).map(([metric, group]) =>
@@ -143,7 +160,7 @@ const subjectLine = (
   { metric, eventName, userId }: Anomaly,
 ) =>
   `[${projectName}] ${metricLabel(metric)}: ${eventName}${
-    userId ? ` (${userId})` : ""
+    userId ? ` (${truncate(userId, 20)})` : ""
   }`;
 
 export const batchSubject = (projectName: string, anomalies: Anomaly[]) =>

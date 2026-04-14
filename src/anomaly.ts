@@ -44,6 +44,7 @@ const percentageThreshold = 1.0;
 const minAbsoluteDiff = 3;
 const countTtlMs = 7 * 24 * 60 * 60 * 1000;
 const anomalyTtlMs = 30 * 24 * 60 * 60 * 1000;
+const cooldownTtlMs = 24 * 60 * 60 * 1000;
 
 export const emptyStats = (lastBucket: string): Stats => ({
   mean: 0,
@@ -123,6 +124,16 @@ export const detectPercentageSpike = (
     : null;
 };
 
+type Direction = "high" | "low";
+
+export const anomalyDirection = (a: Anomaly): Direction =>
+  a.actual > a.expected ? "high" : "low";
+
+export const shouldSuppress = (
+  lastDirection: Direction | null,
+  anomaly: Anomaly,
+): boolean => lastDirection === anomalyDirection(anomaly);
+
 const anomalyKey = (
   { projectId, eventName, bucket, metric, userId }: Anomaly,
 ): Deno.KvKey => [
@@ -140,6 +151,34 @@ const storeAnomaly = async (anomaly: Anomaly): Promise<boolean> => {
     .check(existing)
     .set(anomalyKey(anomaly), anomaly, { expireIn: anomalyTtlMs })
     .commit()).ok;
+};
+
+const cooldownKey = (
+  { projectId, eventName, metric, userId }: Anomaly,
+): Deno.KvKey => [
+  "alertCooldown",
+  projectId,
+  eventName,
+  metric,
+  userId ?? "_",
+];
+
+const checkAndSetCooldown = async (anomaly: Anomaly): Promise<boolean> => {
+  const key = cooldownKey(anomaly);
+  const entry = await (await getKv()).get<Direction>(key);
+  const direction = anomalyDirection(anomaly);
+  if (shouldSuppress(entry.value, anomaly)) return false;
+  await (await getKv()).set(key, direction, { expireIn: cooldownTtlMs });
+  return true;
+};
+
+const storeAndFilter = async (anomalies: Anomaly[]): Promise<Anomaly[]> => {
+  const stored = await Promise.all(anomalies.map(storeAnomaly));
+  const newAnomalies = anomalies.filter((_, i) => stored[i]);
+  const unsuppressed = await Promise.all(
+    newAnomalies.map(checkAndSetCooldown),
+  );
+  return newAnomalies.filter((_, i) => unsuppressed[i]);
 };
 
 const getOrInitStats = async (
@@ -232,8 +271,8 @@ const handleBucketTransition = async (
   const perUserStats = await getOrInitStats(perUserStatsKey, bucket);
   const perUserSkippedZeros = updateStatsWithZeros(perUserStats, skippedHours);
 
-  const [stored] = await Promise.all([
-    Promise.all(anomalies.map(storeAnomaly)),
+  const [notifiable] = await Promise.all([
+    storeAndFilter(anomalies),
     (await getKv()).set(["stats", "total", projectId, eventName], {
       ...updatedStats,
       lastBucket: bucket,
@@ -244,13 +283,11 @@ const handleBucketTransition = async (
     }),
   ]);
 
-  const newAnomalies = anomalies.filter((_, i) => stored[i]);
-
-  newAnomalies.forEach((a) =>
+  notifiable.forEach((a) =>
     console.warn("ANOMALY DETECTED:", JSON.stringify(a))
   );
 
-  return newAnomalies;
+  return notifiable;
 };
 
 const trackUserSpike = async (
@@ -277,8 +314,7 @@ const trackUserSpike = async (
     userCount,
   );
 
-  const stored = userSpikeAnomaly && await storeAnomaly(userSpikeAnomaly);
-  return stored ? [userSpikeAnomaly] : [];
+  return userSpikeAnomaly ? storeAndFilter([userSpikeAnomaly]) : [];
 };
 
 export const recordEvent = async (

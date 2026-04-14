@@ -1,10 +1,12 @@
 import { assertAlmostEquals, assertEquals } from "@std/assert";
 import {
   type Anomaly,
+  anomalyDirection,
   detectAnomaly,
   detectPercentageSpike,
   emptyStats,
   hoursBetween,
+  shouldSuppress,
   stdDev,
   updateStats,
   updateStatsWithZeros,
@@ -285,4 +287,87 @@ Deno.test("rare event with long gap — percentage spike detects after zeros fil
   );
   const anomaly = detectPercentageSpike(stats, 20, "proj1", "credits");
   assertEquals(anomaly !== null, true);
+});
+
+Deno.test("level shift — detectAnomaly fires multiple consecutive hours during transition (reproduces alert spam)", () => {
+  const normalValues = [
+    8, 12, 9, 11, 10, 13, 7, 11, 10, 9, 8, 12, 10, 11, 9, 10, 13, 8, 11, 10,
+    12, 9, 10, 11,
+  ];
+  const newRate = 50;
+
+  let stats = emptyStats("2026-01-01T00");
+  for (const v of normalValues) {
+    stats = updateStats(stats, v);
+  }
+
+  const consecutiveAlerts: boolean[] = [];
+  for (let hour = 0; hour < 10; hour++) {
+    const anomaly = detectAnomaly(
+      stats,
+      newRate,
+      "proj1",
+      "orders",
+      "totalCount",
+    );
+    consecutiveAlerts.push(anomaly !== null);
+    stats = updateStats(stats, newRate);
+  }
+
+  const alertCount = consecutiveAlerts.filter((x) => x).length;
+  assertEquals(
+    alertCount >= 5,
+    true,
+    `Expected at least 5 consecutive alerts during level shift, got ${alertCount}`,
+  );
+});
+
+Deno.test("anomalyDirection — high when actual > expected", () => {
+  assertEquals(
+    anomalyDirection({
+      actual: 50,
+      expected: 10,
+    } as Anomaly),
+    "high",
+  );
+});
+
+Deno.test("anomalyDirection — low when actual < expected", () => {
+  assertEquals(
+    anomalyDirection({
+      actual: 0,
+      expected: 100,
+    } as Anomaly),
+    "low",
+  );
+});
+
+Deno.test("shouldSuppress — returns true for same direction", () => {
+  assertEquals(
+    shouldSuppress("high", {
+      actual: 50,
+      expected: 10,
+    } as Anomaly),
+    true,
+  );
+});
+
+Deno.test("shouldSuppress — returns false for opposite direction", () => {
+  assertEquals(
+    shouldSuppress("high", {
+      actual: 0,
+      expected: 100,
+    } as Anomaly),
+    false,
+  );
+});
+
+Deno.test("shouldSuppress — returns false when no previous direction", () => {
+  assertEquals(
+    shouldSuppress(null, {
+      actual: 50,
+      expected: 10,
+    } as Anomaly),
+    false,
+  );
 });

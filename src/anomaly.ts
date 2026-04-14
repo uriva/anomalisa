@@ -124,15 +124,28 @@ export const detectPercentageSpike = (
     : null;
 };
 
-type Direction = "high" | "low";
+export type Direction = "high" | "low";
+
+export type CooldownEntry = { direction: Direction; actual: number };
+
+const escalationFactor = 2;
 
 export const anomalyDirection = (a: Anomaly): Direction =>
   a.actual > a.expected ? "high" : "low";
 
 export const shouldSuppress = (
-  lastDirection: Direction | null,
+  lastEntry: CooldownEntry | null,
   anomaly: Anomaly,
-): boolean => lastDirection === anomalyDirection(anomaly);
+): boolean => {
+  if (!lastEntry) return false;
+  const direction = anomalyDirection(anomaly);
+  if (lastEntry.direction !== direction) return false;
+  const isEscalation = direction === "high"
+    ? anomaly.actual > lastEntry.actual * escalationFactor
+    : anomaly.actual < lastEntry.actual / escalationFactor;
+  if (isEscalation) return false;
+  return true;
+};
 
 const anomalyKey = (
   { projectId, eventName, bucket, metric, userId }: Anomaly,
@@ -165,10 +178,17 @@ const cooldownKey = (
 
 const checkAndSetCooldown = async (anomaly: Anomaly): Promise<boolean> => {
   const key = cooldownKey(anomaly);
-  const entry = await (await getKv()).get<Direction>(key);
+  const entry = await (await getKv()).get<CooldownEntry | Direction>(key);
   const direction = anomalyDirection(anomaly);
-  if (shouldSuppress(entry.value, anomaly)) return false;
-  await (await getKv()).set(key, direction, { expireIn: cooldownTtlMs });
+  const lastEntry = entry.value
+    ? (typeof entry.value === "string"
+      ? { direction: entry.value as Direction, actual: Infinity }
+      : entry.value)
+    : null;
+  if (shouldSuppress(lastEntry, anomaly)) return false;
+  await (await getKv()).set(key, { direction, actual: anomaly.actual }, {
+    expireIn: cooldownTtlMs,
+  });
   return true;
 };
 

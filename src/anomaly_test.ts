@@ -1,6 +1,7 @@
 import { assertAlmostEquals, assertEquals } from "@std/assert";
 import {
   type Anomaly,
+  type CooldownEntry,
   anomalyDirection,
   detectAnomaly,
   detectPercentageSpike,
@@ -342,11 +343,11 @@ Deno.test("anomalyDirection — low when actual < expected", () => {
   );
 });
 
-Deno.test("shouldSuppress — returns true for same direction", () => {
+Deno.test("shouldSuppress — returns true for same direction, same magnitude", () => {
   assertEquals(
-    shouldSuppress("high", {
-      actual: 50,
-      expected: 10,
+    shouldSuppress({ direction: "high", actual: 2 }, {
+      actual: 3,
+      expected: 0.1,
     } as Anomaly),
     true,
   );
@@ -354,7 +355,7 @@ Deno.test("shouldSuppress — returns true for same direction", () => {
 
 Deno.test("shouldSuppress — returns false for opposite direction", () => {
   assertEquals(
-    shouldSuppress("high", {
+    shouldSuppress({ direction: "high", actual: 50 }, {
       actual: 0,
       expected: 100,
     } as Anomaly),
@@ -362,11 +363,51 @@ Deno.test("shouldSuppress — returns false for opposite direction", () => {
   );
 });
 
-Deno.test("shouldSuppress — returns false when no previous direction", () => {
+Deno.test("shouldSuppress — returns false when no previous entry", () => {
   assertEquals(
     shouldSuppress(null, {
       actual: 50,
       expected: 10,
+    } as Anomaly),
+    false,
+  );
+});
+
+Deno.test("shouldSuppress — escalation: same direction but much higher actual is NOT suppressed", () => {
+  assertEquals(
+    shouldSuppress({ direction: "high", actual: 2 }, {
+      actual: 10,
+      expected: 0.1,
+    } as Anomaly),
+    false,
+  );
+});
+
+Deno.test("shouldSuppress — escalation: doubling still suppressed (boundary)", () => {
+  assertEquals(
+    shouldSuppress({ direction: "high", actual: 4 }, {
+      actual: 8,
+      expected: 0.1,
+    } as Anomaly),
+    true,
+  );
+});
+
+Deno.test("shouldSuppress — escalation: just over 2x is NOT suppressed", () => {
+  assertEquals(
+    shouldSuppress({ direction: "high", actual: 4 }, {
+      actual: 9,
+      expected: 0.1,
+    } as Anomaly),
+    false,
+  );
+});
+
+Deno.test("shouldSuppress — escalation: low direction escalation also not suppressed", () => {
+  assertEquals(
+    shouldSuppress({ direction: "low", actual: 100 }, {
+      actual: 10,
+      expected: 50,
     } as Anomaly),
     false,
   );

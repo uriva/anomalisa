@@ -76,6 +76,8 @@ const metricLabel = (metric: Anomaly["metric"]) =>
     ? "User Spike"
     : metric === "percentageSpike"
     ? "Percentage Spike"
+    : metric === "percentageDrop"
+    ? "Percentage Drop"
     : "Total Count";
 
 const metricExplanation = (metric: Anomaly["metric"]) =>
@@ -83,6 +85,8 @@ const metricExplanation = (metric: Anomaly["metric"]) =>
     ? "A single user sent way more events than usual for this hour."
     : metric === "percentageSpike"
     ? "Event count jumped by an unusually large percentage compared to the hourly average."
+    : metric === "percentageDrop"
+    ? "Event count dropped by an unusually large percentage compared to the hourly average."
     : "The total event count for this hour is statistically unusual (z-score > 2).";
 
 const uniqueMetrics = (

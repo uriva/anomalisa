@@ -45,11 +45,35 @@ const longUserAnomaly: Anomaly = {
   userId: "this_is_a_very_long_user_id_that_should_be_truncated",
 };
 
+const dropAnomaly: Anomaly = {
+  projectId: "proj1",
+  eventName: "Chat Message",
+  bucket: "2026-04-17T09",
+  expected: 66,
+  actual: 0,
+  zScore: 1,
+  metric: "percentageDrop",
+  detectedAt: "2026-04-17T10:05:00Z",
+};
+
 Deno.test("batchSubject uses specific subject for single anomaly", () => {
   assertEquals(
     batchSubject("myapp", [singleAnomaly]),
     "[myapp] Total Count: login",
   );
+});
+
+Deno.test("batchSubject labels percentageDrop as Percentage Drop", () => {
+  assertEquals(
+    batchSubject("myapp", [dropAnomaly]),
+    "[myapp] Percentage Drop: Chat Message",
+  );
+});
+
+Deno.test("anomaliesHtml renders percentageDrop section", () => {
+  const html = anomaliesHtml("myapp", [dropAnomaly]);
+  assertEquals(html.includes("Percentage Drop"), true);
+  assertEquals(html.includes("dropped"), true);
 });
 
 Deno.test("batchSubject shows count for multiple anomalies", () => {

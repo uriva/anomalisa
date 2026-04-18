@@ -4,7 +4,9 @@ import {
   type CooldownEntry,
   anomalyDirection,
   detectAnomaly,
+  detectPercentageDrop,
   detectPercentageSpike,
+  detectSkippedHourAnomalies,
   emptyStats,
   hoursBetween,
   shouldSuppress,
@@ -221,6 +223,110 @@ Deno.test("detectPercentageSpike — catches doubling that z-score misses in noi
   const pctResult = detectPercentageSpike(stats, doubled, "proj1", "error");
   assertEquals(zScoreResult, null);
   assertEquals(pctResult !== null, true);
+});
+
+Deno.test("detectPercentageDrop — returns null when n < 3", () => {
+  assertEquals(
+    detectPercentageDrop(buildStats([10, 10], "2026-01-01T02"), 0, "p", "e"),
+    null,
+  );
+});
+
+Deno.test("detectPercentageDrop — returns null for normal value", () => {
+  assertEquals(
+    detectPercentageDrop(
+      buildStats([10, 12, 11, 10, 13], "2026-01-01T04"),
+      9,
+      "p",
+      "e",
+    ),
+    null,
+  );
+});
+
+Deno.test("detectPercentageDrop — detects halving", () => {
+  const result = detectPercentageDrop(
+    buildStats([100, 110, 90, 105, 95], "2026-01-01T04"),
+    30,
+    "p",
+    "e",
+  );
+  assertEquals(result !== null, true);
+  assertEquals((result as Anomaly).metric, "percentageDrop");
+  assertEquals((result as Anomaly).actual, 30);
+});
+
+Deno.test("detectPercentageDrop — detects drop to zero with high mean", () => {
+  const result = detectPercentageDrop(
+    buildStats([66, 70, 60, 80, 55], "2026-04-17T09"),
+    0,
+    "p",
+    "Chat Message",
+  );
+  assertEquals(result !== null, true);
+  assertEquals((result as Anomaly).actual, 0);
+});
+
+Deno.test("detectPercentageDrop — returns null when absolute diff below threshold", () => {
+  assertEquals(
+    detectPercentageDrop(
+      buildStats([5, 5, 5, 5], "2026-01-01T04"),
+      3,
+      "p",
+      "e",
+    ),
+    null,
+  );
+});
+
+Deno.test("detectPercentageDrop — returns null when mean is 0", () => {
+  assertEquals(
+    detectPercentageDrop(buildStats([0, 0, 0, 0], "2026-01-01T04"), 0, "p", "e"),
+    null,
+  );
+});
+
+Deno.test("detectPercentageDrop — catches halving that z-score misses in noisy data", () => {
+  const stats = buildStats([30, 80, 120, 40, 200, 60, 90, 150], "2026-01-01T04");
+  const halved = Math.floor(stats.mean / 3);
+  const zRes = detectAnomaly(stats, halved, "p", "e", "totalCount");
+  const pctRes = detectPercentageDrop(stats, halved, "p", "e");
+  assertEquals(zRes, null);
+  assertEquals(pctRes !== null, true);
+});
+
+Deno.test("detectSkippedHourAnomalies — empty when no skipped hours", () => {
+  assertEquals(
+    detectSkippedHourAnomalies(
+      buildStats([10, 10, 10], "2026-01-01T03"),
+      0,
+      "p",
+      "e",
+    ),
+    [],
+  );
+});
+
+Deno.test("detectSkippedHourAnomalies — detects drop for find-scene scenario", () => {
+  const stats = buildStats(
+    [42, 46, 197, 103, 75, 57, 83, 88, 34, 86, 146, 208, 147, 216, 63, 127, 235, 201, 171, 25, 235, 225, 60, 51],
+    "2026-04-17T08",
+  );
+  const result = detectSkippedHourAnomalies(stats, 10, "p", "Chat Message");
+  assertEquals(result.length > 0, true);
+  assertEquals(result.every((a: Anomaly) => a.actual === 0), true);
+});
+
+Deno.test("detectSkippedHourAnomalies — no anomaly when mean is already zero", () => {
+  assertEquals(
+    detectSkippedHourAnomalies(
+      buildStats([0, 0, 0, 0], "2026-01-01T03"),
+      3,
+      "p",
+      "e",
+    ),
+    [],
+  );
 });
 
 Deno.test("hoursBetween — consecutive hours", () => {

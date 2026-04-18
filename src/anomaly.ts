@@ -8,7 +8,7 @@ type Stats = {
   lastBucket: string;
 };
 
-type Metric = "totalCount" | "userSpike" | "percentageSpike";
+type Metric = "totalCount" | "userSpike" | "percentageSpike" | "percentageDrop";
 
 export type Anomaly = {
   projectId: string;
@@ -123,6 +123,64 @@ export const detectPercentageSpike = (
     }
     : null;
 };
+
+export const detectPercentageDrop = (
+  stats: Stats,
+  count: number,
+  projectId: string,
+  eventName: string,
+): Anomaly | null => {
+  if (stats.n < minDataPoints) return null;
+  if (stats.mean <= 0) return null;
+  const pctChange = (stats.mean - count) / stats.mean;
+  return pctChange > percentageThreshold / 2 &&
+      stats.mean - count >= minAbsoluteDiff
+    ? {
+      projectId,
+      eventName,
+      bucket: stats.lastBucket,
+      expected: round2(stats.mean),
+      actual: count,
+      zScore: round2(pctChange),
+      detectedAt: new Date().toISOString(),
+      metric: "percentageDrop",
+    }
+    : null;
+};
+
+const detectSkippedHour = (
+  stats: Stats,
+  projectId: string,
+  eventName: string,
+): Anomaly[] =>
+  [
+    detectAnomaly(stats, 0, projectId, eventName, "totalCount"),
+    detectPercentageDrop(stats, 0, projectId, eventName),
+  ].filter((a): a is Anomaly => a !== null);
+
+const skippedHourStep = (
+  projectId: string,
+  eventName: string,
+) =>
+(
+  { stats, anomalies }: { stats: Stats; anomalies: Anomaly[] },
+): { stats: Stats; anomalies: Anomaly[] } => ({
+  stats: updateStats(stats, 0),
+  anomalies: [...anomalies, ...detectSkippedHour(stats, projectId, eventName)],
+});
+
+export const detectSkippedHourAnomalies = (
+  stats: Stats,
+  skippedHours: number,
+  projectId: string,
+  eventName: string,
+): Anomaly[] =>
+  Array.from({ length: skippedHours }).reduce<
+    { stats: Stats; anomalies: Anomaly[] }
+  >(
+    skippedHourStep(projectId, eventName),
+    { stats, anomalies: [] },
+  ).anomalies;
 
 export type Direction = "high" | "low";
 
@@ -265,6 +323,7 @@ const handleBucketTransition = async (
   const updatedStats = updateStats(statsWithZeros, prevTotalCount);
 
   const anomalies = [
+    ...detectSkippedHourAnomalies(stats, skippedHours, projectId, eventName),
     detectAnomaly(
       statsWithZeros,
       prevTotalCount,
@@ -273,6 +332,12 @@ const handleBucketTransition = async (
       "totalCount",
     ),
     detectPercentageSpike(
+      statsWithZeros,
+      prevTotalCount,
+      projectId,
+      eventName,
+    ),
+    detectPercentageDrop(
       statsWithZeros,
       prevTotalCount,
       projectId,

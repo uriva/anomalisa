@@ -4,6 +4,7 @@ import {
   type CooldownEntry,
   anomalyDirection,
   detectAnomaly,
+  detectBucketAnomalies,
   detectPercentageDrop,
   detectPercentageSpike,
   detectSkippedHourAnomalies,
@@ -284,6 +285,19 @@ Deno.test("detectPercentageDrop — returns null when mean is 0", () => {
     detectPercentageDrop(buildStats([0, 0, 0, 0], "2026-01-01T04"), 0, "p", "e"),
     null,
   );
+});
+
+Deno.test("detectBucketAnomalies — does not fire percentageDrop for quiet hour consistent with per-hour-of-day history", () => {
+  // Global stats mix busy daytime hours with quiet midnight hours,
+  // but per-hour stats for midnight show a low mean (~1.5).
+  // Getting 1 event at midnight should not trigger a percentageDrop.
+  const globalStats = buildStats(
+    [2, 1, 1, 2, 1, 2, 1, ...Array.from({ length: 17 }, () => 100)],
+    "2026-04-20T00",
+  );
+  const midnightHourStats = buildStats([2, 1, 1, 2, 1, 2], "2026-04-19T00");
+  const result = detectBucketAnomalies(globalStats, midnightHourStats, 1, 0, "p", "Chat Message");
+  assertEquals(result.some((a: Anomaly) => a.metric === "percentageDrop"), false);
 });
 
 Deno.test("detectPercentageDrop — catches halving that z-score misses in noisy data", () => {

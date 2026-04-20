@@ -182,6 +182,23 @@ export const detectSkippedHourAnomalies = (
     { stats, anomalies: [] },
   ).anomalies;
 
+export const detectBucketAnomalies = (
+  stats: Stats,
+  hourStats: Stats,
+  prevTotalCount: number,
+  skippedHours: number,
+  projectId: string,
+  eventName: string,
+): Anomaly[] => {
+  const statsWithZeros = updateStatsWithZeros(stats, skippedHours);
+  return [
+    ...detectSkippedHourAnomalies(stats, skippedHours, projectId, eventName),
+    detectAnomaly(statsWithZeros, prevTotalCount, projectId, eventName, "totalCount"),
+    detectPercentageSpike(statsWithZeros, prevTotalCount, projectId, eventName),
+    detectPercentageDrop(hourStats, prevTotalCount, projectId, eventName),
+  ].filter((a): a is Anomaly => a !== null);
+};
+
 export type Direction = "high" | "low";
 
 export type CooldownEntry = { direction: Direction; actual: number };
@@ -322,28 +339,18 @@ const handleBucketTransition = async (
   const statsWithZeros = updateStatsWithZeros(stats, skippedHours);
   const updatedStats = updateStats(statsWithZeros, prevTotalCount);
 
-  const anomalies = [
-    ...detectSkippedHourAnomalies(stats, skippedHours, projectId, eventName),
-    detectAnomaly(
-      statsWithZeros,
-      prevTotalCount,
-      projectId,
-      eventName,
-      "totalCount",
-    ),
-    detectPercentageSpike(
-      statsWithZeros,
-      prevTotalCount,
-      projectId,
-      eventName,
-    ),
-    detectPercentageDrop(
-      statsWithZeros,
-      prevTotalCount,
-      projectId,
-      eventName,
-    ),
-  ].filter((a): a is Anomaly => a !== null);
+  const prevHourOfDay = parseInt(stats.lastBucket.slice(-2), 10);
+  const hourStatsKey = ["stats", "byHour", projectId, eventName, prevHourOfDay];
+  const hourStats = await getOrInitStats(hourStatsKey, stats.lastBucket);
+
+  const anomalies = detectBucketAnomalies(
+    stats,
+    hourStats,
+    prevTotalCount,
+    skippedHours,
+    projectId,
+    eventName,
+  );
 
   const prevMaxUserCount = (await (await getKv()).get<number>([
     "maxUserCount",
@@ -366,6 +373,7 @@ const handleBucketTransition = async (
       ...updateStats(perUserSkippedZeros, prevMaxUserCount),
       lastBucket: bucket,
     }),
+    (await getKv()).set(hourStatsKey, updateStats(hourStats, prevTotalCount)),
   ]);
 
   notifiable.forEach((a) =>

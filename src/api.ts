@@ -26,7 +26,12 @@ export const apiDefinition = {
           actual: z.number(),
           zScore: z.number(),
           detectedAt: z.string(),
-          metric: z.enum(["totalCount", "userSpike", "percentageSpike"]),
+          metric: z.enum([
+            "totalCount",
+            "userSpike",
+            "percentageSpike",
+            "percentageDrop",
+          ]),
           userId: z.string().optional(),
         }),
       ),

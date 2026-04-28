@@ -245,6 +245,18 @@ Deno.test("detectPercentageDrop — returns null for normal value", () => {
   );
 });
 
+Deno.test("detectPercentageDrop — ignores low-volume drops", () => {
+  assertEquals(
+    detectPercentageDrop(
+      buildStats([12, 12, 12, 12], "2026-01-01T04"),
+      4,
+      "p",
+      "e",
+    ),
+    null,
+  );
+});
+
 Deno.test("detectPercentageDrop — detects halving", () => {
   const result = detectPercentageDrop(
     buildStats([100, 110, 90, 105, 95], "2026-01-01T04"),

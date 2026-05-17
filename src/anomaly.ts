@@ -77,6 +77,7 @@ export const detectAnomaly = (
   userId?: string,
 ): Anomaly | null => {
   if (stats.n < minDataPoints) return null;
+  if (metric === "userSpike" && count < 2) return null;
   const sd = stdDev(stats);
   const z = sd > 0
     ? Math.abs(count - stats.mean) / sd
@@ -194,7 +195,13 @@ export const detectBucketAnomalies = (
   const statsWithZeros = updateStatsWithZeros(stats, skippedHours);
   return [
     ...detectSkippedHourAnomalies(stats, skippedHours, projectId, eventName),
-    detectAnomaly(statsWithZeros, prevTotalCount, projectId, eventName, "totalCount"),
+    detectAnomaly(
+      statsWithZeros,
+      prevTotalCount,
+      projectId,
+      eventName,
+      "totalCount",
+    ),
     detectPercentageSpike(statsWithZeros, prevTotalCount, projectId, eventName),
     detectPercentageDrop(hourStats, prevTotalCount, projectId, eventName),
   ].filter((a): a is Anomaly => a !== null);

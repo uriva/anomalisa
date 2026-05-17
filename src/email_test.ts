@@ -5,7 +5,32 @@ import {
   anomaliesText,
   batchSubject,
   formatBucket,
+  sendAnomalyAlerts,
 } from "./email.ts";
+
+const mockFetch = (
+  _input: string | Request | URL,
+  _init?: RequestInit,
+): Promise<Response> => Promise.resolve(new Response("OK", { status: 200 }));
+
+const withMockFetch = async <T>(fn: () => Promise<T>): Promise<T> => {
+  const original = globalThis.fetch;
+  globalThis.fetch = mockFetch as typeof fetch;
+  try {
+    return await fn();
+  } finally {
+    globalThis.fetch = original;
+  }
+};
+
+const clearEmailCounts = async () => {
+  const kv = await Deno.openKv();
+  const entries = kv.list<number>({ prefix: ["emailCount"] });
+  for await (const entry of entries) {
+    await kv.delete(entry.key);
+  }
+  kv.close();
+};
 
 const singleAnomaly: Anomaly = {
   projectId: "proj1",
@@ -143,4 +168,74 @@ Deno.test("anomaliesText truncates long user id", () => {
   const text = anomaliesText([longUserAnomaly]);
   assertEquals(text.includes("this_is_a_very_long_user_id"), false);
   assertEquals(text.includes("this_is_a_very_long_..."), true);
+});
+
+Deno.test({
+  name: "sendAnomalyAlerts — rate limits per project+event",
+  sanitizeResources: false,
+  fn: async () => {
+  const kv = await Deno.openKv();
+  const clear = async () => {
+    const entries = kv.list<number>({ prefix: ["emailCount"] });
+    for await (const entry of entries) {
+      await kv.delete(entry.key);
+    }
+  };
+  await clear();
+
+  const anomaly = (
+    eventName: string,
+    projectName: string,
+    day: string,
+  ): Anomaly => ({
+    projectId: "p1",
+    eventName,
+    bucket: `${day}T00`,
+    expected: 1,
+    actual: 5,
+    zScore: 3,
+    metric: "totalCount",
+    detectedAt: `${day}T00:00:00Z`,
+  });
+
+  await withMockFetch(async () => {
+    // allows up to 5 for same project+event
+    const errA = anomaly("error", "proj", "2026-01-01");
+    for (let i = 0; i < 5; i++) {
+      await sendAnomalyAlerts("a@b.com", "proj", [errA]);
+    }
+
+    // blocks 6th for same project+event
+    let blocked = false;
+    const errB = anomaly("error", "proj", "2026-01-02");
+    for (let i = 0; i < 6; i++) {
+      const result = await sendAnomalyAlerts("a2@b.com", "proj", [errB]);
+      if (result === undefined && i === 5) blocked = true;
+    }
+    assertEquals(blocked, true);
+
+    // different event type has its own quota
+    let sixthAllowed = false;
+    const errC = anomaly("error", "proj", "2026-01-03");
+    const signupC = anomaly("signup", "proj", "2026-01-03");
+    for (let i = 0; i < 5; i++) {
+      await sendAnomalyAlerts("a3@b.com", "proj", [errC]);
+    }
+    sixthAllowed =
+      (await sendAnomalyAlerts("a3@b.com", "proj", [signupC])) !== undefined;
+    assertEquals(sixthAllowed, true);
+
+    // different project has its own quota
+    let sixthAllowedProj = false;
+    const errD = anomaly("error", "projA", "2026-01-04");
+    for (let i = 0; i < 5; i++) {
+      await sendAnomalyAlerts("a4@b.com", "projA", [errD]);
+    }
+    sixthAllowedProj =
+      (await sendAnomalyAlerts("a4@b.com", "projB", [errD])) !== undefined;
+    assertEquals(sixthAllowedProj, true);
+  });
+
+  kv.close();
+  },
 });

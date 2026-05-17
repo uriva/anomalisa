@@ -5,7 +5,7 @@
     "jsr:@std/assert@^1.0.19": "1.0.19",
     "jsr:@std/internal@^1.0.12": "1.0.12",
     "jsr:@uri/typed-api@0.0.11": "0.0.11",
-    "npm:@instantdb/admin@0.22.135": "0.22.135",
+    "npm:@instantdb/admin@1.0.21": "1.0.21",
     "npm:gamla@124.0.0": "124.0.0",
     "npm:zod@3.25.57": "3.25.57"
   },
@@ -27,38 +27,38 @@
     }
   },
   "npm": {
-    "@instantdb/admin@0.22.135": {
-      "integrity": "sha512-Je0PVwpWw24OMaiQCawWmz9WBlSQli7vp3kWA881tPauOR5vY5yuNRzE6G+sXXdykcZ9fgizgIPaCyBkJYmTBA==",
+    "@instantdb/admin@1.0.21": {
+      "integrity": "sha512-HOnE6i+lq/LNOouaSqatHYGwKLSowgMCM0aBYiIieDo45x8DHN5Lx2sDnanad4eNzA4OBVffI2ExBDRIh+opQg==",
       "dependencies": [
         "@instantdb/core",
+        "@instantdb/eventsource",
         "@instantdb/version",
         "cookie",
-        "eventsource",
         "uuid"
       ]
     },
-    "@instantdb/core@0.22.135": {
-      "integrity": "sha512-ZcmPGrYNCZRC5SgPcGjtPsnXw5visqjgJVvGEmBBxI6j9OB28VXZjcebtWMZCjdedTJ4ZL1da0dRitw/bGr7cQ==",
+    "@instantdb/core@1.0.21": {
+      "integrity": "sha512-JDzFJZiQb9Vj0SR/6sJ4R0mXea/LhKU27vOj3H6U39WrIbzCqvk3T2vBsy4VfimSRSDHgOTis+0sZjDr7aa9/Q==",
       "dependencies": [
         "@instantdb/version",
         "mutative",
         "uuid"
       ]
     },
-    "@instantdb/version@0.22.135": {
-      "integrity": "sha512-bd1ajyf0zjLJ/BU0tWmytYEhVF3yCySa+gbo8MCjaSytJECX6sP9blGXCIs5seIWYIH00iS+Lw0YfDik5PxlCw=="
+    "@instantdb/eventsource@4.1.0-2": {
+      "integrity": "sha512-k2uzhsRzdD7hzV3fv+eoCRNeluZcj4pDfUKKAhvIS6xshc7zHkaM9/m3vxBgaYoNVmvOyaGp84TcHG0/Bp7k4g==",
+      "dependencies": [
+        "eventsource-parser"
+      ]
+    },
+    "@instantdb/version@1.0.21": {
+      "integrity": "sha512-55Vr4KKaAeRoyajE8g9FiAe6POvSFOSeebdPn4NWdCwodAX+ILSz75+0U0thQqa6RImp84LJkooRlyF/hUMH5g=="
     },
     "cookie@1.1.1": {
       "integrity": "sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ=="
     },
-    "eventsource-parser@3.0.6": {
-      "integrity": "sha512-Vo1ab+QXPzZ4tCa8SwIHJFaSzy4R6SHf7BY79rFBDf0idraZWAkYrDjDj8uWaSm3S2TK+hJ7/t1CEmZ7jXw+pg=="
-    },
-    "eventsource@4.1.0": {
-      "integrity": "sha512-2GuF51iuHX6A9xdTccMTsNb7VO0lHZihApxhvQzJB5A03DvHDd2FQepodbMaztPBmBcE/ox7o2gqaxGhYB9LhQ==",
-      "dependencies": [
-        "eventsource-parser"
-      ]
+    "eventsource-parser@3.0.8": {
+      "integrity": "sha512-70QWGkr4snxr0OXLRWsFLeRBIRPuQOvt4s8QYjmUlmlkyTZkRqS7EDVRZtzU3TiyDbXSzaOeF0XUKy8PchzukQ=="
     },
     "gamla@124.0.0": {
       "integrity": "sha512-LYU7xy9QlSpmtdXtphxeGb0XlFXGbYkYcUUXSWNLu4CZjHQnyFAecp0U6fwGP0byTsgrQPsn74WrRCOU/pCU0g==",
@@ -72,8 +72,8 @@
     "stable-hash@0.0.6": {
       "integrity": "sha512-0afH4mobqTybYZsXImQRLOjHV4gvOW+92HdUIax9t7a8d9v54KWykEuMVIcXhD9BCi+w3kS4x7O6fmZQ3JlG/g=="
     },
-    "uuid@11.1.0": {
-      "integrity": "sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A==",
+    "uuid@11.1.1": {
+      "integrity": "sha512-vIYxrBCC/N/K+Js3qSN88go7kIfNPssr/hHCesKCQNAjmgvYS2oqr69kIufEG+O4+PfezOH4EbIeHCfFov8ZgQ==",
       "bin": true
     },
     "zod@3.25.57": {
@@ -84,7 +84,7 @@
     "dependencies": [
       "jsr:@std/assert@^1.0.19",
       "jsr:@uri/typed-api@0.0.11",
-      "npm:@instantdb/admin@0.22.135",
+      "npm:@instantdb/admin@1.0.21",
       "npm:gamla@124.0.0",
       "npm:zod@3.25.57"
     ]

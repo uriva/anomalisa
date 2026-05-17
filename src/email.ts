@@ -17,14 +17,30 @@ type Email = {
 
 const getDayBucket = (): string => new Date().toISOString().slice(0, 10);
 
-const incrementEmailCount = async (to: string): Promise<number> => {
-  const key = ["emailCount", to, getDayBucket()];
-  const entry = await (await getKv()).get<number>(key);
-  const count = (entry.value ?? 0) + 1;
-  await (await getKv()).atomic().check(entry).set(key, count, {
-    expireIn: 24 * 60 * 60 * 1000,
-  }).commit();
-  return count;
+const emailCountKey = (
+  toEmail: string,
+  projectName: string,
+  eventName: string,
+): Deno.KvKey => ["emailCount", toEmail, projectName, eventName, getDayBucket()];
+
+const incrementEmailCounts = async (
+  toEmail: string,
+  projectName: string,
+  eventNames: string[],
+): Promise<boolean> => {
+  const kv = await getKv();
+  for (const eventName of eventNames) {
+    const entry = await kv.get<number>(emailCountKey(toEmail, projectName, eventName));
+    if ((entry.value ?? 0) >= maxEmailsPerDay) return false;
+  }
+  for (const eventName of eventNames) {
+    const key = emailCountKey(toEmail, projectName, eventName);
+    const entry = await kv.get<number>(key);
+    await kv.set(key, (entry.value ?? 0) + 1, {
+      expireIn: 24 * 60 * 60 * 1000,
+    });
+  }
+  return true;
 };
 
 const sendEmail = async (email: Email) => {
@@ -178,10 +194,11 @@ export const sendAnomalyAlerts = async (
   projectName: string,
   anomalies: Anomaly[],
 ) => {
-  const count = await incrementEmailCount(toEmail);
-  if (count > maxEmailsPerDay) {
+  const eventNames = [...new Set(anomalies.map(({ eventName }) => eventName))];
+  const canSend = await incrementEmailCounts(toEmail, projectName, eventNames);
+  if (!canSend) {
     console.log(
-      `Email limit reached for ${toEmail} (${count}/${maxEmailsPerDay})`,
+      `Email limit reached for ${toEmail} / ${projectName}`,
     );
     return;
   }

@@ -1,5 +1,38 @@
 import type { Anomaly } from "./anomaly.ts";
 
+type BucketCount = { bucket: string; count: number };
+export type EventCounts = Record<string, BucketCount[]>;
+
+const sparkLevels = "▁▂▃▄▅▆▇█";
+
+const sparkHtml = (counts: number[], anomalyIndex: number) => {
+  const max = Math.max(...counts);
+  const min = Math.min(...counts);
+  const range = max - min || 1;
+  const chars = counts.map((c) =>
+    sparkLevels[Math.round(((c - min) / range) * (sparkLevels.length - 1))]
+  );
+  const before = chars.slice(0, anomalyIndex).join("");
+  const at = chars[anomalyIndex] || "";
+  const after = chars.slice(anomalyIndex + 1).join("");
+  return `<span style="font-family:monospace;font-size:14px;">` +
+    `<span style="color:#cbd5e0;">${before}</span>` +
+    `<span style="color:#e53e3e;">${at}</span>` +
+    `<span style="color:#cbd5e0;">${after}</span>` +
+    `</span>`;
+};
+
+const sparkText = (counts: number[], anomalyIndex: number) => {
+  const max = Math.max(...counts);
+  const min = Math.min(...counts);
+  const range = max - min || 1;
+  return counts.map((c, i) =>
+    i === anomalyIndex
+      ? `[${sparkLevels[Math.round(((c - min) / range) * (sparkLevels.length - 1))]}]`
+      : sparkLevels[Math.round(((c - min) / range) * (sparkLevels.length - 1))]
+  ).join("");
+};
+
 const apiKey = Deno.env.get("FORWARD_EMAIL_API_KEY") ?? "";
 const emailDomain = Deno.env.get("EMAIL_DOMAIN") ?? "";
 const authHeader = `Basic ${btoa(apiKey + ":")}`;
@@ -116,12 +149,12 @@ const hasUserId = (anomalies: Anomaly[]) =>
 const truncate = (s: string, max: number) =>
   s.length > max ? `${s.slice(0, max)}...` : s;
 
-const formatAnomaly = (showUser: boolean) =>
+const formatAnomaly = (showUser: boolean, sparklines: Record<string, string>) =>
 (
   { eventName, bucket, expected, actual, zScore, userId }: Anomaly,
 ) =>
   `<tr>
-    <td>${eventName}</td>
+    <td>${eventName}${sparklines[eventName] ? ` ${sparklines[eventName]}` : ""}</td>
     ${showUser ? `<td>${userId ? truncate(userId, 20) : "-"}</td>` : ""}
     <td>${formatBucket(bucket)}</td>
     <td>${expected}</td>
@@ -129,7 +162,11 @@ const formatAnomaly = (showUser: boolean) =>
     <td>${zScore}</td>
   </tr>`;
 
-const sectionHtml = (metric: Anomaly["metric"], anomalies: Anomaly[]) => {
+const sectionHtml = (
+  metric: Anomaly["metric"],
+  anomalies: Anomaly[],
+  sparklines: Record<string, string>,
+) => {
   const showUser = hasUserId(anomalies);
   return `<h3 style="margin-top:1.5rem;">${metricLabel(metric)}</h3>
   <p style="margin:0.25rem 0 0.5rem;font-size:0.9em;color:#666;">${
@@ -139,10 +176,37 @@ const sectionHtml = (metric: Anomaly["metric"], anomalies: Anomaly[]) => {
     <tr><th>Event</th>${
     showUser ? "<th>User</th>" : ""
   }<th>Bucket</th><th>Expected</th><th>Actual</th><th>Score</th></tr>
-    ${anomalies.map(formatAnomaly(showUser)).join("\n    ")}
+    ${anomalies.map(formatAnomaly(showUser, sparklines)).join("\n    ")}
   </table>`;
 };
 
+const buildSparklines = (
+  anomalies: Anomaly[],
+  counts: EventCounts,
+  render: (counts: number[], anomalyIndex: number) => string,
+): Record<string, string> => {
+  const eventNames = [...new Set(anomalies.map(({ eventName }) => eventName))];
+  const result: Record<string, string> = {};
+  for (const eventName of eventNames) {
+    const buckets = counts[eventName];
+    if (!buckets || buckets.length < 2) continue;
+    const anomaly = anomalies.find((a) => a.eventName === eventName);
+    if (!anomaly) continue;
+    const sorted = [...buckets].sort((a, b) =>
+      a.bucket.localeCompare(b.bucket)
+    );
+    const recent = sorted.slice(-30);
+    const anomalyIndex = recent.findIndex(({ bucket }) =>
+      bucket === anomaly.bucket
+    );
+    if (anomalyIndex < 0) continue;
+    result[eventName] = render(
+      recent.map(({ count }) => count),
+      anomalyIndex,
+    );
+  }
+  return result;
+};
 const groupByMetric = (anomalies: Anomaly[]) =>
   uniqueMetrics(anomalies).map((metric) =>
     [
@@ -151,30 +215,48 @@ const groupByMetric = (anomalies: Anomaly[]) =>
     ] as const
   );
 
-export const anomaliesHtml = (projectName: string, anomalies: Anomaly[]) =>
-  `<h2>${projectName}: ${
+export const anomaliesHtml = (
+  projectName: string,
+  anomalies: Anomaly[],
+  counts?: EventCounts,
+) => {
+  const sparklines = counts ? buildSparklines(anomalies, counts, sparkHtml) : {};
+  return `<h2>${projectName}: ${
     anomalies.length === 1
       ? "Anomaly Detected"
       : `${anomalies.length} Anomalies Detected`
   }</h2>
   ${
     groupByMetric(anomalies).map(([metric, group]) =>
-      sectionHtml(metric, group)
+      sectionHtml(metric, group, sparklines)
     ).join("\n  ")
   }
   <p style="margin-top:1rem;font-size:0.85em;color:#888;">Expected = hourly average so far. Actual = this hour's count. Score = how many standard deviations from the mean.</p>`;
+};
 
 const anomalyText = (
+  sparklines: Record<string, string>,
+) =>
+(
   { eventName, bucket, expected, actual, zScore, userId }: Anomaly,
 ) =>
-  `  ${eventName}${userId ? ` (user: ${truncate(userId, 20)})` : ""} in ${
+  `  ${eventName}${sparklines[eventName] ? ` ${sparklines[eventName]}` : ""}${
+    userId ? ` (user: ${truncate(userId, 20)})` : ""
+  } in ${
     formatBucket(bucket)
   } — expected ${expected}, got ${actual} (score=${zScore})`;
 
-export const anomaliesText = (anomalies: Anomaly[]) =>
-  groupByMetric(anomalies).map(([metric, group]) =>
-    `${metricLabel(metric)}:\n${group.map(anomalyText).join("\n")}`
+export const anomaliesText = (
+  anomalies: Anomaly[],
+  counts?: EventCounts,
+) => {
+  const sparklines = counts
+    ? buildSparklines(anomalies, counts, sparkText)
+    : {};
+  return groupByMetric(anomalies).map(([metric, group]) =>
+    `${metricLabel(metric)}:\n${group.map(anomalyText(sparklines)).join("\n")}`
   ).join("\n\n");
+};
 
 const subjectLine = (
   projectName: string,
@@ -193,6 +275,7 @@ export const sendAnomalyAlerts = async (
   toEmail: string,
   projectName: string,
   anomalies: Anomaly[],
+  counts?: EventCounts,
 ) => {
   const eventNames = [...new Set(anomalies.map(({ eventName }) => eventName))];
   const canSend = await incrementEmailCounts(toEmail, projectName, eventNames);
@@ -206,7 +289,7 @@ export const sendAnomalyAlerts = async (
     from: `alerts@${emailDomain}`,
     to: toEmail,
     subject: batchSubject(projectName, anomalies),
-    html: anomaliesHtml(projectName, anomalies),
-    text: anomaliesText(anomalies),
+    html: anomaliesHtml(projectName, anomalies, counts),
+    text: anomaliesText(anomalies, counts),
   });
 };

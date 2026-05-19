@@ -154,9 +154,13 @@ Deno.cron("Drain outgoing alerts", "*/5 * * * *", async () => {
     try {
       const project = await lookupProjectById(projectId);
       if (project) {
-        sendAnomalyAlerts(project.owner.email, project.name, anomalies).catch(
-          logError("send anomaly email"),
-        );
+        const counts = await getEventCounts(projectId).catch(() => undefined);
+        sendAnomalyAlerts(
+          project.owner.email,
+          project.name,
+          anomalies,
+          counts,
+        ).catch(logError("send anomaly email"));
         if (project.webhookUrl) {
           const webhookUrl = project.webhookUrl;
           anomalies.forEach((a) =>

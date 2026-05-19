@@ -529,9 +529,8 @@ export const drainOutgoingAlerts = async (): Promise<
   const byProject: Record<string, Anomaly[]> = {};
   for (const { key, value } of entries) {
     const projectId = String(key[1]);
-    const projectKey = key.slice(0, 2);
     (byProject[projectId] ??= []).push(value);
-    kv.delete(projectKey).catch(() => {});
+    kv.delete(key).catch(() => {});
   }
   return byProject;
 };

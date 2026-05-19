@@ -8,7 +8,9 @@ import {
   detectPercentageDrop,
   detectPercentageSpike,
   detectSkippedHourAnomalies,
+  drainOutgoingAlerts,
   emptyStats,
+  enqueueOutgoingAlerts,
   hoursBetween,
   shouldSuppress,
   stdDev,
@@ -622,4 +624,38 @@ Deno.test("shouldSuppress — escalation: low direction escalation also not supp
     } as Anomaly),
     false,
   );
+});
+
+Deno.test({
+  name: "enqueueOutgoingAlerts and drainOutgoingAlerts — groups by project and deletes on drain",
+  sanitizeResources: false,
+  fn: async () => {
+    const anomaly = (
+      projectId: string,
+      eventName: string,
+      bucket: string,
+    ): Anomaly => ({
+      projectId,
+      eventName,
+      bucket,
+      expected: 10,
+      actual: 2,
+      zScore: 3,
+      detectedAt: new Date().toISOString(),
+      metric: "totalCount" as const,
+    });
+
+    await enqueueOutgoingAlerts("p1", [anomaly("p1", "e1", "b1")]);
+    await enqueueOutgoingAlerts("p1", [anomaly("p1", "e2", "b2")]);
+    await enqueueOutgoingAlerts("p2", [anomaly("p2", "e3", "b3")]);
+
+    const first = await drainOutgoingAlerts();
+    assertEquals(Object.keys(first).sort(), ["p1", "p2"]);
+    assertEquals(first["p1"].length, 2);
+    assertEquals(first["p2"].length, 1);
+
+    // second drain should be empty
+    const second = await drainOutgoingAlerts();
+    assertEquals(Object.keys(second).length, 0);
+  },
 });

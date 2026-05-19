@@ -3,6 +3,8 @@ import { type Api, apiDefinition } from "./api.ts";
 import {
   type Anomaly,
   checkAllEmptyBuckets,
+  drainOutgoingAlerts,
+  enqueueOutgoingAlerts,
   getAnomalies,
   getEventCounts,
   recordEvent,
@@ -21,20 +23,13 @@ const logError = (label: string) => (err: unknown) =>
   console.error(`Failed to ${label}:`, err);
 
 const notifyAnomalies = (
-  email: string,
-  projectName: string,
-  webhookUrl: string | undefined,
+  projectId: string,
   anomalies: Anomaly[],
 ) => {
   if (anomalies.length === 0) return;
-  sendAnomalyAlerts(email, projectName, anomalies).catch(
-    logError("send anomaly email"),
+  enqueueOutgoingAlerts(projectId, anomalies).catch(
+    logError("enqueue outgoing alerts"),
   );
-  if (webhookUrl) {
-    anomalies.forEach((anomaly) =>
-      sendWebhook(webhookUrl, anomaly).catch(logError("send webhook"))
-    );
-  }
 };
 
 const endpoints: ApiImplementation<null, Api> = {
@@ -47,12 +42,7 @@ const endpoints: ApiImplementation<null, Api> = {
         eventName,
         userId ?? undefined,
       );
-      notifyAnomalies(
-        project.owner.email,
-        project.name,
-        project.webhookUrl,
-        anomalies,
-      );
+      notifyAnomalies(project.id, anomalies);
       return {};
     },
     getAnomalies: async ({ token }) => {
@@ -153,23 +143,29 @@ console.log("server.ts executing...");
 
 Deno.cron("Check empty buckets", "5 * * * *", async () => {
   const anomaliesByProject = await checkAllEmptyBuckets();
-  for (const projectId of Object.keys(anomaliesByProject)) {
-    const anomalies = anomaliesByProject[projectId];
+  for (const [projectId, anomalies] of Object.entries(anomaliesByProject)) {
+    notifyAnomalies(projectId, anomalies);
+  }
+});
+
+Deno.cron("Drain outgoing alerts", "*/5 * * * *", async () => {
+  const byProject = await drainOutgoingAlerts();
+  for (const [projectId, anomalies] of Object.entries(byProject)) {
     try {
       const project = await lookupProjectById(projectId);
       if (project) {
-        notifyAnomalies(
-          project.owner.email,
-          project.name,
-          project.webhookUrl,
-          anomalies,
+        sendAnomalyAlerts(project.owner.email, project.name, anomalies).catch(
+          logError("send anomaly email"),
         );
+        if (project.webhookUrl) {
+          const webhookUrl = project.webhookUrl;
+          anomalies.forEach((a) =>
+            sendWebhook(webhookUrl, a).catch(logError("send webhook"))
+          );
+        }
       }
     } catch (e) {
-      console.error(
-        `Failed to notify empty bucket anomalies for ${projectId}:`,
-        e,
-      );
+      console.error(`Failed to drain alerts for ${projectId}:`, e);
     }
   }
 });

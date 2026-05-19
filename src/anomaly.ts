@@ -496,3 +496,42 @@ export const checkAllEmptyBuckets = async (): Promise<
   }
   return anomaliesByProject;
 };
+
+const outgoingAlertsPrefix = (projectId: string): Deno.KvKey => [
+  "outgoingAlerts",
+  projectId,
+];
+
+const outgoingAlertTtlMs = 5 * 60 * 1000;
+
+export const enqueueOutgoingAlerts = async (
+  projectId: string,
+  anomalies: Anomaly[],
+): Promise<void> => {
+  const now = Date.now();
+  const kv = await getKv();
+  await Promise.all(
+    anomalies.map((a, i) =>
+      kv.set([...outgoingAlertsPrefix(projectId), `${now}-${i}`], a, {
+        expireIn: outgoingAlertTtlMs,
+      })
+    ),
+  );
+};
+
+export const drainOutgoingAlerts = async (): Promise<
+  Record<string, Anomaly[]>
+> => {
+  const kv = await getKv();
+  const entries = await Array.fromAsync(
+    kv.list<Anomaly>({ prefix: ["outgoingAlerts"] }),
+  );
+  const byProject: Record<string, Anomaly[]> = {};
+  for (const { key, value } of entries) {
+    const projectId = String(key[1]);
+    const projectKey = key.slice(0, 2);
+    (byProject[projectId] ??= []).push(value);
+    kv.delete(projectKey).catch(() => {});
+  }
+  return byProject;
+};

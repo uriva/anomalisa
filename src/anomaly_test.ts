@@ -116,6 +116,19 @@ Deno.test("detectAnomaly — ignores single-event user spike", () => {
   );
 });
 
+Deno.test("detectAnomaly — ignores single-event total count spike", () => {
+  assertEquals(
+    detectAnomaly(
+      buildStats([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], "2026-05-20T07"),
+      1,
+      "p",
+      "e",
+      "totalCount",
+    ),
+    null,
+  );
+});
+
 Deno.test("detectAnomaly — detects anomaly for zero when mean is high", () => {
   const stats = buildStats([100, 102, 98, 101, 99], "2026-01-01T04");
   const result = detectAnomaly(stats, 0, "proj1", "pageview", "totalCount");
@@ -449,9 +462,9 @@ Deno.test("updateStatsWithZeros — shifts mean toward zero", () => {
 
 Deno.test("detectAnomaly — detects anomaly when stdDev is 0 and value differs from mean", () => {
   const stats = buildStats([0, 0, 0, 0, 0], "2026-01-01T04");
-  const result = detectAnomaly(stats, 1, "proj1", "Bot Created", "totalCount");
+  const result = detectAnomaly(stats, 2, "proj1", "Bot Created", "totalCount");
   assertEquals(result !== null, true);
-  assertEquals((result as Anomaly).actual, 1);
+  assertEquals((result as Anomaly).actual, 2);
 });
 
 Deno.test("detectPercentageSpike — returns null when mean is 0 and value below absolute threshold", () => {

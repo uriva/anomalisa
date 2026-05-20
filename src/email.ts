@@ -130,54 +130,57 @@ const metricLabel = (metric: Anomaly["metric"]) =>
     ? "Percentage Drop"
     : "Total Count";
 
-const metricExplanation = (metric: Anomaly["metric"]) =>
-  metric === "userSpike"
-    ? "A single user sent way more events than usual for this hour."
-    : metric === "percentageSpike"
-    ? "Event count jumped by an unusually large percentage compared to the hourly average."
-    : metric === "percentageDrop"
-    ? "Event count dropped by an unusually large percentage compared to the hourly average."
-    : "The total event count for this hour is statistically unusual (z-score > 2).";
-
-const uniqueMetrics = (
-  anomalies: Anomaly[],
-) => [...new Set(anomalies.map(({ metric }) => metric))];
-
-const hasUserId = (anomalies: Anomaly[]) =>
-  anomalies.some(({ userId }) => userId);
-
 const truncate = (s: string, max: number) =>
   s.length > max ? `${s.slice(0, max)}...` : s;
 
-const formatAnomaly = (showUser: boolean, sparklines: Record<string, string>) =>
-(
-  { eventName, bucket, expected, actual, zScore, userId }: Anomaly,
-) =>
+const labels = (a: Anomaly) =>
+  `${metricLabel(a.metric)}${a.userId ? ` (${truncate(a.userId, 20)})` : ""} (${
+    a.zScore
+  })`;
+
+const labelsHtml = (a: Anomaly) =>
+  `<span style="font-weight:600;">${metricLabel(a.metric)}</span>${
+    a.userId ? ` (${truncate(a.userId, 20)})` : ""
+  } (${a.zScore})`;
+
+const groupByEventBucket = (anomalies: Anomaly[]) => {
+  const map: Record<string, Anomaly[]> = {};
+  for (const a of anomalies) {
+    const key = `${a.eventName}|${a.bucket}`;
+    (map[key] ??= []).push(a);
+  }
+  return Object.values(map);
+};
+
+const formatEventRow = (sparklines: Record<string, string>) =>
+(groups: Anomaly[]) =>
   `<tr>
-    <td>${eventName}${sparklines[eventName] ? ` ${sparklines[eventName]}` : ""}</td>
-    ${showUser ? `<td>${userId ? truncate(userId, 20) : "-"}</td>` : ""}
-    <td>${formatBucket(bucket)}</td>
-    <td>${expected}</td>
-    <td>${actual}</td>
-    <td>${zScore}</td>
+    <td>${groups[0].eventName}${
+    sparklines[groups[0].eventName] ? ` ${sparklines[groups[0].eventName]}` : ""
+  }</td>
+    <td>${formatBucket(groups[0].bucket)}</td>
+    <td>${groups[0].expected}</td>
+    <td>${groups[0].actual}</td>
+    <td>${groups.map(labelsHtml).join("<br>")}</td>
   </tr>`;
 
-const sectionHtml = (
-  metric: Anomaly["metric"],
+export const anomaliesHtml = (
+  projectName: string,
   anomalies: Anomaly[],
-  sparklines: Record<string, string>,
+  counts?: EventCounts,
 ) => {
-  const showUser = hasUserId(anomalies);
-  return `<h3 style="margin-top:1.5rem;">${metricLabel(metric)}</h3>
-  <p style="margin:0.25rem 0 0.5rem;font-size:0.9em;color:#666;">${
-    metricExplanation(metric)
-  }</p>
+  const sparklines = counts ? buildSparklines(anomalies, counts, sparkHtml) : {};
+  const groups = groupByEventBucket(anomalies);
+  return `<h2>${projectName}: ${
+    anomalies.length === 1
+      ? "Anomaly Detected"
+      : `${anomalies.length} Anomalies Detected`
+  }</h2>
   <table border="1" cellpadding="8" cellspacing="0">
-    <tr><th>Event</th>${
-    showUser ? "<th>User</th>" : ""
-  }<th>Bucket</th><th>Expected</th><th>Actual</th><th>Score</th></tr>
-    ${anomalies.map(formatAnomaly(showUser, sparklines)).join("\n    ")}
-  </table>`;
+    <tr><th>Event</th><th>Bucket</th><th>Expected</th><th>Actual</th><th>Anomalies</th></tr>
+    ${groups.map(formatEventRow(sparklines)).join("\n    ")}
+  </table>
+  <p style="margin-top:1rem;font-size:0.85em;color:#888;">Expected = hourly average so far. Actual = this hour's count. Score = how many standard deviations from the mean.</p>`;
 };
 
 const buildSparklines = (
@@ -207,44 +210,18 @@ const buildSparklines = (
   }
   return result;
 };
-const groupByMetric = (anomalies: Anomaly[]) =>
-  uniqueMetrics(anomalies).map((metric) =>
-    [
-      metric,
-      anomalies.filter((a) => a.metric === metric),
-    ] as const
-  );
 
-export const anomaliesHtml = (
-  projectName: string,
-  anomalies: Anomaly[],
-  counts?: EventCounts,
-) => {
-  const sparklines = counts ? buildSparklines(anomalies, counts, sparkHtml) : {};
-  return `<h2>${projectName}: ${
-    anomalies.length === 1
-      ? "Anomaly Detected"
-      : `${anomalies.length} Anomalies Detected`
-  }</h2>
-  ${
-    groupByMetric(anomalies).map(([metric, group]) =>
-      sectionHtml(metric, group, sparklines)
-    ).join("\n  ")
-  }
-  <p style="margin-top:1rem;font-size:0.85em;color:#888;">Expected = hourly average so far. Actual = this hour's count. Score = how many standard deviations from the mean.</p>`;
-};
-
-const anomalyText = (
+const eventText = (
   sparklines: Record<string, string>,
 ) =>
-(
-  { eventName, bucket, expected, actual, zScore, userId }: Anomaly,
-) =>
-  `  ${eventName}${sparklines[eventName] ? ` ${sparklines[eventName]}` : ""}${
-    userId ? ` (user: ${truncate(userId, 20)})` : ""
+(groups: Anomaly[]) =>
+  `  ${groups[0].eventName}${
+    sparklines[groups[0].eventName] ? ` ${sparklines[groups[0].eventName]}` : ""
   } in ${
-    formatBucket(bucket)
-  } — expected ${expected}, got ${actual} (score=${zScore})`;
+    formatBucket(groups[0].bucket)
+  } — expected ${groups[0].expected}, got ${groups[0].actual}\n    ${
+    groups.map(labels).join(", ")
+  }`;
 
 export const anomaliesText = (
   anomalies: Anomaly[],
@@ -253,9 +230,8 @@ export const anomaliesText = (
   const sparklines = counts
     ? buildSparklines(anomalies, counts, sparkText)
     : {};
-  return groupByMetric(anomalies).map(([metric, group]) =>
-    `${metricLabel(metric)}:\n${group.map(anomalyText(sparklines)).join("\n")}`
-  ).join("\n\n");
+  const groups = groupByEventBucket(anomalies);
+  return `Anomalies:\n\n${groups.map(eventText(sparklines)).join("\n\n")}`;
 };
 
 const subjectLine = (

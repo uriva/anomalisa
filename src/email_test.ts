@@ -98,7 +98,7 @@ Deno.test("batchSubject labels percentageDrop as Percentage Drop", () => {
 Deno.test("anomaliesHtml renders percentageDrop section", () => {
   const html = anomaliesHtml("myapp", [dropAnomaly]);
   assertEquals(html.includes("Percentage Drop"), true);
-  assertEquals(html.includes("dropped"), true);
+  assertEquals(html.includes("(1)"), true);
 });
 
 Deno.test("batchSubject shows count for multiple anomalies", () => {

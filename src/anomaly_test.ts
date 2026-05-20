@@ -356,6 +356,32 @@ Deno.test("detectBucketAnomalies — does not fire percentageDrop for quiet hour
   );
 });
 
+Deno.test("detectBucketAnomalies — ignores normal count at naturally busy hour", () => {
+  // Global stats: sparse event, mean ~1.0 across all hours
+  const globalStats = buildStats(
+    [0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2],
+    "2026-05-20T15",
+  );
+  // Hour-of-day stats for 3pm: this hour is naturally busy, mean ~5
+  const hourStats = buildStats([4, 5, 6, 5, 7, 5], "2026-05-19T15");
+  const result = detectBucketAnomalies(
+    globalStats,
+    hourStats,
+    6,
+    0,
+    "p",
+    "Proactive Chat Requested",
+  );
+  assertEquals(
+    result.some((a: Anomaly) => a.metric === "totalCount"),
+    false,
+  );
+  assertEquals(
+    result.some((a: Anomaly) => a.metric === "percentageSpike"),
+    false,
+  );
+});
+
 Deno.test("detectPercentageDrop — catches halving that z-score misses in noisy data", () => {
   const stats = buildStats(
     [30, 80, 120, 40, 200, 60, 90, 150],

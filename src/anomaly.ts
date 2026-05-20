@@ -78,6 +78,8 @@ export const detectAnomaly = (
 ): Anomaly | null => {
   if (stats.n < minDataPoints) return null;
   if (count > 0 && count < 2) return null;
+  if (metric === "userSpike" && count < 3) return null;
+  if (metric === "totalCount" && stats.mean < 1 && count < 5) return null;
   const sd = stdDev(stats);
   const z = sd > 0
     ? Math.abs(count - stats.mean) / sd

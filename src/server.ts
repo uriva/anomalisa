@@ -23,12 +23,23 @@ const resolveProject = async (token: string) => {
 const logError = (label: string) => (err: unknown) =>
   console.error(`Failed to ${label}:`, err);
 
+const maxAlertAgeMs = 24 * 60 * 60 * 1000;
+
 const notifyAnomalies = (
   projectId: string,
   anomalies: Anomaly[],
 ) => {
-  if (anomalies.length === 0) return;
-  enqueueOutgoingAlerts(projectId, anomalies).catch(
+  const now = Date.now();
+  const freshAnomalies = anomalies.filter((a) => {
+    try {
+      const bucketMs = new Date(a.bucket + ":00:00Z").getTime();
+      return now - bucketMs < maxAlertAgeMs;
+    } catch {
+      return true;
+    }
+  });
+  if (freshAnomalies.length === 0) return;
+  enqueueOutgoingAlerts(projectId, freshAnomalies).catch(
     logError("enqueue outgoing alerts"),
   );
 };

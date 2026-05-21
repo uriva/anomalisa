@@ -168,8 +168,9 @@ export const anomaliesHtml = (
   projectName: string,
   anomalies: Anomaly[],
   counts?: EventCounts,
+  maxUserCounts?: EventCounts,
 ) => {
-  const sparklines = counts ? buildSparklines(anomalies, counts, sparkHtml) : {};
+  const sparklines = counts ? buildSparklines(anomalies, counts, maxUserCounts, sparkHtml) : {};
   const groups = groupByEventBucket(anomalies);
   return `<h2>${projectName}: ${
     anomalies.length === 1
@@ -186,15 +187,19 @@ export const anomaliesHtml = (
 const buildSparklines = (
   anomalies: Anomaly[],
   counts: EventCounts,
+  maxUserCounts: EventCounts | undefined,
   render: (counts: number[], anomalyIndex: number) => string,
 ): Record<string, string> => {
   const eventNames = [...new Set(anomalies.map(({ eventName }) => eventName))];
   const result: Record<string, string> = {};
   for (const eventName of eventNames) {
-    const buckets = counts[eventName];
-    if (!buckets || buckets.length < 2) continue;
     const anomaly = anomalies.find((a) => a.eventName === eventName);
     if (!anomaly) continue;
+    const isUserSpike = anomaly.metric === "userSpike";
+    const buckets = (isUserSpike && maxUserCounts)
+      ? maxUserCounts[eventName]
+      : counts[eventName];
+    if (!buckets || buckets.length < 2) continue;
     const sorted = [...buckets].sort((a, b) =>
       a.bucket.localeCompare(b.bucket)
     );
@@ -226,9 +231,10 @@ const eventText = (
 export const anomaliesText = (
   anomalies: Anomaly[],
   counts?: EventCounts,
+  maxUserCounts?: EventCounts,
 ) => {
   const sparklines = counts
-    ? buildSparklines(anomalies, counts, sparkText)
+    ? buildSparklines(anomalies, counts, maxUserCounts, sparkText)
     : {};
   const groups = groupByEventBucket(anomalies);
   return `Anomalies:\n\n${groups.map(eventText(sparklines)).join("\n\n")}`;
@@ -252,6 +258,7 @@ export const sendAnomalyAlerts = async (
   projectName: string,
   anomalies: Anomaly[],
   counts?: EventCounts,
+  maxUserCounts?: EventCounts,
 ) => {
   const eventNames = [...new Set(anomalies.map(({ eventName }) => eventName))];
   const canSend = await incrementEmailCounts(toEmail, projectName, eventNames);
@@ -265,7 +272,7 @@ export const sendAnomalyAlerts = async (
     from: `alerts@${emailDomain}`,
     to: toEmail,
     subject: batchSubject(projectName, anomalies),
-    html: anomaliesHtml(projectName, anomalies, counts),
-    text: anomaliesText(anomalies, counts),
+    html: anomaliesHtml(projectName, anomalies, counts, maxUserCounts),
+    text: anomaliesText(anomalies, counts, maxUserCounts),
   });
 };

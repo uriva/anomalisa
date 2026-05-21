@@ -39,7 +39,7 @@ export const stdDev = ({ m2, n }: Stats): number =>
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
 const minDataPoints = 3;
-const zScoreThreshold = 2;
+const zScoreThreshold = 3;
 const percentageThreshold = 1.0;
 const minAbsoluteDiff = 3;
 const minPercentageDropMean = 30;
@@ -455,6 +455,24 @@ export const getEventCounts = async (
 ): Promise<Record<string, Array<{ bucket: string; count: number }>>> => {
   const entries = await Array.fromAsync(
     (await getKv()).list<number>({ prefix: ["counts", projectId] }),
+  );
+  const events: Record<string, Array<{ bucket: string; count: number }>> = {};
+  entries.forEach(({ key, value }) => {
+    const eventName = String(key[2]);
+    const bucket = String(key[3]);
+    (events[eventName] ??= []).push({ bucket, count: value });
+  });
+  Object.values(events).forEach((arr) =>
+    arr.sort((a, b) => a.bucket.localeCompare(b.bucket))
+  );
+  return events;
+};
+
+export const getMaxUserCounts = async (
+  projectId: string,
+): Promise<Record<string, Array<{ bucket: string; count: number }>>> => {
+  const entries = await Array.fromAsync(
+    (await getKv()).list<number>({ prefix: ["maxUserCount", projectId] }),
   );
   const events: Record<string, Array<{ bucket: string; count: number }>> = {};
   entries.forEach(({ key, value }) => {

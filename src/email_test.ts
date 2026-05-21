@@ -101,6 +101,24 @@ Deno.test("anomaliesHtml renders percentageDrop section", () => {
   assertEquals(html.includes("(1)"), true);
 });
 
+Deno.test("anomaliesHtml uses maxUserCounts for userSpike anomalies", () => {
+  const totalCounts = {
+    click: [
+      { bucket: "2026-04-07T08", count: 10 },
+      { bucket: "2026-04-07T09", count: 10 },
+    ],
+  };
+  const maxUserCounts = {
+    click: [
+      { bucket: "2026-04-07T08", count: 1 },
+      { bucket: "2026-04-07T09", count: 99 },
+    ],
+  };
+  const html = anomaliesHtml("myapp", [longUserAnomaly], totalCounts, maxUserCounts);
+  assertEquals(html.includes("▁"), true);
+  assertEquals(html.includes("█"), true);
+});
+
 Deno.test("batchSubject shows count for multiple anomalies", () => {
   assertEquals(
     batchSubject("myapp", twoAnomalies),

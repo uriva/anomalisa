@@ -7,6 +7,7 @@ import {
   enqueueOutgoingAlerts,
   getAnomalies,
   getEventCounts,
+  getMaxUserCounts,
   recordEvent,
 } from "./anomaly.ts";
 import { lookupProjectById, lookupProjectByToken } from "./db.ts";
@@ -155,11 +156,13 @@ Deno.cron("Drain outgoing alerts", "*/5 * * * *", async () => {
       const project = await lookupProjectById(projectId);
       if (project) {
         const counts = await getEventCounts(projectId).catch(() => undefined);
+        const maxUserCounts = await getMaxUserCounts(projectId).catch(() => undefined);
         sendAnomalyAlerts(
           project.owner.email,
           project.name,
           anomalies,
           counts,
+          maxUserCounts,
         ).catch(logError("send anomaly email"));
         if (project.webhookUrl) {
           const webhookUrl = project.webhookUrl;

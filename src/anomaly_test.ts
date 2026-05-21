@@ -185,7 +185,7 @@ Deno.test("detectAnomaly — borderline z-score just above threshold triggers", 
   const stats = buildStats([10, 20, 30], "2026-01-01T03");
   const sd = stdDev(stats);
   const mean = stats.mean;
-  const barelyOver = Math.ceil(mean + 2.1 * sd);
+  const barelyOver = Math.ceil(mean + 3.1 * sd);
   const result = detectAnomaly(
     stats,
     barelyOver,
@@ -200,7 +200,7 @@ Deno.test("detectAnomaly — borderline z-score just below threshold does not tr
   const stats = buildStats([10, 20, 30], "2026-01-01T03");
   const sd = stdDev(stats);
   const mean = stats.mean;
-  const barelyUnder = Math.floor(mean + 1.9 * sd);
+  const barelyUnder = Math.floor(mean + 2.9 * sd);
   assertEquals(
     detectAnomaly(stats, barelyUnder, "proj1", "test", "totalCount"),
     null,
@@ -607,9 +607,9 @@ Deno.test("level shift — detectAnomaly fires multiple consecutive hours during
 
   const alertCount = consecutiveAlerts.filter((x) => x).length;
   assertEquals(
-    alertCount >= 5,
+    alertCount >= 3,
     true,
-    `Expected at least 5 consecutive alerts during level shift, got ${alertCount}`,
+    `Expected at least 3 consecutive alerts during level shift, got ${alertCount}`,
   );
 });
 

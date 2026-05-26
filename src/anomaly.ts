@@ -74,6 +74,7 @@ export const detectAnomaly = (
   projectId: string,
   eventName: string,
   metric: Metric,
+  bucket: string,
   userId?: string,
 ): Anomaly | null => {
   if (stats.n < minDataPoints) return null;
@@ -90,7 +91,7 @@ export const detectAnomaly = (
     ? {
       projectId,
       eventName,
-      bucket: stats.lastBucket,
+      bucket,
       expected: round2(stats.mean),
       actual: count,
       zScore: round2(z),
@@ -106,6 +107,7 @@ export const detectPercentageSpike = (
   count: number,
   projectId: string,
   eventName: string,
+  bucket: string,
 ): Anomaly | null => {
   if (stats.n < minDataPoints) return null;
   const pctChange = stats.mean > 0
@@ -118,7 +120,7 @@ export const detectPercentageSpike = (
     ? {
       projectId,
       eventName,
-      bucket: stats.lastBucket,
+      bucket,
       expected: round2(stats.mean),
       actual: count,
       zScore: round2(pctChange),
@@ -133,6 +135,7 @@ export const detectPercentageDrop = (
   count: number,
   projectId: string,
   eventName: string,
+  bucket: string,
 ): Anomaly | null => {
   if (stats.n < minDataPoints) return null;
   if (stats.mean < minPercentageDropMean) return null;
@@ -142,7 +145,7 @@ export const detectPercentageDrop = (
     ? {
       projectId,
       eventName,
-      bucket: stats.lastBucket,
+      bucket,
       expected: round2(stats.mean),
       actual: count,
       zScore: round2(pctChange),
@@ -158,8 +161,8 @@ const detectSkippedHour = (
   eventName: string,
 ): Anomaly[] =>
   [
-    detectAnomaly(stats, 0, projectId, eventName, "totalCount"),
-    detectPercentageDrop(stats, 0, projectId, eventName),
+    detectAnomaly(stats, 0, projectId, eventName, "totalCount", stats.lastBucket),
+    detectPercentageDrop(stats, 0, projectId, eventName, stats.lastBucket),
   ].filter((a): a is Anomaly => a !== null);
 
 const skippedHourStep = (
@@ -196,6 +199,7 @@ export const detectBucketAnomalies = (
 ): Anomaly[] => {
   const statsWithZeros = updateStatsWithZeros(stats, skippedHours);
   const hourHasData = hourStats.n >= minDataPoints;
+  const bucket = stats.lastBucket;
   return [
     ...detectSkippedHourAnomalies(stats, skippedHours, projectId, eventName),
     detectAnomaly(
@@ -204,11 +208,12 @@ export const detectBucketAnomalies = (
       projectId,
       eventName,
       "totalCount",
+      bucket,
     ),
     hourHasData
-      ? detectPercentageSpike(hourStats, prevTotalCount, projectId, eventName)
-      : detectPercentageSpike(statsWithZeros, prevTotalCount, projectId, eventName),
-    detectPercentageDrop(hourStats, prevTotalCount, projectId, eventName),
+      ? detectPercentageSpike(hourStats, prevTotalCount, projectId, eventName, bucket)
+      : detectPercentageSpike(statsWithZeros, prevTotalCount, projectId, eventName, bucket),
+    detectPercentageDrop(hourStats, prevTotalCount, projectId, eventName, bucket),
   ].filter((a): a is Anomaly => a !== null);
 };
 
@@ -330,6 +335,7 @@ const checkUserSpike = async (
     projectId,
     eventName,
     "userSpike",
+    bucket,
     userId,
   );
 };

@@ -60,7 +60,7 @@ Deno.test("stdDev — zero for identical values", () => {
 Deno.test("detectAnomaly — returns null when n < 3 (cold start)", () => {
   const stats = buildStats([10, 20], "2026-01-01T02");
   assertEquals(
-    detectAnomaly(stats, 100, "proj1", "signup", "totalCount"),
+    detectAnomaly(stats, 100, "proj1", "signup", "totalCount", stats.lastBucket),
     null,
   );
 });
@@ -68,14 +68,14 @@ Deno.test("detectAnomaly — returns null when n < 3 (cold start)", () => {
 Deno.test("detectAnomaly — returns null for normal value", () => {
   const stats = buildStats([10, 12, 11, 10, 13], "2026-01-01T04");
   assertEquals(
-    detectAnomaly(stats, 11, "proj1", "signup", "totalCount"),
+    detectAnomaly(stats, 11, "proj1", "signup", "totalCount", stats.lastBucket),
     null,
   );
 });
 
 Deno.test("detectAnomaly — detects totalCount anomaly for extreme value", () => {
   const stats = buildStats([10, 12, 11, 10, 13], "2026-01-01T04");
-  const result = detectAnomaly(stats, 100, "proj1", "signup", "totalCount");
+  const result = detectAnomaly(stats, 100, "proj1", "signup", "totalCount", stats.lastBucket);
   assertEquals(result !== null, true);
   const anomaly = result as Anomaly;
   assertEquals(anomaly.projectId, "proj1");
@@ -94,6 +94,7 @@ Deno.test("detectAnomaly — detects userSpike with userId", () => {
     "proj1",
     "pageview",
     "userSpike",
+    stats.lastBucket,
     "user-abc",
   );
   assertEquals(result !== null, true);
@@ -103,13 +104,15 @@ Deno.test("detectAnomaly — detects userSpike with userId", () => {
 });
 
 Deno.test("detectAnomaly — ignores single-event user spike", () => {
+  const stats = buildStats([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], "2026-05-17T15");
   assertEquals(
     detectAnomaly(
-      buildStats([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], "2026-05-17T15"),
+      stats,
       1,
       "p",
       "e",
       "userSpike",
+      stats.lastBucket,
       "u",
     ),
     null,
@@ -117,26 +120,30 @@ Deno.test("detectAnomaly — ignores single-event user spike", () => {
 });
 
 Deno.test("detectAnomaly — ignores single-event total count spike", () => {
+  const stats = buildStats([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], "2026-05-20T07");
   assertEquals(
     detectAnomaly(
-      buildStats([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], "2026-05-20T07"),
+      stats,
       1,
       "p",
       "e",
       "totalCount",
+      stats.lastBucket,
     ),
     null,
   );
 });
 
 Deno.test("detectAnomaly — ignores double-event user spike", () => {
+  const stats = buildStats([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], "2026-05-20T16");
   assertEquals(
     detectAnomaly(
-      buildStats([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], "2026-05-20T16"),
+      stats,
       2,
       "p",
       "e",
       "userSpike",
+      stats.lastBucket,
       "u",
     ),
     null,
@@ -144,39 +151,43 @@ Deno.test("detectAnomaly — ignores double-event user spike", () => {
 });
 
 Deno.test("detectAnomaly — ignores small uptick on sparse event", () => {
+  const stats = buildStats([0, 0, 1, 0, 0, 0, 1, 0, 0, 0], "2026-04-20T16");
   assertEquals(
     detectAnomaly(
-      buildStats([0, 0, 1, 0, 0, 0, 1, 0, 0, 0], "2026-04-20T16"),
+      stats,
       4,
       "p",
       "e",
       "totalCount",
+      stats.lastBucket,
     ),
     null,
   );
 });
 
 Deno.test("detectAnomaly — triggers on larger uptick even for sparse event", () => {
+  const stats = buildStats([0, 0, 1, 0, 0, 0, 1, 0, 0, 0], "2026-04-20T16");
   const result = detectAnomaly(
-    buildStats([0, 0, 1, 0, 0, 0, 1, 0, 0, 0], "2026-04-20T16"),
+    stats,
     5,
     "p",
     "e",
     "totalCount",
+    stats.lastBucket,
   );
   assertEquals(result !== null, true);
 });
 
 Deno.test("detectAnomaly — detects anomaly for zero when mean is high", () => {
   const stats = buildStats([100, 102, 98, 101, 99], "2026-01-01T04");
-  const result = detectAnomaly(stats, 0, "proj1", "pageview", "totalCount");
+  const result = detectAnomaly(stats, 0, "proj1", "pageview", "totalCount", stats.lastBucket);
   assertEquals(result !== null, true);
 });
 
 Deno.test("detectAnomaly — returns null when stdDev is 0 and value equals mean", () => {
   const stats = buildStats([10, 10, 10, 10], "2026-01-01T04");
   assertEquals(
-    detectAnomaly(stats, 10, "proj1", "click", "totalCount"),
+    detectAnomaly(stats, 10, "proj1", "click", "totalCount", stats.lastBucket),
     null,
   );
 });
@@ -192,6 +203,7 @@ Deno.test("detectAnomaly — borderline z-score just above threshold triggers", 
     "proj1",
     "test",
     "totalCount",
+    stats.lastBucket,
   );
   assertEquals(result !== null, true);
 });
@@ -202,14 +214,14 @@ Deno.test("detectAnomaly — borderline z-score just below threshold does not tr
   const mean = stats.mean;
   const barelyUnder = Math.floor(mean + 2.9 * sd);
   assertEquals(
-    detectAnomaly(stats, barelyUnder, "proj1", "test", "totalCount"),
+    detectAnomaly(stats, barelyUnder, "proj1", "test", "totalCount", stats.lastBucket),
     null,
   );
 });
 
 Deno.test("detectAnomaly — userSpike omits userId when not provided", () => {
   const stats = buildStats([5, 6, 5, 4, 5], "2026-01-01T04");
-  const result = detectAnomaly(stats, 50, "proj1", "event", "userSpike");
+  const result = detectAnomaly(stats, 50, "proj1", "event", "userSpike", stats.lastBucket);
   assertEquals(result !== null, true);
   assertEquals((result as Anomaly).userId, undefined);
 });
@@ -231,14 +243,14 @@ Deno.test("Welford's — incremental matches batch calculation", () => {
 Deno.test("detectPercentageSpike — returns null when n < 3", () => {
   const stats = buildStats([5, 10], "2026-01-01T02");
   assertEquals(
-    detectPercentageSpike(stats, 20, "proj1", "error"),
+    detectPercentageSpike(stats, 20, "proj1", "error", stats.lastBucket),
     null,
   );
 });
 
 Deno.test("detectPercentageSpike — detects spike when mean is 0 and count is above absolute threshold", () => {
   const stats = buildStats([0, 0, 0, 0], "2026-01-01T04");
-  const result = detectPercentageSpike(stats, 5, "proj1", "error");
+  const result = detectPercentageSpike(stats, 5, "proj1", "error", stats.lastBucket);
   assertEquals(result !== null, true);
   assertEquals((result as Anomaly).actual, 5);
 });
@@ -246,7 +258,7 @@ Deno.test("detectPercentageSpike — detects spike when mean is 0 and count is a
 Deno.test("detectPercentageSpike — returns null when mean is 0 and n < 3", () => {
   const stats = buildStats([0, 0], "2026-01-01T04");
   assertEquals(
-    detectPercentageSpike(stats, 5, "proj1", "error"),
+    detectPercentageSpike(stats, 5, "proj1", "error", stats.lastBucket),
     null,
   );
 });
@@ -254,14 +266,14 @@ Deno.test("detectPercentageSpike — returns null when mean is 0 and n < 3", () 
 Deno.test("detectPercentageSpike — returns null for normal value", () => {
   const stats = buildStats([10, 12, 11, 10, 13], "2026-01-01T04");
   assertEquals(
-    detectPercentageSpike(stats, 15, "proj1", "error"),
+    detectPercentageSpike(stats, 15, "proj1", "error", stats.lastBucket),
     null,
   );
 });
 
 Deno.test("detectPercentageSpike — detects doubling", () => {
   const stats = buildStats([3, 4, 3, 5, 3], "2026-01-01T04");
-  const result = detectPercentageSpike(stats, 8, "proj1", "error");
+  const result = detectPercentageSpike(stats, 8, "proj1", "error", stats.lastBucket);
   assertEquals(result !== null, true);
   const anomaly = result as Anomaly;
   assertEquals(anomaly.metric, "percentageSpike");
@@ -272,7 +284,7 @@ Deno.test("detectPercentageSpike — detects doubling", () => {
 Deno.test("detectPercentageSpike — returns null when absolute diff below threshold", () => {
   const stats = buildStats([1, 1, 1, 1], "2026-01-01T04");
   assertEquals(
-    detectPercentageSpike(stats, 3, "proj1", "error"),
+    detectPercentageSpike(stats, 3, "proj1", "error", stats.lastBucket),
     null,
   );
 });
@@ -287,49 +299,57 @@ Deno.test("detectPercentageSpike — catches doubling that z-score misses in noi
     "proj1",
     "error",
     "totalCount",
+    stats.lastBucket,
   );
-  const pctResult = detectPercentageSpike(stats, doubled, "proj1", "error");
+  const pctResult = detectPercentageSpike(stats, doubled, "proj1", "error", stats.lastBucket);
   assertEquals(zScoreResult, null);
   assertEquals(pctResult !== null, true);
 });
 
 Deno.test("detectPercentageDrop — returns null when n < 3", () => {
+  const stats = buildStats([10, 10], "2026-01-01T02");
   assertEquals(
-    detectPercentageDrop(buildStats([10, 10], "2026-01-01T02"), 0, "p", "e"),
+    detectPercentageDrop(stats, 0, "p", "e", stats.lastBucket),
     null,
   );
 });
 
 Deno.test("detectPercentageDrop — returns null for normal value", () => {
+  const stats = buildStats([10, 12, 11, 10, 13], "2026-01-01T04");
   assertEquals(
     detectPercentageDrop(
-      buildStats([10, 12, 11, 10, 13], "2026-01-01T04"),
+      stats,
       9,
       "p",
       "e",
+      stats.lastBucket,
     ),
     null,
   );
 });
 
 Deno.test("detectPercentageDrop — ignores low-volume drops", () => {
+  const stats = buildStats([12, 12, 12, 12], "2026-01-01T04");
   assertEquals(
     detectPercentageDrop(
-      buildStats([12, 12, 12, 12], "2026-01-01T04"),
+      stats,
       4,
       "p",
       "e",
+      stats.lastBucket,
     ),
     null,
   );
 });
 
 Deno.test("detectPercentageDrop — detects halving", () => {
+  const stats = buildStats([100, 110, 90, 105, 95], "2026-01-01T04");
   const result = detectPercentageDrop(
-    buildStats([100, 110, 90, 105, 95], "2026-01-01T04"),
+    stats,
     30,
     "p",
     "e",
+    stats.lastBucket,
   );
   assertEquals(result !== null, true);
   assertEquals((result as Anomaly).metric, "percentageDrop");
@@ -337,35 +357,41 @@ Deno.test("detectPercentageDrop — detects halving", () => {
 });
 
 Deno.test("detectPercentageDrop — detects drop to zero with high mean", () => {
+  const stats = buildStats([66, 70, 60, 80, 55], "2026-04-17T09");
   const result = detectPercentageDrop(
-    buildStats([66, 70, 60, 80, 55], "2026-04-17T09"),
+    stats,
     0,
     "p",
     "Chat Message",
+    stats.lastBucket,
   );
   assertEquals(result !== null, true);
   assertEquals((result as Anomaly).actual, 0);
 });
 
 Deno.test("detectPercentageDrop — returns null when absolute diff below threshold", () => {
+  const stats = buildStats([5, 5, 5, 5], "2026-01-01T04");
   assertEquals(
     detectPercentageDrop(
-      buildStats([5, 5, 5, 5], "2026-01-01T04"),
+      stats,
       3,
       "p",
       "e",
+      stats.lastBucket,
     ),
     null,
   );
 });
 
 Deno.test("detectPercentageDrop — returns null when mean is 0", () => {
+  const stats = buildStats([0, 0, 0, 0], "2026-01-01T04");
   assertEquals(
     detectPercentageDrop(
-      buildStats([0, 0, 0, 0], "2026-01-01T04"),
+      stats,
       0,
       "p",
       "e",
+      stats.lastBucket,
     ),
     null,
   );
@@ -420,14 +446,31 @@ Deno.test("detectBucketAnomalies — ignores normal count at naturally busy hour
   );
 });
 
+Deno.test("detectBucketAnomalies — dates anomalies to the bucket being closed, not the hourStats initialization bucket", () => {
+  const globalStats = buildStats([10, 10, 10], "2026-05-26T00");
+  const hourStats = buildStats([10, 10, 10], "2026-04-21T00");
+  const result = detectBucketAnomalies(
+    globalStats,
+    hourStats,
+    100,
+    0,
+    "p",
+    "Error Occurred",
+  );
+  assertEquals(result.length > 0, true);
+  for (const anomaly of result) {
+    assertEquals(anomaly.bucket, "2026-05-26T00");
+  }
+});
+
 Deno.test("detectPercentageDrop — catches halving that z-score misses in noisy data", () => {
   const stats = buildStats(
     [30, 80, 120, 40, 200, 60, 90, 150],
     "2026-01-01T04",
   );
   const halved = Math.floor(stats.mean / 3);
-  const zRes = detectAnomaly(stats, halved, "p", "e", "totalCount");
-  const pctRes = detectPercentageDrop(stats, halved, "p", "e");
+  const zRes = detectAnomaly(stats, halved, "p", "e", "totalCount", stats.lastBucket);
+  const pctRes = detectPercentageDrop(stats, halved, "p", "e", stats.lastBucket);
   assertEquals(zRes, null);
   assertEquals(pctRes !== null, true);
 });
@@ -526,7 +569,7 @@ Deno.test("updateStatsWithZeros — shifts mean toward zero", () => {
 
 Deno.test("detectAnomaly — detects anomaly when stdDev is 0 and value differs from mean", () => {
   const stats = buildStats([0, 0, 0, 0, 0], "2026-01-01T04");
-  const result = detectAnomaly(stats, 5, "proj1", "Bot Created", "totalCount");
+  const result = detectAnomaly(stats, 5, "proj1", "Bot Created", "totalCount", stats.lastBucket);
   assertEquals(result !== null, true);
   assertEquals((result as Anomaly).actual, 5);
 });
@@ -534,7 +577,7 @@ Deno.test("detectAnomaly — detects anomaly when stdDev is 0 and value differs 
 Deno.test("detectPercentageSpike — returns null when mean is 0 and value below absolute threshold", () => {
   const stats = buildStats([0, 0, 0, 0, 0], "2026-01-01T04");
   assertEquals(
-    detectPercentageSpike(stats, 1, "proj1", "Bot Created"),
+    detectPercentageSpike(stats, 1, "proj1", "Bot Created", stats.lastBucket),
     null,
   );
 });
@@ -544,7 +587,7 @@ Deno.test("rare event with long gap — z-score detects spike after zeros fill i
     updateStats(emptyStats("2026-02-26T00"), 1),
     133,
   );
-  const anomaly = detectAnomaly(stats, 20, "proj1", "credits", "totalCount");
+  const anomaly = detectAnomaly(stats, 20, "proj1", "credits", "totalCount", stats.lastBucket);
   assertEquals(anomaly !== null, true);
   assertEquals((anomaly as Anomaly).zScore > 2, true);
 });
@@ -554,7 +597,7 @@ Deno.test("rare event with long gap — percentage spike detects after zeros fil
     updateStats(emptyStats("2026-02-26T00"), 1),
     133,
   );
-  const anomaly = detectPercentageSpike(stats, 20, "proj1", "credits");
+  const anomaly = detectPercentageSpike(stats, 20, "proj1", "credits", stats.lastBucket);
   assertEquals(anomaly !== null, true);
 });
 
@@ -600,6 +643,7 @@ Deno.test("level shift — detectAnomaly fires multiple consecutive hours during
       "proj1",
       "orders",
       "totalCount",
+      stats.lastBucket,
     );
     consecutiveAlerts.push(anomaly !== null);
     stats = updateStats(stats, newRate);

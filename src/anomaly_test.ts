@@ -288,21 +288,17 @@ Deno.test("detectPercentageSpike — returns null when absolute diff below thres
   );
 });
 
-Deno.test("detectPercentageSpike — catches doubling that z-score misses in noisy data", () => {
+Deno.test("detectPercentageSpike — suppresses doubling on noisy data when z-score is low", () => {
   const stats = buildStats([10, 30, 70, 20, 130, 50, 40, 80], "2026-01-01T04");
-  const mean = stats.mean;
-  const doubled = Math.ceil(mean * 2.1);
-  const zScoreResult = detectAnomaly(
-    stats,
-    doubled,
-    "proj1",
-    "error",
-    "totalCount",
-    stats.lastBucket,
+  const doubled = Math.ceil(stats.mean * 2.1);
+  assertEquals(
+    detectAnomaly(stats, doubled, "proj1", "error", "totalCount", stats.lastBucket),
+    null,
   );
-  const pctResult = detectPercentageSpike(stats, doubled, "proj1", "error", stats.lastBucket);
-  assertEquals(zScoreResult, null);
-  assertEquals(pctResult !== null, true);
+  assertEquals(
+    detectPercentageSpike(stats, doubled, "proj1", "error", stats.lastBucket),
+    null,
+  );
 });
 
 Deno.test("detectPercentageDrop — returns null when n < 3", () => {
@@ -806,6 +802,17 @@ Deno.test("detectPercentageSpike — suppresses low-volume percentage spikes (fi
   const searchStats = buildStats([8.41, 8.41, 8.41, 8.41], "2026-05-27T09");
   assertEquals(
     detectPercentageSpike(searchStats, 24, "p", "Performed Search", "2026-05-27T09"),
+    null,
+  );
+});
+
+Deno.test("detectPercentageSpike — suppresses noisy high-volume spike (prompt2bot Prompt Constructed)", () => {
+  const stats = buildStats(
+    [69, 19, 55, 44, 77, 159, 133, 150, 30, 20, 130, 140, 50, 90, 110, 60],
+    "2026-05-27T09",
+  );
+  assertEquals(
+    detectPercentageSpike(stats, 197, "p", "Prompt Constructed", "2026-05-27T10"),
     null,
   );
 });

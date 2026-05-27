@@ -44,6 +44,7 @@ const percentageThreshold = 1.0;
 const minAbsoluteDiff = 3;
 const minPercentageDropMean = 30;
 const minPercentageSpikeMean = 10;
+const minPercentageSpikeZScore = 2.5;
 const countTtlMs = 7 * 24 * 60 * 60 * 1000;
 const anomalyTtlMs = 30 * 24 * 60 * 60 * 1000;
 const cooldownTtlMs = 24 * 60 * 60 * 1000;
@@ -112,6 +113,9 @@ export const detectPercentageSpike = (
 ): Anomaly | null => {
   if (stats.n < minDataPoints) return null;
   if (stats.mean < minPercentageSpikeMean) return null;
+  const sd = stdDev(stats);
+  const z = sd > 0 ? (count - stats.mean) / sd : Infinity;
+  if (z < minPercentageSpikeZScore) return null;
   const pctChange = stats.mean > 0
     ? (count - stats.mean) / stats.mean
     : count > 0

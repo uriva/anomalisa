@@ -43,6 +43,7 @@ const zScoreThreshold = 3;
 const percentageThreshold = 1.0;
 const minAbsoluteDiff = 3;
 const minPercentageDropMean = 30;
+const minPercentageSpikeMean = 10;
 const countTtlMs = 7 * 24 * 60 * 60 * 1000;
 const anomalyTtlMs = 30 * 24 * 60 * 60 * 1000;
 const cooldownTtlMs = 24 * 60 * 60 * 1000;
@@ -110,6 +111,7 @@ export const detectPercentageSpike = (
   bucket: string,
 ): Anomaly | null => {
   if (stats.n < minDataPoints) return null;
+  if (stats.mean < minPercentageSpikeMean) return null;
   const pctChange = stats.mean > 0
     ? (count - stats.mean) / stats.mean
     : count > 0

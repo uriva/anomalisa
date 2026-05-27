@@ -248,11 +248,10 @@ Deno.test("detectPercentageSpike — returns null when n < 3", () => {
   );
 });
 
-Deno.test("detectPercentageSpike — detects spike when mean is 0 and count is above absolute threshold", () => {
+Deno.test("detectPercentageSpike — returns null when mean is 0", () => {
   const stats = buildStats([0, 0, 0, 0], "2026-01-01T04");
   const result = detectPercentageSpike(stats, 5, "proj1", "error", stats.lastBucket);
-  assertEquals(result !== null, true);
-  assertEquals((result as Anomaly).actual, 5);
+  assertEquals(result, null);
 });
 
 Deno.test("detectPercentageSpike — returns null when mean is 0 and n < 3", () => {
@@ -272,12 +271,12 @@ Deno.test("detectPercentageSpike — returns null for normal value", () => {
 });
 
 Deno.test("detectPercentageSpike — detects doubling", () => {
-  const stats = buildStats([3, 4, 3, 5, 3], "2026-01-01T04");
-  const result = detectPercentageSpike(stats, 8, "proj1", "error", stats.lastBucket);
+  const stats = buildStats([30, 40, 30, 50, 30], "2026-01-01T04");
+  const result = detectPercentageSpike(stats, 80, "proj1", "error", stats.lastBucket);
   assertEquals(result !== null, true);
   const anomaly = result as Anomaly;
   assertEquals(anomaly.metric, "percentageSpike");
-  assertEquals(anomaly.actual, 8);
+  assertEquals(anomaly.actual, 80);
   assertEquals(anomaly.zScore > 1, true);
 });
 
@@ -290,7 +289,7 @@ Deno.test("detectPercentageSpike — returns null when absolute diff below thres
 });
 
 Deno.test("detectPercentageSpike — catches doubling that z-score misses in noisy data", () => {
-  const stats = buildStats([1, 3, 7, 2, 13, 5, 4, 8], "2026-01-01T04");
+  const stats = buildStats([10, 30, 70, 20, 130, 50, 40, 80], "2026-01-01T04");
   const mean = stats.mean;
   const doubled = Math.ceil(mean * 2.1);
   const zScoreResult = detectAnomaly(
@@ -592,13 +591,13 @@ Deno.test("rare event with long gap — z-score detects spike after zeros fill i
   assertEquals((anomaly as Anomaly).zScore > 2, true);
 });
 
-Deno.test("rare event with long gap — percentage spike detects after zeros fill in", () => {
+Deno.test("rare event with long gap — percentage spike ignores when mean is below threshold", () => {
   const stats = updateStatsWithZeros(
     updateStats(emptyStats("2026-02-26T00"), 1),
     133,
   );
   const anomaly = detectPercentageSpike(stats, 20, "proj1", "credits", stats.lastBucket);
-  assertEquals(anomaly !== null, true);
+  assertEquals(anomaly, null);
 });
 
 Deno.test("level shift — detectAnomaly fires multiple consecutive hours during transition (reproduces alert spam)", () => {
@@ -779,4 +778,34 @@ Deno.test({
     const second = await drainOutgoingAlerts();
     assertEquals(Object.keys(second).length, 0);
   },
+});
+
+Deno.test("detectPercentageSpike — suppresses low-volume percentage spikes (find-scene examples)", () => {
+  // 1. Email Sent: expected 3.41, actual 8
+  const emailStats = buildStats([3.41, 3.41, 3.41, 3.41], "2026-05-27T09");
+  assertEquals(
+    detectPercentageSpike(emailStats, 8, "p", "Email Sent", "2026-05-27T09"),
+    null,
+  );
+
+  // 2. Error Occurred: expected 1.03, actual 6
+  const errorStats = buildStats([1.03, 1.03, 1.03, 1.03], "2026-05-27T09");
+  assertEquals(
+    detectPercentageSpike(errorStats, 6, "p", "Error Occurred", "2026-05-27T09"),
+    null,
+  );
+
+  // 3. Got Video Result: expected 3.76, actual 8
+  const videoStats = buildStats([3.76, 3.76, 3.76, 3.76], "2026-05-27T09");
+  assertEquals(
+    detectPercentageSpike(videoStats, 8, "p", "Got Video Result", "2026-05-27T09"),
+    null,
+  );
+
+  // 4. Performed Search: expected 8.41, actual 24
+  const searchStats = buildStats([8.41, 8.41, 8.41, 8.41], "2026-05-27T09");
+  assertEquals(
+    detectPercentageSpike(searchStats, 24, "p", "Performed Search", "2026-05-27T09"),
+    null,
+  );
 });

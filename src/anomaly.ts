@@ -45,6 +45,7 @@ const minAbsoluteDiff = 3;
 const minPercentageDropMean = 30;
 const minPercentageSpikeMean = 10;
 const minPercentageSpikeZScore = 2.5;
+const poissonPThreshold = 1e-3;
 const countTtlMs = 7 * 24 * 60 * 60 * 1000;
 const anomalyTtlMs = 30 * 24 * 60 * 60 * 1000;
 const cooldownTtlMs = 24 * 60 * 60 * 1000;
@@ -102,6 +103,99 @@ export const detectAnomaly = (
       ...(userId ? { userId } : {}),
     }
     : null;
+};
+
+// Log-gamma via Lanczos approximation. Accurate to ~1e-10 for x > 0.
+const lnGamma = (x: number): number => {
+  const g = 7;
+  const c = [
+    0.99999999999980993,
+    676.5203681218851,
+    -1259.1392167224028,
+    771.32342877765313,
+    -176.61502916214059,
+    12.507343278686905,
+    -0.13857109526572012,
+    9.9843695780195716e-6,
+    1.5056327351493116e-7,
+  ];
+  if (x < 0.5) {
+    return Math.log(Math.PI / Math.sin(Math.PI * x)) - lnGamma(1 - x);
+  }
+  const z = x - 1;
+  let a = c[0];
+  for (let i = 1; i < g + 2; i++) a += c[i] / (z + i);
+  const t = z + g + 0.5;
+  return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t +
+    Math.log(a);
+};
+
+// log P(X = k | lambda) for Poisson.
+const lnPoissonPmf = (k: number, lambda: number): number => {
+  if (lambda === 0) return k === 0 ? 0 : -Infinity;
+  return k * Math.log(lambda) - lambda - lnGamma(k + 1);
+};
+
+// log(a + b) given log(a) and log(b), numerically stable.
+const logSumExp = (a: number, b: number): number => {
+  if (a === -Infinity) return b;
+  if (b === -Infinity) return a;
+  const m = Math.max(a, b);
+  return m + Math.log(Math.exp(a - m) + Math.exp(b - m));
+};
+
+// P(X >= k | lambda). Computed in log space for numerical stability.
+const poissonUpperTail = (k: number, lambda: number): number => {
+  if (k <= 0) return 1;
+  // Sum PMF from 0..k-1 in log space, then complement.
+  let logSum = -Infinity;
+  for (let i = 0; i < k; i++) {
+    logSum = logSumExp(logSum, lnPoissonPmf(i, lambda));
+  }
+  const cdfBelow = Math.exp(logSum);
+  return Math.max(0, 1 - cdfBelow);
+};
+
+// P(X <= k | lambda).
+const poissonLowerTail = (k: number, lambda: number): number => {
+  if (k < 0) return 0;
+  let logSum = -Infinity;
+  for (let i = 0; i <= k; i++) {
+    logSum = logSumExp(logSum, lnPoissonPmf(i, lambda));
+  }
+  return Math.min(1, Math.exp(logSum));
+};
+
+// Two-sided Poisson tail probability: 2 * min(upper, lower), clipped to 1.
+const poissonTwoSidedP = (count: number, lambda: number): number => {
+  if (lambda <= 0) return count === 0 ? 1 : 0;
+  const upper = poissonUpperTail(count, lambda);
+  const lower = poissonLowerTail(count, lambda);
+  return Math.min(1, 2 * Math.min(upper, lower));
+};
+
+export const detectPoissonAnomaly = (
+  stats: Stats,
+  count: number,
+  projectId: string,
+  eventName: string,
+  bucket: string,
+): Anomaly | null => {
+  if (stats.n < minDataPoints) return null;
+  const lambda = stats.mean;
+  const p = poissonTwoSidedP(count, lambda);
+  if (!(p < poissonPThreshold)) return null;
+  const score = p > 0 ? -Math.log10(p) : Infinity;
+  return {
+    projectId,
+    eventName,
+    bucket,
+    expected: round2(lambda),
+    actual: count,
+    zScore: round2(score),
+    detectedAt: new Date().toISOString(),
+    metric: "totalCount",
+  };
 };
 
 export const detectPercentageSpike = (
@@ -167,7 +261,7 @@ const detectSkippedHour = (
   eventName: string,
 ): Anomaly[] =>
   [
-    detectAnomaly(stats, 0, projectId, eventName, "totalCount", stats.lastBucket),
+    detectPoissonAnomaly(stats, 0, projectId, eventName, stats.lastBucket),
     detectPercentageDrop(stats, 0, projectId, eventName, stats.lastBucket),
   ].filter((a): a is Anomaly => a !== null);
 
@@ -208,12 +302,11 @@ export const detectBucketAnomalies = (
   const bucket = stats.lastBucket;
   return [
     ...detectSkippedHourAnomalies(stats, skippedHours, projectId, eventName),
-    detectAnomaly(
+    detectPoissonAnomaly(
       hourHasData ? hourStats : statsWithZeros,
       prevTotalCount,
       projectId,
       eventName,
-      "totalCount",
       bucket,
     ),
     hourHasData

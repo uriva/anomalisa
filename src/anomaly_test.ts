@@ -7,6 +7,7 @@ import {
   detectBucketAnomalies,
   detectPercentageDrop,
   detectPercentageSpike,
+  detectPoissonAnomaly,
   detectSkippedHourAnomalies,
   drainOutgoingAlerts,
   emptyStats,
@@ -224,6 +225,167 @@ Deno.test("detectAnomaly — userSpike omits userId when not provided", () => {
   const result = detectAnomaly(stats, 50, "proj1", "event", "userSpike", stats.lastBucket);
   assertEquals(result !== null, true);
   assertEquals((result as Anomaly).userId, undefined);
+});
+
+// ---------------------------------------------------------------------------
+// detectPoissonAnomaly — count-aware tail-probability detector
+//
+// Motivation: low-rate events (mean < 1/hr) currently rely on z-scores with
+// ad-hoc absolute-count floors. For count data, a Poisson tail probability is
+// the right model and removes the magic numbers.
+//
+// Contract (proposed):
+//   detectPoissonAnomaly(stats, count, projectId, eventName, bucket)
+//     - returns null when stats.n < minDataPoints (cold start)
+//     - returns null when the two-sided Poisson tail probability of `count`
+//       under rate=stats.mean is above pThreshold (default ~1e-3)
+//     - otherwise returns an Anomaly with metric "totalCount" and
+//       zScore = -log10(p) (so larger = more anomalous, comparable to old z)
+// ---------------------------------------------------------------------------
+
+Deno.test("detectPoissonAnomaly — returns null on cold start (n < 3)", () => {
+  const stats = buildStats([1, 0], "2026-05-27T21");
+  assertEquals(
+    detectPoissonAnomaly(stats, 6, "proj1", "submit_exists", stats.lastBucket),
+    null,
+  );
+});
+
+Deno.test("detectPoissonAnomaly — returns null for normal value at low mean", () => {
+  // mean ~0.7, observing 1 should not fire (p high under Poisson(0.7))
+  const stats = buildStats([1, 0, 1, 2, 0, 1, 0, 2, 1, 0], "2026-05-27T21");
+  assertEquals(
+    detectPoissonAnomaly(stats, 1, "proj1", "submit_exists", stats.lastBucket),
+    null,
+  );
+});
+
+Deno.test("detectPoissonAnomaly — flags the real alert case (mean ~0.7, count 6)", () => {
+  // Reproduces "API submit already exists" alert: expected 0.7, actual 6.
+  // Under Poisson(0.7), P(X >= 6) ~= 6e-5 — well below pThreshold.
+  const stats = buildStats(
+    [1, 0, 1, 2, 0, 1, 0, 2, 1, 0],
+    "2026-05-27T21",
+  );
+  const result = detectPoissonAnomaly(
+    stats,
+    6,
+    "proj1",
+    "submit_exists",
+    stats.lastBucket,
+  );
+  assertEquals(result !== null, true);
+  const anomaly = result as Anomaly;
+  assertEquals(anomaly.actual, 6);
+  assertEquals(anomaly.expected, 0.8);
+  assertEquals(anomaly.metric, "totalCount");
+  // -log10(p) for p ~ 6e-5 is ~4.2; require it's clearly above noise
+  assertEquals(anomaly.zScore > 3, true);
+});
+
+Deno.test("detectPoissonAnomaly — flags the supergreen API Error alert (mean ~0.54, count 6)", () => {
+  // Real alert: mean 0.54, count 6. Under Poisson(0.54), P(X>=6) ~= 2.2e-5,
+  // two-sided p ~= 4.4e-5, -log10(p) ~= 4.36 — clearly anomalous.
+  // The sparkline shows a single big spike on an otherwise quiet event,
+  // which is exactly the kind of case Poisson should catch.
+  const stats = buildStats(
+    [0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+    "2026-05-28T00",
+  );
+  const result = detectPoissonAnomaly(
+    stats,
+    6,
+    "supergreen",
+    "api_error",
+    stats.lastBucket,
+  );
+  assertEquals(result !== null, true);
+  const anomaly = result as Anomaly;
+  assertEquals(anomaly.actual, 6);
+  assertEquals(anomaly.zScore > 3, true);
+});
+
+Deno.test("detectPoissonAnomaly — borderline case (mean ~1.0, count 5) is suppressed", () => {
+  // Reproduces "Scraped URL" alert: expected ~0.97, actual 5.
+  // Under Poisson(1.0), two-sided p ~= 0.007 — above pThreshold (1e-3),
+  // so we deliberately do NOT fire. This is the whole point of switching
+  // to Poisson: the old z-score detector fired here, but at this baseline
+  // count=5 just isn't strong enough evidence to alert on.
+  const stats = buildStats(
+    [1, 1, 0, 2, 1, 1, 0, 2, 1, 1],
+    "2026-05-27T21",
+  );
+  assertEquals(
+    detectPoissonAnomaly(stats, 5, "proj1", "scraped_url", stats.lastBucket),
+    null,
+  );
+});
+
+Deno.test("detectPoissonAnomaly — fires on stronger version of the borderline case (count 7)", () => {
+  // Same baseline (mean ~1.0) but count 7: P(X>=7 | 1.0) ~= 8.3e-5,
+  // two-sided ~= 1.7e-4 — below threshold, fires.
+  const stats = buildStats(
+    [1, 1, 0, 2, 1, 1, 0, 2, 1, 1],
+    "2026-05-27T21",
+  );
+  const result = detectPoissonAnomaly(
+    stats,
+    7,
+    "proj1",
+    "scraped_url",
+    stats.lastBucket,
+  );
+  assertEquals(result !== null, true);
+  assertEquals((result as Anomaly).actual, 7);
+});
+
+Deno.test("detectPoissonAnomaly — small absolute spike at tiny baseline does NOT fire", () => {
+  // mean ~0.1, count 2: under Poisson(0.1), P(X >= 2) ~= 0.005 — close to threshold,
+  // but the test pins the design intent: very rare events with tiny absolute counts
+  // should require strong evidence. With pThreshold = 1e-3 this is suppressed.
+  const stats = buildStats(
+    [0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+    "2026-05-27T21",
+  );
+  assertEquals(
+    detectPoissonAnomaly(stats, 2, "proj1", "rare", stats.lastBucket),
+    null,
+  );
+});
+
+Deno.test("detectPoissonAnomaly — detects drop to zero from high mean", () => {
+  // mean ~50, observed 0: P(X = 0) = e^-50 ~ 2e-22 — clearly anomalous on the low side.
+  const stats = buildStats([50, 48, 52, 49, 51, 50, 47, 53], "2026-05-27T21");
+  const result = detectPoissonAnomaly(
+    stats,
+    0,
+    "proj1",
+    "signup",
+    stats.lastBucket,
+  );
+  assertEquals(result !== null, true);
+  assertEquals((result as Anomaly).actual, 0);
+});
+
+Deno.test("detectPoissonAnomaly — does not fire on normal traffic at high mean", () => {
+  // mean ~50, observed 55: well within Poisson noise.
+  const stats = buildStats([50, 48, 52, 49, 51, 50, 47, 53], "2026-05-27T21");
+  assertEquals(
+    detectPoissonAnomaly(stats, 55, "proj1", "signup", stats.lastBucket),
+    null,
+  );
+});
+
+Deno.test("detectPoissonAnomaly — zScore field encodes -log10(p), larger = more anomalous", () => {
+  const lowMean = buildStats([1, 0, 1, 2, 0, 1, 0, 2, 1, 0], "2026-05-27T21");
+  const extreme = detectPoissonAnomaly(lowMean, 10, "p", "e", lowMean.lastBucket);
+  const milder = detectPoissonAnomaly(lowMean, 6, "p", "e", lowMean.lastBucket);
+  assertEquals(extreme !== null, true);
+  assertEquals(milder !== null, true);
+  assertEquals(
+    (extreme as Anomaly).zScore > (milder as Anomaly).zScore,
+    true,
+  );
 });
 
 Deno.test("Welford's — incremental matches batch calculation", () => {

@@ -353,6 +353,22 @@ Deno.test("detectPoissonAnomaly — small absolute spike at tiny baseline does N
   );
 });
 
+Deno.test("detectPoissonAnomaly — find-scene Extract Frame: lambda=0.03, count=2 does NOT fire", () => {
+  // Real alert: expected 0.03, actual 2. Under Poisson(0.03), P(X>=2) ~= 4.4e-4,
+  // two-sided ~= 8.8e-4 — below the 1e-3 p-threshold and would fire on math alone.
+  // But two events in an hour on a near-zero baseline isn't actionable. The
+  // low-baseline absolute floor (count >= 5 when mean < 1) should suppress this,
+  // matching the existing guard in detectAnomaly.
+  const stats = buildStats(
+    [...Array.from({ length: 30 }, () => 0), 1],
+    "2026-05-28T10",
+  );
+  assertEquals(
+    detectPoissonAnomaly(stats, 2, "find-scene", "Extract Frame", stats.lastBucket),
+    null,
+  );
+});
+
 Deno.test("detectPoissonAnomaly — detects drop to zero from high mean", () => {
   // mean ~50, observed 0: P(X = 0) = e^-50 ~ 2e-22 — clearly anomalous on the low side.
   const stats = buildStats([50, 48, 52, 49, 51, 50, 47, 53], "2026-05-27T21");

@@ -182,6 +182,12 @@ export const detectPoissonAnomaly = (
   bucket: string,
 ): Anomaly | null => {
   if (stats.n < minDataPoints) return null;
+  // At very sparse baselines the Poisson tail probability becomes statistically
+  // significant for tiny absolute counts (e.g. lambda=0.03, count=2 -> p<1e-3),
+  // but a couple of events in an hour isn't an alert-worthy event. Mirror the
+  // floor in detectAnomaly: when the baseline is below 1/hr, require at least
+  // 5 events to fire.
+  if (stats.mean < 1 && count < 5) return null;
   const lambda = stats.mean;
   const p = poissonTwoSidedP(count, lambda);
   if (!(p < poissonPThreshold)) return null;

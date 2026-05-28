@@ -6,7 +6,7 @@
   "tasks": {
     "check": "deno check",
     "precommit": "deno task check",
-    "test": "deno test --unstable-kv"
+    "test": "deno test --unstable-kv --allow-env"
   },
   "deploy": {
     "org": "uriva",

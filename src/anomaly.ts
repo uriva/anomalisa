@@ -24,12 +24,12 @@ export type Anomaly = {
 
 const getHourBucket = (): string => new Date().toISOString().slice(0, 13);
 
-export const updateStats = (stats: Stats, value: number): Stats => {
-  const n = stats.n + 1;
+export const updateStats = (stats: Stats, value: number, decay = 1.0): Stats => {
+  const n = stats.n * decay + 1;
   const delta = value - stats.mean;
   const mean = stats.mean + delta / n;
   const delta2 = value - mean;
-  const m2 = stats.m2 + delta * delta2;
+  const m2 = stats.m2 * decay + delta * delta2;
   return { mean, m2, n, lastBucket: stats.lastBucket };
 };
 
@@ -49,6 +49,7 @@ const poissonPThreshold = 1e-3;
 const countTtlMs = 7 * 24 * 60 * 60 * 1000;
 const anomalyTtlMs = 30 * 24 * 60 * 60 * 1000;
 const cooldownTtlMs = 24 * 60 * 60 * 1000;
+const statsDecay = 0.98;
 
 export const emptyStats = (lastBucket: string): Stats => ({
   mean: 0,
@@ -65,9 +66,9 @@ const msPerHour = 60 * 60 * 1000;
 export const hoursBetween = (a: string, b: string): number =>
   Math.max(0, Math.round((bucketToMs(b) - bucketToMs(a)) / msPerHour));
 
-export const updateStatsWithZeros = (stats: Stats, count: number): Stats =>
+export const updateStatsWithZeros = (stats: Stats, count: number, decay = 1.0): Stats =>
   Array.from({ length: count }).reduce<Stats>(
-    (s) => updateStats(s, 0),
+    (s) => updateStats(s, 0, decay),
     stats,
   );
 
@@ -274,11 +275,12 @@ const detectSkippedHour = (
 const skippedHourStep = (
   projectId: string,
   eventName: string,
+  decay = 1.0,
 ) =>
 (
   { stats, anomalies }: { stats: Stats; anomalies: Anomaly[] },
 ): { stats: Stats; anomalies: Anomaly[] } => ({
-  stats: updateStats(stats, 0),
+  stats: updateStats(stats, 0, decay),
   anomalies: [...anomalies, ...detectSkippedHour(stats, projectId, eventName)],
 });
 
@@ -287,11 +289,12 @@ export const detectSkippedHourAnomalies = (
   skippedHours: number,
   projectId: string,
   eventName: string,
+  decay = 1.0,
 ): Anomaly[] =>
   Array.from({ length: skippedHours }).reduce<
     { stats: Stats; anomalies: Anomaly[] }
   >(
-    skippedHourStep(projectId, eventName),
+    skippedHourStep(projectId, eventName, decay),
     { stats, anomalies: [] },
   ).anomalies;
 
@@ -302,12 +305,13 @@ export const detectBucketAnomalies = (
   skippedHours: number,
   projectId: string,
   eventName: string,
+  decay = 1.0,
 ): Anomaly[] => {
-  const statsWithZeros = updateStatsWithZeros(stats, skippedHours);
+  const statsWithZeros = updateStatsWithZeros(stats, skippedHours, decay);
   const hourHasData = hourStats.n >= minDataPoints;
   const bucket = stats.lastBucket;
   return [
-    ...detectSkippedHourAnomalies(stats, skippedHours, projectId, eventName),
+    ...detectSkippedHourAnomalies(stats, skippedHours, projectId, eventName, decay),
     detectPoissonAnomaly(
       hourHasData ? hourStats : statsWithZeros,
       prevTotalCount,
@@ -460,8 +464,8 @@ const handleBucketTransition = async (
     .value ?? 0;
 
   const skippedHours = Math.max(0, hoursBetween(stats.lastBucket, bucket) - 1);
-  const statsWithZeros = updateStatsWithZeros(stats, skippedHours);
-  const updatedStats = updateStats(statsWithZeros, prevTotalCount);
+  const statsWithZeros = updateStatsWithZeros(stats, skippedHours, statsDecay);
+  const updatedStats = updateStats(statsWithZeros, prevTotalCount, statsDecay);
 
   const prevHourOfDay = parseInt(stats.lastBucket.slice(-2), 10);
   const hourStatsKey = ["stats", "byHour", projectId, eventName, prevHourOfDay];
@@ -474,6 +478,7 @@ const handleBucketTransition = async (
     skippedHours,
     projectId,
     eventName,
+    statsDecay,
   );
 
   const prevMaxUserCount = (await (await getKv()).get<number>([
@@ -485,7 +490,7 @@ const handleBucketTransition = async (
 
   const perUserStatsKey = ["stats", "perUser", projectId, eventName];
   const perUserStats = await getOrInitStats(perUserStatsKey, bucket);
-  const perUserSkippedZeros = updateStatsWithZeros(perUserStats, skippedHours);
+  const perUserSkippedZeros = updateStatsWithZeros(perUserStats, skippedHours, statsDecay);
 
   const [notifiable] = await Promise.all([
     storeAndFilter(anomalies),
@@ -494,10 +499,10 @@ const handleBucketTransition = async (
       lastBucket: bucket,
     }),
     (await getKv()).set(perUserStatsKey, {
-      ...updateStats(perUserSkippedZeros, prevMaxUserCount),
+      ...updateStats(perUserSkippedZeros, prevMaxUserCount, statsDecay),
       lastBucket: bucket,
     }),
-    (await getKv()).set(hourStatsKey, updateStats(hourStats, prevTotalCount)),
+    (await getKv()).set(hourStatsKey, updateStats(hourStats, prevTotalCount, statsDecay)),
   ]);
 
   notifiable.forEach((a) =>

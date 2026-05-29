@@ -994,3 +994,57 @@ Deno.test("detectPercentageSpike — suppresses noisy high-volume spike (prompt2
     null,
   );
 });
+
+Deno.test("gradual consistent rise — triggers percentageSpike alert spam in current infinite-memory implementation", () => {
+  const normalValues = Array.from({ length: 50 }, () => 10);
+  let stats = buildStats(normalValues, "2026-05-20T00");
+
+  const alerts: boolean[] = [];
+  for (let val = 11; val <= 100; val++) {
+    const anomaly = detectPercentageSpike(
+      stats,
+      val,
+      "proj1",
+      "Bot Reply",
+      "2026-05-20T01",
+    );
+    alerts.push(anomaly !== null);
+    stats = updateStats(stats, val);
+  }
+
+  const alertCount = alerts.filter(Boolean).length;
+  assertEquals(
+    alertCount > 0,
+    true,
+    `Expected infinite memory to spam alerts during a completely gradual rise, but got ${alertCount} alerts.`,
+  );
+});
+
+Deno.test("gradual consistent rise — does not trigger percentageSpike alerts when using decaying stats", () => {
+  const normalValues = Array.from({ length: 50 }, () => 10);
+  const decayFactor = 0.98;
+  let stats = normalValues.reduce(
+    (s, val) => updateStats(s, val, decayFactor),
+    emptyStats("2026-05-20T00"),
+  );
+
+  const alerts: boolean[] = [];
+  for (let val = 10.5; val <= 100; val += 0.5) {
+    const anomaly = detectPercentageSpike(
+      stats,
+      val,
+      "proj1",
+      "Bot Reply",
+      "2026-05-20T01",
+    );
+    alerts.push(anomaly !== null);
+    stats = updateStats(stats, val, decayFactor);
+  }
+
+  const alertCount = alerts.filter(Boolean).length;
+  assertEquals(
+    alertCount,
+    0,
+    `Expected decaying stats to adapt to the gradual rise and trigger 0 alerts, but got ${alertCount} alerts.`,
+  );
+});

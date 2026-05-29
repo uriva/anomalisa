@@ -2,6 +2,7 @@ import { apiHandler, type ApiImplementation } from "@uri/typed-api";
 import { type Api, apiDefinition } from "./api.ts";
 import {
   type Anomaly,
+  adaptBaseline,
   checkAllEmptyBuckets,
   drainOutgoingAlerts,
   enqueueOutgoingAlerts,
@@ -99,9 +100,9 @@ const jsonResponse = (data: Record<string, unknown>, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const htmlResponse = (html: string) =>
+const htmlResponse = (html: string, status = 200) =>
   new Response(html, {
-    status: 200,
+    status,
     headers: { ...corsHeaders, "Content-Type": "text/html" },
   });
 
@@ -116,6 +117,35 @@ const getHtmlByPath = async () => {
 
 const handleGet = async (url: URL) => {
   if (url.pathname === "/config") return jsonResponse({ instantdbAppId });
+  if (url.pathname === "/suppress") {
+    const projectId = url.searchParams.get("projectId");
+    const eventName = url.searchParams.get("eventName");
+    const actualStr = url.searchParams.get("actual");
+    if (!projectId || !eventName || !actualStr) {
+      return htmlResponse("<h3>Missing parameters</h3>", 400);
+    }
+    const actual = parseFloat(actualStr);
+    if (isNaN(actual)) {
+      return htmlResponse("<h3>Invalid actual count</h3>", 400);
+    }
+    await adaptBaseline(projectId, eventName, actual);
+    if (url.searchParams.get("json") === "true") {
+      return jsonResponse({ success: true });
+    }
+    return htmlResponse(`
+      <div style="font-family: system-ui, sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 1rem;">
+        <div style="background: #141414; border: 1px solid #222; border-radius: 12px; padding: 2.5rem; max-width: 480px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">✅</div>
+          <h2 style="color: #fff; margin-bottom: 0.75rem;">Baseline Suppressed &amp; Adapted</h2>
+          <p style="color: #aaa; line-height: 1.5; margin-bottom: 1.5rem;">The expected baseline for event <strong style="color: #7eb8ff;">"${eventName}"</strong> has been set to <strong>${actual}</strong> events/hour.</p>
+          <p style="color: #666; font-size: 0.9rem;">Anomalisa will now consider this the new norm and will only alert you if the traffic significantly changes from this level.</p>
+          <div style="margin-top: 2rem;">
+            <a href="/app" style="color: #7eb8ff; text-decoration: none; font-weight: 500;">Go to Dashboard &rarr;</a>
+          </div>
+        </div>
+      </div>
+    `);
+  }
   const htmlByPath = await getHtmlByPath();
   const { landingHtml } = await getHtml();
   return htmlResponse(

@@ -1,6 +1,7 @@
 import { assertAlmostEquals, assertEquals } from "@std/assert";
 import {
   type Anomaly,
+  adaptBaseline,
   anomalyDirection,
   type CooldownEntry,
   detectAnomaly,
@@ -1047,4 +1048,36 @@ Deno.test("gradual consistent rise — does not trigger percentageSpike alerts w
     0,
     `Expected decaying stats to adapt to the gradual rise and trigger 0 alerts, but got ${alertCount} alerts.`,
   );
+});
+
+Deno.test({
+  name: "adaptBaseline — sets running stats to new actual and clears cooldowns",
+  sanitizeResources: false,
+  fn: async () => {
+    const projectId = "test-proj";
+    const eventName = "test-event";
+    const actual = 150;
+
+    await adaptBaseline(projectId, eventName, actual);
+
+    const kv = await Deno.openKv();
+    const totalStatsKey = ["stats", "total", projectId, eventName];
+    const totalStats = (await kv.get<any>(totalStatsKey)).value;
+
+    assertEquals(totalStats !== null, true);
+    assertEquals(totalStats.mean, actual);
+    assertEquals(totalStats.n, 5);
+    assertEquals(totalStats.m2 > 0, true);
+
+    const hourStatsKey = ["stats", "byHour", projectId, eventName, 12];
+    const hourStats = (await kv.get<any>(hourStatsKey)).value;
+    assertEquals(hourStats !== null, true);
+    assertEquals(hourStats.mean, actual);
+
+    await kv.delete(totalStatsKey);
+    for (let h = 0; h < 24; h++) {
+      await kv.delete(["stats", "byHour", projectId, eventName, h]);
+    }
+    kv.close();
+  },
 });

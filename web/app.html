@@ -721,7 +721,7 @@
               : "Total Count";
           list.innerHTML = `
           <table class="anomaly-table">
-            <tr><th>Type</th><th>Event</th><th>User</th><th>Bucket</th><th>Expected</th><th>Actual</th><th>Z</th><th>Detected</th></tr>
+            <tr><th>Type</th><th>Event</th><th>User</th><th>Bucket</th><th>Expected</th><th>Actual</th><th>Z</th><th>Detected</th><th>Actions</th></tr>
             ${
             anomalies.map((a) => `
               <tr>
@@ -733,11 +733,42 @@
                 <td>${a.actual}</td>
                 <td>${a.zScore}</td>
                 <td>${new Date(a.detectedAt).toLocaleString()}</td>
+                <td>
+                  <button class="btn-secondary suppress-btn" style="padding: 0.2rem 0.4rem; font-size: 0.75rem;" data-event="${a.eventName}" data-actual="${a.actual}">Suppress &amp; Adapt</button>
+                </td>
               </tr>
             `).join("")
           }
           </table>
         `;
+
+          list.querySelectorAll(".suppress-btn").forEach((btn) => {
+            btn.addEventListener("click", async () => {
+              const eventName = btn.dataset.event;
+              const actual = btn.dataset.actual;
+              if (confirm(`Suppress anomaly for "${eventName}" and adapt baseline to ${actual} events/hour?`)) {
+                btn.disabled = true;
+                btn.textContent = "Adapting...";
+                try {
+                  const url = `/suppress?projectId=${selectedProjectId}&eventName=${encodeURIComponent(eventName)}&actual=${actual}&json=true`;
+                  const res = await fetch(url);
+                  const data = await res.json();
+                  if (data.success) {
+                    alert("Baseline successfully adapted!");
+                    loadAnomalies();
+                  } else {
+                    alert("Adaptation failed.");
+                    btn.disabled = false;
+                    btn.textContent = "Suppress & Adapt";
+                  }
+                } catch (e) {
+                  alert("Error adapting baseline: " + e.message);
+                  btn.disabled = false;
+                  btn.textContent = "Suppress & Adapt";
+                }
+              }
+            });
+          });
         };
 
         loadCharts();

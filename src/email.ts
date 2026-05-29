@@ -153,16 +153,20 @@ const groupByEventBucket = (anomalies: Anomaly[]) => {
 };
 
 const formatEventRow = (sparklines: Record<string, string>) =>
-(groups: Anomaly[]) =>
-  `<tr>
-    <td>${groups[0].eventName}${
-    sparklines[groups[0].eventName] ? ` ${sparklines[groups[0].eventName]}` : ""
+(groups: Anomaly[]) => {
+  const a = groups[0];
+  const suppressUrl = `https://anomalisa.uriva.deno.net/suppress?projectId=${a.projectId}&eventName=${encodeURIComponent(a.eventName)}&actual=${a.actual}`;
+  return `<tr>
+    <td>${a.eventName}${
+    sparklines[a.eventName] ? ` ${sparklines[a.eventName]}` : ""
   }</td>
-    <td>${formatBucket(groups[0].bucket)}</td>
-    <td>${groups[0].expected}</td>
-    <td>${groups[0].actual}</td>
+    <td>${formatBucket(a.bucket)}</td>
+    <td>${a.expected}</td>
+    <td>${a.actual}</td>
     <td>${groups.map(labelsHtml).join("<br>")}</td>
+    <td><a href="${suppressUrl}" style="color:#e53e3e;text-decoration:none;font-weight:600;">Suppress &amp; Adapt</a></td>
   </tr>`;
+};
 
 export const anomaliesHtml = (
   projectName: string,
@@ -178,7 +182,7 @@ export const anomaliesHtml = (
       : `${anomalies.length} Anomalies Detected`
   }</h2>
   <table border="1" cellpadding="8" cellspacing="0">
-    <tr><th>Event</th><th>Bucket</th><th>Expected</th><th>Actual</th><th>Anomalies</th></tr>
+    <tr><th>Event</th><th>Bucket</th><th>Expected</th><th>Actual</th><th>Anomalies</th><th>Actions</th></tr>
     ${groups.map(formatEventRow(sparklines)).join("\n    ")}
   </table>
   <p style="margin-top:1rem;font-size:0.85em;color:#888;">Expected = hourly average so far. Actual = this hour's count. Score = how many standard deviations from the mean.</p>`;

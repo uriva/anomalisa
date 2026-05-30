@@ -156,16 +156,25 @@ const formatEventRow = (sparklines: Record<string, string>) =>
 (groups: Anomaly[]) => {
   const a = groups[0];
   const suppressUrl = `https://anomalisa.uriva.deno.net/suppress?projectId=${a.projectId}&eventName=${encodeURIComponent(a.eventName)}&actual=${a.actual}`;
-  return `<tr>
-    <td>${a.eventName}${
-    sparklines[a.eventName] ? ` ${sparklines[a.eventName]}` : ""
-  }</td>
-    <td>${formatBucket(a.bucket)}</td>
-    <td>${a.expected}</td>
-    <td>${a.actual}</td>
-    <td>${groups.map(labelsHtml).join("<br>")}</td>
-    <td><a href="${suppressUrl}" style="color:#e53e3e;text-decoration:none;font-weight:600;">Suppress &amp; Adapt</a></td>
-  </tr>`;
+  const sparklineMarkup = sparklines[a.eventName] ? `<div style="margin-top: 4px;">${sparklines[a.eventName]}</div>` : "";
+  return `
+    <tr style="border-bottom: 1px solid #f1f5f9; vertical-align: top; color: #334155;">
+      <td style="padding: 14px 12px; font-weight: 500; color: #0f172a;">
+        <div>${a.eventName}</div>
+        ${sparklineMarkup}
+      </td>
+      <td style="padding: 14px 12px; font-size: 13px; color: #64748b;">${formatBucket(a.bucket)}</td>
+      <td style="padding: 14px 12px; text-align: right; font-family: monospace; font-size: 13px;">${a.expected}</td>
+      <td style="padding: 14px 12px; text-align: right; font-family: monospace; font-size: 13px; font-weight: 600; color: #0f172a;">${a.actual}</td>
+      <td style="padding: 14px 12px; font-size: 13px; line-height: 1.4;">
+        ${groups.map(labelsHtml).join("<br>")}
+      </td>
+      <td style="padding: 14px 12px; text-align: right; vertical-align: middle;">
+        <a href="${suppressUrl}" style="display: inline-block; background-color: #ef4444; color: #ffffff; text-decoration: none; font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 6px; white-space: nowrap;">
+          Suppress &amp; Adapt
+        </a>
+      </td>
+    </tr>`;
 };
 
 export const anomaliesHtml = (
@@ -176,16 +185,49 @@ export const anomaliesHtml = (
 ) => {
   const sparklines = counts ? buildSparklines(anomalies, counts, maxUserCounts, sparkHtml) : {};
   const groups = groupByEventBucket(anomalies);
-  return `<h2>${projectName}: ${
-    anomalies.length === 1
-      ? "Anomaly Detected"
-      : `${anomalies.length} Anomalies Detected`
-  }</h2>
-  <table border="1" cellpadding="8" cellspacing="0">
-    <tr><th>Event</th><th>Bucket</th><th>Expected</th><th>Actual</th><th>Anomalies</th><th>Actions</th></tr>
-    ${groups.map(formatEventRow(sparklines)).join("\n    ")}
-  </table>
-  <p style="margin-top:1rem;font-size:0.85em;color:#888;">Expected = hourly average so far. Actual = this hour's count. Score = how many standard deviations from the mean.</p>`;
+  const totalAlerts = anomalies.length;
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; padding: 24px; min-height: 100%;">
+      <div style="max-width: 780px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);">
+        <!-- Header -->
+        <div style="background-color: #0f172a; padding: 24px; color: #ffffff;">
+          <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; color: #94a3b8; margin-bottom: 4px;">anomalisa alert</div>
+          <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #ffffff; line-height: 1.2;">
+            ${projectName}: ${
+              anomalies.length === 1
+                ? "Anomaly Detected"
+                : `${anomalies.length} Anomalies Detected`
+            }
+          </h1>
+        </div>
+        
+        <!-- Body -->
+        <div style="padding: 24px; overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+            <thead>
+              <tr style="border-bottom: 2px solid #e2e8f0; color: #475569;">
+                <th style="padding: 10px 12px; font-weight: 600;">Event</th>
+                <th style="padding: 10px 12px; font-weight: 600;">Bucket</th>
+                <th style="padding: 10px 12px; font-weight: 600; text-align: right;">Expected</th>
+                <th style="padding: 10px 12px; font-weight: 600; text-align: right;">Actual</th>
+                <th style="padding: 10px 12px; font-weight: 600;">Alerts / Metrics</th>
+                <th style="padding: 10px 12px; font-weight: 600; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${groups.map(formatEventRow(sparklines)).join("")}
+            </tbody>
+          </table>
+          
+          <!-- Footer info -->
+          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #64748b; line-height: 1.5;">
+            <p style="margin: 0 0 6px 0;"><strong>Expected</strong> is the hourly baseline calculated using running historical data.</p>
+            <p style="margin: 0 0 6px 0;"><strong>Actual</strong> is the recorded count during this hour.</p>
+            <p style="margin: 0;"><strong>Score (Z)</strong> indicates how many standard deviations the count is from the mean baseline.</p>
+          </div>
+        </div>
+      </div>
+    </div>`;
 };
 
 const buildSparklines = (

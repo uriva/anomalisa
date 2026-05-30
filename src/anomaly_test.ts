@@ -3,7 +3,6 @@ import {
   type Anomaly,
   adaptBaseline,
   anomalyDirection,
-  type CooldownEntry,
   detectAnomaly,
   detectBucketAnomalies,
   detectPercentageDrop,
@@ -13,8 +12,8 @@ import {
   drainOutgoingAlerts,
   emptyStats,
   enqueueOutgoingAlerts,
+  getTrendIndication,
   hoursBetween,
-  shouldSuppress,
   stdDev,
   updateStats,
   updateStatsWithZeros,
@@ -851,76 +850,6 @@ Deno.test("anomalyDirection — low when actual < expected", () => {
   );
 });
 
-Deno.test("shouldSuppress — returns true for same direction, same magnitude", () => {
-  assertEquals(
-    shouldSuppress({ direction: "high", actual: 2 }, {
-      actual: 3,
-      expected: 0.1,
-    } as Anomaly),
-    true,
-  );
-});
-
-Deno.test("shouldSuppress — returns false for opposite direction", () => {
-  assertEquals(
-    shouldSuppress({ direction: "high", actual: 50 }, {
-      actual: 0,
-      expected: 100,
-    } as Anomaly),
-    false,
-  );
-});
-
-Deno.test("shouldSuppress — returns false when no previous entry", () => {
-  assertEquals(
-    shouldSuppress(null, {
-      actual: 50,
-      expected: 10,
-    } as Anomaly),
-    false,
-  );
-});
-
-Deno.test("shouldSuppress — escalation: same direction but much higher actual is NOT suppressed", () => {
-  assertEquals(
-    shouldSuppress({ direction: "high", actual: 2 }, {
-      actual: 10,
-      expected: 0.1,
-    } as Anomaly),
-    false,
-  );
-});
-
-Deno.test("shouldSuppress — escalation: doubling still suppressed (boundary)", () => {
-  assertEquals(
-    shouldSuppress({ direction: "high", actual: 4 }, {
-      actual: 8,
-      expected: 0.1,
-    } as Anomaly),
-    true,
-  );
-});
-
-Deno.test("shouldSuppress — escalation: just over 2x is NOT suppressed", () => {
-  assertEquals(
-    shouldSuppress({ direction: "high", actual: 4 }, {
-      actual: 9,
-      expected: 0.1,
-    } as Anomaly),
-    false,
-  );
-});
-
-Deno.test("shouldSuppress — escalation: low direction escalation also not suppressed", () => {
-  assertEquals(
-    shouldSuppress({ direction: "low", actual: 100 }, {
-      actual: 10,
-      expected: 50,
-    } as Anomaly),
-    false,
-  );
-});
-
 Deno.test({
   name: "enqueueOutgoingAlerts and drainOutgoingAlerts — groups by project and deletes on drain",
   sanitizeResources: false,
@@ -1077,6 +1006,66 @@ Deno.test({
     await kv.delete(totalStatsKey);
     for (let h = 0; h < 24; h++) {
       await kv.delete(["stats", "byHour", projectId, eventName, h]);
+    }
+    kv.close();
+  },
+});
+
+Deno.test({
+  name: "getTrendIndication — detects growth and decrease trends based on 24h past anomalies",
+  sanitizeResources: false,
+  fn: async () => {
+    const kv = await Deno.openKv();
+    const prefix = ["anomalies", "test-project"];
+    for await (const entry of kv.list({ prefix })) {
+      await kv.delete(entry.key);
+    }
+
+    const createAnomaly = (eventName: string, actual: number, expected: number, hoursAgo: number): Anomaly => {
+      const date = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
+      const bucket = date.toISOString().slice(0, 13);
+      return {
+        projectId: "test-project",
+        eventName,
+        bucket,
+        expected,
+        actual,
+        zScore: 3,
+        detectedAt: date.toISOString(),
+        metric: "totalCount",
+      };
+    };
+
+    // 1. With no past anomalies, getTrendIndication should return null
+    const trend1 = await getTrendIndication("test-project", "my-event", "high");
+    assertEquals(trend1, null);
+
+    // 2. Add one high anomaly from 5 hours ago
+    const a1 = createAnomaly("my-event", 50, 10, 5);
+    await kv.set(["anomalies", "test-project", "my-event", a1.bucket, "totalCount", "_"], a1);
+
+    // With 1 past anomaly, we expect count to be 1 past + 1 current = 2 alerts in the last 24h
+    const trend2 = await getTrendIndication("test-project", "my-event", "high");
+    assertEquals(trend2, "📈 Recurring growth trend (2 alerts in the last 24h)");
+
+    // 3. Add another high anomaly from 10 hours ago
+    const a2 = createAnomaly("my-event", 40, 10, 10);
+    await kv.set(["anomalies", "test-project", "my-event", a2.bucket, "totalCount", "_"], a2);
+
+    // With 2 past anomalies, we expect count to be 2 past + 1 current = 3 alerts in the last 24h
+    const trend3 = await getTrendIndication("test-project", "my-event", "high");
+    assertEquals(trend3, "📈 Recurring growth trend (3 alerts in the last 24h)");
+
+    // 4. Anomaly from 30 hours ago should be ignored (since it's older than 24h)
+    const a3 = createAnomaly("my-event", 60, 10, 30);
+    await kv.set(["anomalies", "test-project", "my-event", a3.bucket, "totalCount", "_"], a3);
+
+    const trend4 = await getTrendIndication("test-project", "my-event", "high");
+    assertEquals(trend4, "📈 Recurring growth trend (3 alerts in the last 24h)");
+
+    // Clean up
+    for await (const entry of kv.list({ prefix })) {
+      await kv.delete(entry.key);
     }
     kv.close();
   },

@@ -20,6 +20,7 @@ export type Anomaly = {
   detectedAt: string;
   metric: Metric;
   userId?: string;
+  trend?: string;
 };
 
 const getHourBucket = (): string => new Date().toISOString().slice(0, 13);
@@ -48,7 +49,6 @@ const minPercentageSpikeZScore = 2.5;
 const poissonPThreshold = 1e-3;
 const countTtlMs = 7 * 24 * 60 * 60 * 1000;
 const anomalyTtlMs = 30 * 24 * 60 * 60 * 1000;
-const cooldownTtlMs = 24 * 60 * 60 * 1000;
 const statsDecay = 0.98;
 
 export const emptyStats = (lastBucket: string): Stats => ({
@@ -328,26 +328,8 @@ export const detectBucketAnomalies = (
 
 export type Direction = "high" | "low";
 
-export type CooldownEntry = { direction: Direction; actual: number };
-
-const escalationFactor = 2;
-
 export const anomalyDirection = (a: Anomaly): Direction =>
   a.actual > a.expected ? "high" : "low";
-
-export const shouldSuppress = (
-  lastEntry: CooldownEntry | null,
-  anomaly: Anomaly,
-): boolean => {
-  if (!lastEntry) return false;
-  const direction = anomalyDirection(anomaly);
-  if (lastEntry.direction !== direction) return false;
-  const isEscalation = direction === "high"
-    ? anomaly.actual > lastEntry.actual * escalationFactor
-    : anomaly.actual < lastEntry.actual / escalationFactor;
-  if (isEscalation) return false;
-  return true;
-};
 
 const anomalyKey = (
   { projectId, eventName, bucket, metric, userId }: Anomaly,
@@ -368,39 +350,42 @@ const storeAnomaly = async (anomaly: Anomaly): Promise<boolean> => {
     .commit()).ok;
 };
 
-const cooldownKey = (
-  { projectId, eventName, metric, userId }: Anomaly,
-): Deno.KvKey => [
-  "alertCooldown",
-  projectId,
-  eventName,
-  metric,
-  userId ?? "_",
-];
+export const getTrendIndication = async (
+  projectId: string,
+  eventName: string,
+  currentDirection: "high" | "low",
+): Promise<string | null> => {
+  const allAnomalies = await getAnomalies(projectId);
+  const now = Date.now();
+  const oneDayAgo = now - 24 * 60 * 60 * 1000;
 
-const checkAndSetCooldown = async (anomaly: Anomaly): Promise<boolean> => {
-  const key = cooldownKey(anomaly);
-  const entry = await (await getKv()).get<CooldownEntry | Direction>(key);
-  const direction = anomalyDirection(anomaly);
-  const lastEntry = entry.value
-    ? (typeof entry.value === "string"
-      ? { direction: entry.value as Direction, actual: Infinity }
-      : entry.value)
-    : null;
-  if (shouldSuppress(lastEntry, anomaly)) return false;
-  await (await getKv()).set(key, { direction, actual: anomaly.actual }, {
-    expireIn: cooldownTtlMs,
+  const recentSameEventAndDirection = allAnomalies.filter((a) => {
+    if (a.eventName !== eventName) return false;
+    const direction = anomalyDirection(a);
+    if (direction !== currentDirection) return false;
+    const detectedMs = new Date(a.detectedAt).getTime();
+    return detectedMs >= oneDayAgo && detectedMs < now;
   });
-  return true;
+
+  if (recentSameEventAndDirection.length >= 1) {
+    const count = recentSameEventAndDirection.length + 1;
+    return currentDirection === "high"
+      ? `📈 Recurring growth trend (${count} alerts in the last 24h)`
+      : `📉 Recurring decrease trend (${count} alerts in the last 24h)`;
+  }
+  return null;
+};
+
+const attachTrendToAnomaly = async (anomaly: Anomaly): Promise<Anomaly> => {
+  const direction = anomalyDirection(anomaly);
+  const trend = await getTrendIndication(anomaly.projectId, anomaly.eventName, direction);
+  return trend ? { ...anomaly, trend } : anomaly;
 };
 
 const storeAndFilter = async (anomalies: Anomaly[]): Promise<Anomaly[]> => {
-  const stored = await Promise.all(anomalies.map(storeAnomaly));
-  const newAnomalies = anomalies.filter((_, i) => stored[i]);
-  const unsuppressed = await Promise.all(
-    newAnomalies.map(checkAndSetCooldown),
-  );
-  return newAnomalies.filter((_, i) => unsuppressed[i]);
+  const anomaliesWithTrends = await Promise.all(anomalies.map(attachTrendToAnomaly));
+  const stored = await Promise.all(anomaliesWithTrends.map(storeAnomaly));
+  return anomaliesWithTrends.filter((_, i) => stored[i]);
 };
 
 const getOrInitStats = async (

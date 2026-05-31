@@ -1,3 +1,4 @@
+import { anomalyDirection } from "./anomaly.ts";
 import type { Anomaly } from "./anomaly.ts";
 
 type BucketCount = { bucket: string; count: number };
@@ -148,10 +149,29 @@ const labels = (a: Anomaly) =>
     a.userId ? ` (${truncate(a.userId, 20)})` : ""
   } (${a.zScore})`;
 
-const labelsHtml = (a: Anomaly) =>
-  `<span style="font-weight:600;">${metricLabel(a.metric)}</span>${
-    a.userId ? ` (${truncate(a.userId, 20)})` : ""
-  } (${a.zScore})`;
+const labelsHtml = (a: Anomaly) => {
+  const dir = anomalyDirection(a);
+  const badge = dir === "high"
+    ? `<span style="display: inline-block; padding: 2px 6px; font-size: 11px; font-weight: 600; border-radius: 4px; background-color: #ecfdf5; color: #047857; margin-right: 6px; vertical-align: middle;">▲ Uptick</span>`
+    : `<span style="display: inline-block; padding: 2px 6px; font-size: 11px; font-weight: 600; border-radius: 4px; background-color: #fef2f2; color: #b91c1c; margin-right: 6px; vertical-align: middle;">▼ Drop</span>`;
+  const trendMarkup = a.trend
+    ? `<div style="margin-top: 4px; font-size: 11px; color: #475569; font-style: italic;">${a.trend}</div>`
+    : "";
+  return `
+    <div style="margin-bottom: 8px; line-height: 1.5;">
+      ${badge}
+      <span style="font-weight:600; vertical-align: middle; color: #0f172a;">${
+    metricLabel(a.metric)
+  }</span>${
+    a.userId
+      ? `<span style="color: #64748b; vertical-align: middle;"> (${
+        truncate(a.userId, 20)
+      })</span>`
+      : ""
+  }<span style="color: #64748b; vertical-align: middle;"> (${a.zScore})</span>
+      ${trendMarkup}
+    </div>`;
+};
 
 const groupByEventBucket = (anomalies: Anomaly[]) => {
   const map: Record<string, Anomaly[]> = {};
@@ -204,7 +224,7 @@ const formatEventCard =
       <div>
         <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; color: #64748b; margin-bottom: 4px;">Alerts / Metrics</div>
         <div style="font-size: 13px; color: #334155; line-height: 1.4; word-break: break-all; overflow-wrap: break-word;">
-          ${groups.map(labelsHtml).join("<br>")}
+          ${groups.map(labelsHtml).join("")}
         </div>
       </div>
     </div>`;

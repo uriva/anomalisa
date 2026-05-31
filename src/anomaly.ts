@@ -49,6 +49,7 @@ const minPercentageSpikeZScore = 2.5;
 const poissonPThreshold = 1e-3;
 const countTtlMs = 7 * 24 * 60 * 60 * 1000;
 const anomalyTtlMs = 30 * 24 * 60 * 60 * 1000;
+const cooldownTtlMs = 48 * 60 * 60 * 1000;
 const statsDecay = 0.98;
 
 export const emptyStats = (lastBucket: string): Stats => ({
@@ -331,6 +332,23 @@ export type Direction = "high" | "low";
 export const anomalyDirection = (a: Anomaly): Direction =>
   a.actual > a.expected ? "high" : "low";
 
+export type CooldownEntry = { direction: Direction; actual: number };
+
+const escalationFactor = 2;
+
+export const shouldSuppress = (
+  lastEntry: CooldownEntry | null,
+  anomaly: Anomaly,
+): boolean => {
+  if (!lastEntry) return false;
+  const direction = anomalyDirection(anomaly);
+  if (lastEntry.direction !== direction) return false;
+  const isEscalation = direction === "high"
+    ? anomaly.actual > lastEntry.actual * escalationFactor
+    : anomaly.actual < lastEntry.actual / escalationFactor;
+  return !isEscalation;
+};
+
 const anomalyKey = (
   { projectId, eventName, bucket, metric, userId }: Anomaly,
 ): Deno.KvKey => [
@@ -348,6 +366,32 @@ const storeAnomaly = async (anomaly: Anomaly): Promise<boolean> => {
     .check(existing)
     .set(anomalyKey(anomaly), anomaly, { expireIn: anomalyTtlMs })
     .commit()).ok;
+};
+
+const cooldownKey = (
+  { projectId, eventName, metric, userId }: Anomaly,
+): Deno.KvKey => [
+  "alertCooldown",
+  projectId,
+  eventName,
+  metric,
+  userId ?? "_",
+];
+
+export const checkAndSetCooldown = async (anomaly: Anomaly): Promise<boolean> => {
+  const key = cooldownKey(anomaly);
+  const entry = await (await getKv()).get<CooldownEntry | Direction>(key);
+  const direction = anomalyDirection(anomaly);
+  const lastEntry = entry.value
+    ? (typeof entry.value === "string"
+      ? { direction: entry.value, actual: Infinity }
+      : entry.value)
+    : null;
+  if (shouldSuppress(lastEntry, anomaly)) return false;
+  await (await getKv()).set(key, { direction, actual: anomaly.actual }, {
+    expireIn: cooldownTtlMs,
+  });
+  return true;
 };
 
 export const getTrendIndication = async (
@@ -385,7 +429,11 @@ const attachTrendToAnomaly = async (anomaly: Anomaly): Promise<Anomaly> => {
 const storeAndFilter = async (anomalies: Anomaly[]): Promise<Anomaly[]> => {
   const anomaliesWithTrends = await Promise.all(anomalies.map(attachTrendToAnomaly));
   const stored = await Promise.all(anomaliesWithTrends.map(storeAnomaly));
-  return anomaliesWithTrends.filter((_, i) => stored[i]);
+  const newAnomalies = anomaliesWithTrends.filter((_, i) => stored[i]);
+  const unsuppressed = await Promise.all(
+    newAnomalies.map(checkAndSetCooldown),
+  );
+  return newAnomalies.filter((_, i) => unsuppressed[i]);
 };
 
 const getOrInitStats = async (

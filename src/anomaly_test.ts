@@ -2,6 +2,8 @@ import { assertAlmostEquals, assertEquals } from "@std/assert";
 import {
   type Anomaly,
   anomalyDirection,
+  checkAndSetCooldown,
+  type CooldownEntry,
   detectAnomaly,
   detectBucketAnomalies,
   detectPercentageDrop,
@@ -13,6 +15,7 @@ import {
   enqueueOutgoingAlerts,
   getTrendIndication,
   hoursBetween,
+  shouldSuppress,
   stdDev,
   updateStats,
   updateStatsWithZeros,
@@ -1029,6 +1032,119 @@ Deno.test({
 
     const trend4 = await getTrendIndication("test-project", "my-event", "high");
     assertEquals(trend4, "📈 Recurring growth trend (3 alerts in the last 24h)");
+
+    // Clean up
+    for await (const entry of kv.list({ prefix })) {
+      await kv.delete(entry.key);
+    }
+    kv.close();
+  },
+});
+
+Deno.test("shouldSuppress — returns true for same direction, same magnitude", () => {
+  assertEquals(
+    shouldSuppress({ direction: "high", actual: 2 }, {
+      actual: 3,
+      expected: 0.1,
+    } as Anomaly),
+    true,
+  );
+});
+
+Deno.test("shouldSuppress — returns false for opposite direction", () => {
+  assertEquals(
+    shouldSuppress({ direction: "high", actual: 50 }, {
+      actual: 0,
+      expected: 100,
+    } as Anomaly),
+    false,
+  );
+});
+
+Deno.test("shouldSuppress — returns false when no previous entry", () => {
+  assertEquals(
+    shouldSuppress(null, {
+      actual: 50,
+      expected: 10,
+    } as Anomaly),
+    false,
+  );
+});
+
+Deno.test("shouldSuppress — escalation: same direction but much higher actual is NOT suppressed", () => {
+  assertEquals(
+    shouldSuppress({ direction: "high", actual: 2 }, {
+      actual: 10,
+      expected: 0.1,
+    } as Anomaly),
+    false,
+  );
+});
+
+Deno.test("shouldSuppress — escalation: doubling still suppressed (boundary)", () => {
+  assertEquals(
+    shouldSuppress({ direction: "high", actual: 4 }, {
+      actual: 8,
+      expected: 0.1,
+    } as Anomaly),
+    true,
+  );
+});
+
+Deno.test("shouldSuppress — escalation: just over 2x is NOT suppressed", () => {
+  assertEquals(
+    shouldSuppress({ direction: "high", actual: 4 }, {
+      actual: 9,
+      expected: 0.1,
+    } as Anomaly),
+    false,
+  );
+});
+
+Deno.test("shouldSuppress — escalation: low direction escalation also not suppressed", () => {
+  assertEquals(
+    shouldSuppress({ direction: "low", actual: 100 }, {
+      actual: 10,
+      expected: 50,
+    } as Anomaly),
+    false,
+  );
+});
+
+Deno.test({
+  name: "checkAndSetCooldown — sets cooldown and suppresses repeating anomalies in same direction",
+  sanitizeResources: false,
+  fn: async () => {
+    const kv = await Deno.openKv();
+    const prefix = ["alertCooldown", "test-project"];
+    for await (const entry of kv.list({ prefix })) {
+      await kv.delete(entry.key);
+    }
+
+    const anomaly1: Anomaly = {
+      projectId: "test-project",
+      eventName: "user-signup",
+      bucket: "2026-05-31T15",
+      expected: 2,
+      actual: 8,
+      zScore: 3.5,
+      detectedAt: new Date().toISOString(),
+      metric: "totalCount",
+    };
+
+    // 1. First alert should not be suppressed
+    const firstAllowed = await checkAndSetCooldown(anomaly1);
+    assertEquals(firstAllowed, true);
+
+    // 2. Second alert in same direction with similar magnitude should be suppressed
+    const anomaly2: Anomaly = { ...anomaly1, actual: 9 };
+    const secondAllowed = await checkAndSetCooldown(anomaly2);
+    assertEquals(secondAllowed, false);
+
+    // 3. Escalated alert in same direction (more than 2x larger) should not be suppressed
+    const anomalyEscalated: Anomaly = { ...anomaly1, actual: 18 };
+    const escalatedAllowed = await checkAndSetCooldown(anomalyEscalated);
+    assertEquals(escalatedAllowed, true);
 
     // Clean up
     for await (const entry of kv.list({ prefix })) {

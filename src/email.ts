@@ -15,7 +15,7 @@ const sparkHtml = (counts: number[], anomalyIndex: number) => {
   const before = chars.slice(0, anomalyIndex).join("");
   const at = chars[anomalyIndex] || "";
   const after = chars.slice(anomalyIndex + 1).join("");
-  return `<span style="font-family:monospace;font-size:14px;">` +
+  return `<span class="sparkline" style="font-family:monospace;font-size:14px;white-space:nowrap;display:inline-block;">` +
     `<span style="color:#cbd5e0;">${before}</span>` +
     `<span style="color:#e53e3e;">${at}</span>` +
     `<span style="color:#cbd5e0;">${after}</span>` +
@@ -155,17 +155,17 @@ const groupByEventBucket = (anomalies: Anomaly[]) => {
 const formatEventRow = (sparklines: Record<string, string>) =>
 (groups: Anomaly[]) => {
   const a = groups[0];
-  const sparklineMarkup = sparklines[a.eventName] ? `<div style="margin-top: 4px;">${sparklines[a.eventName]}</div>` : "";
+  const sparklineMarkup = sparklines[a.eventName] ? `<div style="margin-top: 4px; word-break: break-all; overflow-wrap: break-word;">${sparklines[a.eventName]}</div>` : "";
   return `
     <tr style="border-bottom: 1px solid #f1f5f9; vertical-align: top; color: #334155;">
-      <td style="padding: 14px 12px; font-weight: 500; color: #0f172a;">
-        <div>${a.eventName}</div>
+      <td data-label="Event" style="padding: 14px 12px; font-weight: 500; color: #0f172a; word-break: break-word; overflow-wrap: break-word;">
+        <div style="word-break: break-word; overflow-wrap: break-word;">${a.eventName}</div>
         ${sparklineMarkup}
       </td>
-      <td style="padding: 14px 12px; font-size: 13px; color: #64748b;">${formatBucket(a.bucket)}</td>
-      <td style="padding: 14px 12px; text-align: right; font-family: monospace; font-size: 13px;">${a.expected}</td>
-      <td style="padding: 14px 12px; text-align: right; font-family: monospace; font-size: 13px; font-weight: 600; color: #0f172a;">${a.actual}</td>
-      <td style="padding: 14px 12px; font-size: 13px; line-height: 1.4;">
+      <td data-label="Bucket" style="padding: 14px 12px; font-size: 13px; color: #64748b; word-break: break-word; overflow-wrap: break-word;">${formatBucket(a.bucket)}</td>
+      <td data-label="Expected" class="text-right" style="padding: 14px 12px; text-align: right; font-family: monospace; font-size: 13px;">${a.expected}</td>
+      <td data-label="Actual" class="text-right" style="padding: 14px 12px; text-align: right; font-family: monospace; font-size: 13px; font-weight: 600; color: #0f172a;">${a.actual}</td>
+      <td data-label="Alerts / Metrics" style="padding: 14px 12px; font-size: 13px; line-height: 1.4; word-break: break-word; overflow-wrap: break-word;">
         ${groups.map(labelsHtml).join("<br>")}
       </td>
     </tr>`;
@@ -181,10 +181,58 @@ export const anomaliesHtml = (
   const groups = groupByEventBucket(anomalies);
   const totalAlerts = anomalies.length;
   return `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; padding: 24px; min-height: 100%;">
-      <div style="max-width: 780px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);">
+    <style>
+      @media only screen and (max-width: 600px) {
+        .email-container {
+          padding: 12px !important;
+        }
+        .email-card {
+          border-radius: 8px !important;
+        }
+        .email-header {
+          padding: 16px !important;
+        }
+        .email-body {
+          padding: 16px !important;
+        }
+        .responsive-table thead {
+          display: none !important;
+        }
+        .responsive-table tr {
+          display: block !important;
+          border-bottom: 1.5px solid #e2e8f0 !important;
+          padding: 12px 0 !important;
+        }
+        .responsive-table td {
+          display: block !important;
+          padding: 8px 4px !important;
+          text-align: left !important;
+          width: auto !important;
+          word-break: break-word !important;
+          overflow-wrap: break-word !important;
+        }
+        .responsive-table td[data-label]::before {
+          content: attr(data-label);
+          font-weight: 600;
+          color: #64748b;
+          display: block !important;
+          font-size: 10px !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.05em !important;
+          margin-bottom: 4px !important;
+        }
+        .responsive-table td.text-right {
+          text-align: left !important;
+        }
+        .sparkline {
+          font-size: 11px !important;
+        }
+      }
+    </style>
+    <div class="email-container" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; padding: 24px; min-height: 100%;">
+      <div class="email-card" style="max-width: 780px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);">
         <!-- Header -->
-        <div style="background-color: #0f172a; padding: 24px; color: #ffffff;">
+        <div class="email-header" style="background-color: #0f172a; padding: 24px; color: #ffffff;">
           <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; color: #94a3b8; margin-bottom: 4px;">anomalisa alert</div>
           <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #ffffff; line-height: 1.2;">
             ${projectName}: ${
@@ -196,8 +244,8 @@ export const anomaliesHtml = (
         </div>
         
         <!-- Body -->
-        <div style="padding: 24px; overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+        <div class="email-body" style="padding: 24px; overflow-x: auto;">
+          <table class="responsive-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
             <thead>
               <tr style="border-bottom: 2px solid #e2e8f0; color: #475569;">
                 <th style="padding: 10px 12px; font-weight: 600;">Event</th>

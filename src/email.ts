@@ -155,7 +155,6 @@ const groupByEventBucket = (anomalies: Anomaly[]) => {
 const formatEventRow = (sparklines: Record<string, string>) =>
 (groups: Anomaly[]) => {
   const a = groups[0];
-  const suppressUrl = `https://anomalisa.uriva.deno.net/suppress?projectId=${a.projectId}&eventName=${encodeURIComponent(a.eventName)}&actual=${a.actual}`;
   const sparklineMarkup = sparklines[a.eventName] ? `<div style="margin-top: 4px;">${sparklines[a.eventName]}</div>` : "";
   return `
     <tr style="border-bottom: 1px solid #f1f5f9; vertical-align: top; color: #334155;">
@@ -168,11 +167,6 @@ const formatEventRow = (sparklines: Record<string, string>) =>
       <td style="padding: 14px 12px; text-align: right; font-family: monospace; font-size: 13px; font-weight: 600; color: #0f172a;">${a.actual}</td>
       <td style="padding: 14px 12px; font-size: 13px; line-height: 1.4;">
         ${groups.map(labelsHtml).join("<br>")}
-      </td>
-      <td style="padding: 14px 12px; text-align: right; vertical-align: middle;">
-        <a href="${suppressUrl}" style="display: inline-block; background-color: #ef4444; color: #ffffff; text-decoration: none; font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 6px; white-space: nowrap;">
-          Suppress &amp; Adapt
-        </a>
       </td>
     </tr>`;
 };
@@ -211,7 +205,6 @@ export const anomaliesHtml = (
                 <th style="padding: 10px 12px; font-weight: 600; text-align: right;">Expected</th>
                 <th style="padding: 10px 12px; font-weight: 600; text-align: right;">Actual</th>
                 <th style="padding: 10px 12px; font-weight: 600;">Alerts / Metrics</th>
-                <th style="padding: 10px 12px; font-weight: 600; text-align: right;">Actions</th>
               </tr>
             </thead>
             <tbody>

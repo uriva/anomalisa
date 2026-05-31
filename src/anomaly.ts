@@ -658,39 +658,3 @@ export const drainOutgoingAlerts = async (): Promise<
   }
   return byProject;
 };
-
-export const adaptBaseline = async (
-  projectId: string,
-  eventName: string,
-  actual: number,
-): Promise<void> => {
-  const kv = await getKv();
-  const totalStatsKey = ["stats", "total", projectId, eventName];
-  const entry = await kv.get<Stats>(totalStatsKey);
-  const lastBucket = entry.value?.lastBucket ?? new Date().toISOString().slice(0, 13);
-  const sd = Math.max(2, 0.1 * actual);
-  const newStats: Stats = {
-    mean: actual,
-    m2: sd * sd * 4,
-    n: 5,
-    lastBucket,
-  };
-  await kv.set(totalStatsKey, newStats);
-
-  const hourPromises = Array.from({ length: 24 }).map(async (_, h) => {
-    const hourStatsKey = ["stats", "byHour", projectId, eventName, h];
-    const hEntry = await kv.get<Stats>(hourStatsKey);
-    return kv.set(hourStatsKey, {
-      mean: actual,
-      m2: sd * sd * 4,
-      n: 5,
-      lastBucket: hEntry.value?.lastBucket ?? lastBucket,
-    });
-  });
-  await Promise.all(hourPromises);
-
-  const list = kv.list({ prefix: ["alertCooldown", projectId, eventName] });
-  await Array.fromAsync(list).then((entries) =>
-    Promise.all(entries.map((entry) => kv.delete(entry.key)))
-  );
-};

@@ -150,6 +150,23 @@ Deno.test("anomaliesHtml truncates long user id", () => {
   assertEquals(html.includes("this_is_a_very_long_..."), true);
 });
 
+Deno.test("sparkHtml uses font-size:11px inline to prevent mobile overflow", () => {
+  const totalCounts = {
+    click: [
+      { bucket: "2026-04-07T08", count: 10 },
+      { bucket: "2026-04-07T09", count: 10 },
+    ],
+  };
+  const maxUserCounts = {
+    click: [
+      { bucket: "2026-04-07T08", count: 1 },
+      { bucket: "2026-04-07T09", count: 99 },
+    ],
+  };
+  const html = anomaliesHtml("myapp", [longUserAnomaly], totalCounts, maxUserCounts);
+  assertEquals(html.includes('style="font-family:monospace;font-size:11px;'), true);
+});
+
 Deno.test("formatBucket renders human-readable date", () => {
   assertEquals(formatBucket("2026-04-06T23"), "Mon Apr 6, 11pm–12am UTC");
 });

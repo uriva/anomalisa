@@ -16,7 +16,7 @@ const sparkHtml = (counts: number[], anomalyIndex: number) => {
   const before = chars.slice(0, anomalyIndex).join("");
   const at = chars[anomalyIndex] || "";
   const after = chars.slice(anomalyIndex + 1).join("");
-  return `<span class="sparkline" style="font-family:monospace;font-size:14px;white-space:nowrap;display:inline-block;">` +
+  return `<span class="sparkline" style="font-family:monospace;font-size:11px;white-space:nowrap;display:inline-block;">` +
     `<span style="color:#cbd5e0;">${before}</span>` +
     `<span style="color:#e53e3e;">${at}</span>` +
     `<span style="color:#cbd5e0;">${after}</span>` +

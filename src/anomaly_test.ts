@@ -323,22 +323,21 @@ Deno.test("detectPoissonAnomaly — borderline case (mean ~1.0, count 5) is supp
   );
 });
 
-Deno.test("detectPoissonAnomaly — fires on stronger version of the borderline case (count 7)", () => {
-  // Same baseline (mean ~1.0) but count 7: P(X>=7 | 1.0) ~= 8.3e-5,
-  // two-sided ~= 1.7e-4 — below threshold, fires.
+Deno.test("detectPoissonAnomaly — fires on stronger version of the borderline case (count 11)", () => {
+  // Same baseline (mean ~1.0) but count 11: P(X>=11 | 1.0) is below threshold, fires.
   const stats = buildStats(
     [1, 1, 0, 2, 1, 1, 0, 2, 1, 1],
     "2026-05-27T21",
   );
   const result = detectPoissonAnomaly(
     stats,
-    7,
+    11,
     "proj1",
     "scraped_url",
     stats.lastBucket,
   );
   assertEquals(result !== null, true);
-  assertEquals((result as Anomaly).actual, 7);
+  assertEquals((result as Anomaly).actual, 11);
 });
 
 Deno.test("detectPoissonAnomaly — small absolute spike at tiny baseline does NOT fire", () => {
@@ -369,6 +368,26 @@ Deno.test("detectPoissonAnomaly — find-scene Extract Frame: lambda=0.03, count
     detectPoissonAnomaly(stats, 2, "find-scene", "Extract Frame", stats.lastBucket),
     null,
   );
+});
+
+Deno.test("detectPoissonAnomaly — agent-fomo API submit success: lambda=3.61, count=13 is suppressed", () => {
+  // Real alert: expected 3.61, actual 13.
+  // Although statistically significant, the absolute difference (13 - 3.61 = 9.39)
+  // is less than 10, so it should be suppressed as a low-volume nuisance alert.
+  const stats = buildStats([3.61, 3.61, 3.61, 3.61], "2026-06-03T11");
+  assertEquals(
+    detectPoissonAnomaly(stats, 13, "agent-fomo", "API submit success", stats.lastBucket),
+    null,
+  );
+});
+
+Deno.test("detectPoissonAnomaly — agent-fomo API submit success: lambda=3.61, count=14 triggers", () => {
+  // Same baseline but actual count 14: absolute difference (14 - 3.61 = 10.39)
+  // is >= 10, and it is highly statistically significant, so it should trigger.
+  const stats = buildStats([3.61, 3.61, 3.61, 3.61], "2026-06-03T11");
+  const result = detectPoissonAnomaly(stats, 14, "agent-fomo", "API submit success", stats.lastBucket);
+  assertEquals(result !== null, true);
+  assertEquals((result as Anomaly).actual, 14);
 });
 
 Deno.test("detectPoissonAnomaly — detects drop to zero from high mean", () => {

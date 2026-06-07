@@ -63,7 +63,14 @@ Deno.test("stdDev — zero for identical values", () => {
 Deno.test("detectAnomaly — returns null when n < 3 (cold start)", () => {
   const stats = buildStats([10, 20], "2026-01-01T02");
   assertEquals(
-    detectAnomaly(stats, 100, "proj1", "signup", "totalCount", stats.lastBucket),
+    detectAnomaly(
+      stats,
+      100,
+      "proj1",
+      "signup",
+      "totalCount",
+      stats.lastBucket,
+    ),
     null,
   );
 });
@@ -78,7 +85,14 @@ Deno.test("detectAnomaly — returns null for normal value", () => {
 
 Deno.test("detectAnomaly — detects totalCount anomaly for extreme value", () => {
   const stats = buildStats([10, 12, 11, 10, 13], "2026-01-01T04");
-  const result = detectAnomaly(stats, 100, "proj1", "signup", "totalCount", stats.lastBucket);
+  const result = detectAnomaly(
+    stats,
+    100,
+    "proj1",
+    "signup",
+    "totalCount",
+    stats.lastBucket,
+  );
   assertEquals(result !== null, true);
   const anomaly = result as Anomaly;
   assertEquals(anomaly.projectId, "proj1");
@@ -107,7 +121,10 @@ Deno.test("detectAnomaly — detects userSpike with userId", () => {
 });
 
 Deno.test("detectAnomaly — ignores single-event user spike", () => {
-  const stats = buildStats([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], "2026-05-17T15");
+  const stats = buildStats(
+    [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+    "2026-05-17T15",
+  );
   assertEquals(
     detectAnomaly(
       stats,
@@ -123,7 +140,10 @@ Deno.test("detectAnomaly — ignores single-event user spike", () => {
 });
 
 Deno.test("detectAnomaly — ignores single-event total count spike", () => {
-  const stats = buildStats([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], "2026-05-20T07");
+  const stats = buildStats(
+    [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+    "2026-05-20T07",
+  );
   assertEquals(
     detectAnomaly(
       stats,
@@ -138,7 +158,10 @@ Deno.test("detectAnomaly — ignores single-event total count spike", () => {
 });
 
 Deno.test("detectAnomaly — ignores double-event user spike", () => {
-  const stats = buildStats([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], "2026-05-20T16");
+  const stats = buildStats(
+    [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+    "2026-05-20T16",
+  );
   assertEquals(
     detectAnomaly(
       stats,
@@ -183,7 +206,14 @@ Deno.test("detectAnomaly — triggers on larger uptick even for sparse event", (
 
 Deno.test("detectAnomaly — detects anomaly for zero when mean is high", () => {
   const stats = buildStats([100, 102, 98, 101, 99], "2026-01-01T04");
-  const result = detectAnomaly(stats, 0, "proj1", "pageview", "totalCount", stats.lastBucket);
+  const result = detectAnomaly(
+    stats,
+    0,
+    "proj1",
+    "pageview",
+    "totalCount",
+    stats.lastBucket,
+  );
   assertEquals(result !== null, true);
 });
 
@@ -217,14 +247,28 @@ Deno.test("detectAnomaly — borderline z-score just below threshold does not tr
   const mean = stats.mean;
   const barelyUnder = Math.floor(mean + 2.9 * sd);
   assertEquals(
-    detectAnomaly(stats, barelyUnder, "proj1", "test", "totalCount", stats.lastBucket),
+    detectAnomaly(
+      stats,
+      barelyUnder,
+      "proj1",
+      "test",
+      "totalCount",
+      stats.lastBucket,
+    ),
     null,
   );
 });
 
 Deno.test("detectAnomaly — userSpike omits userId when not provided", () => {
   const stats = buildStats([5, 6, 5, 4, 5], "2026-01-01T04");
-  const result = detectAnomaly(stats, 50, "proj1", "event", "userSpike", stats.lastBucket);
+  const result = detectAnomaly(
+    stats,
+    50,
+    "proj1",
+    "event",
+    "userSpike",
+    stats.lastBucket,
+  );
   assertEquals(result !== null, true);
   assertEquals((result as Anomaly).userId, undefined);
 });
@@ -365,7 +409,13 @@ Deno.test("detectPoissonAnomaly — find-scene Extract Frame: lambda=0.03, count
     "2026-05-28T10",
   );
   assertEquals(
-    detectPoissonAnomaly(stats, 2, "find-scene", "Extract Frame", stats.lastBucket),
+    detectPoissonAnomaly(
+      stats,
+      2,
+      "find-scene",
+      "Extract Frame",
+      stats.lastBucket,
+    ),
     null,
   );
 });
@@ -376,7 +426,13 @@ Deno.test("detectPoissonAnomaly — agent-fomo API submit success: lambda=3.61, 
   // is less than 10, so it should be suppressed as a low-volume nuisance alert.
   const stats = buildStats([3.61, 3.61, 3.61, 3.61], "2026-06-03T11");
   assertEquals(
-    detectPoissonAnomaly(stats, 13, "agent-fomo", "API submit success", stats.lastBucket),
+    detectPoissonAnomaly(
+      stats,
+      13,
+      "agent-fomo",
+      "API submit success",
+      stats.lastBucket,
+    ),
     null,
   );
 });
@@ -385,7 +441,13 @@ Deno.test("detectPoissonAnomaly — agent-fomo API submit success: lambda=3.61, 
   // Same baseline but actual count 14: absolute difference (14 - 3.61 = 10.39)
   // is >= 10, and it is highly statistically significant, so it should trigger.
   const stats = buildStats([3.61, 3.61, 3.61, 3.61], "2026-06-03T11");
-  const result = detectPoissonAnomaly(stats, 14, "agent-fomo", "API submit success", stats.lastBucket);
+  const result = detectPoissonAnomaly(
+    stats,
+    14,
+    "agent-fomo",
+    "API submit success",
+    stats.lastBucket,
+  );
   assertEquals(result !== null, true);
   assertEquals((result as Anomaly).actual, 14);
 });
@@ -415,7 +477,13 @@ Deno.test("detectPoissonAnomaly — does not fire on normal traffic at high mean
 
 Deno.test("detectPoissonAnomaly — zScore field encodes -log10(p), larger = more anomalous", () => {
   const lowMean = buildStats([1, 0, 1, 2, 0, 1, 0, 2, 1, 0], "2026-05-27T21");
-  const extreme = detectPoissonAnomaly(lowMean, 10, "p", "e", lowMean.lastBucket);
+  const extreme = detectPoissonAnomaly(
+    lowMean,
+    10,
+    "p",
+    "e",
+    lowMean.lastBucket,
+  );
   const milder = detectPoissonAnomaly(lowMean, 6, "p", "e", lowMean.lastBucket);
   assertEquals(extreme !== null, true);
   assertEquals(milder !== null, true);
@@ -449,7 +517,13 @@ Deno.test("detectPercentageSpike — returns null when n < 3", () => {
 
 Deno.test("detectPercentageSpike — returns null when mean is 0", () => {
   const stats = buildStats([0, 0, 0, 0], "2026-01-01T04");
-  const result = detectPercentageSpike(stats, 5, "proj1", "error", stats.lastBucket);
+  const result = detectPercentageSpike(
+    stats,
+    5,
+    "proj1",
+    "error",
+    stats.lastBucket,
+  );
   assertEquals(result, null);
 });
 
@@ -471,7 +545,13 @@ Deno.test("detectPercentageSpike — returns null for normal value", () => {
 
 Deno.test("detectPercentageSpike — detects doubling", () => {
   const stats = buildStats([30, 40, 30, 50, 30], "2026-01-01T04");
-  const result = detectPercentageSpike(stats, 80, "proj1", "error", stats.lastBucket);
+  const result = detectPercentageSpike(
+    stats,
+    80,
+    "proj1",
+    "error",
+    stats.lastBucket,
+  );
   assertEquals(result !== null, true);
   const anomaly = result as Anomaly;
   assertEquals(anomaly.metric, "percentageSpike");
@@ -491,7 +571,14 @@ Deno.test("detectPercentageSpike — suppresses doubling on noisy data when z-sc
   const stats = buildStats([10, 30, 70, 20, 130, 50, 40, 80], "2026-01-01T04");
   const doubled = Math.ceil(stats.mean * 2.1);
   assertEquals(
-    detectAnomaly(stats, doubled, "proj1", "error", "totalCount", stats.lastBucket),
+    detectAnomaly(
+      stats,
+      doubled,
+      "proj1",
+      "error",
+      "totalCount",
+      stats.lastBucket,
+    ),
     null,
   );
   assertEquals(
@@ -663,8 +750,21 @@ Deno.test("detectPercentageDrop — catches halving that z-score misses in noisy
     "2026-01-01T04",
   );
   const halved = Math.floor(stats.mean / 3);
-  const zRes = detectAnomaly(stats, halved, "p", "e", "totalCount", stats.lastBucket);
-  const pctRes = detectPercentageDrop(stats, halved, "p", "e", stats.lastBucket);
+  const zRes = detectAnomaly(
+    stats,
+    halved,
+    "p",
+    "e",
+    "totalCount",
+    stats.lastBucket,
+  );
+  const pctRes = detectPercentageDrop(
+    stats,
+    halved,
+    "p",
+    "e",
+    stats.lastBucket,
+  );
   assertEquals(zRes, null);
   assertEquals(pctRes !== null, true);
 });
@@ -763,7 +863,14 @@ Deno.test("updateStatsWithZeros — shifts mean toward zero", () => {
 
 Deno.test("detectAnomaly — detects anomaly when stdDev is 0 and value differs from mean", () => {
   const stats = buildStats([0, 0, 0, 0, 0], "2026-01-01T04");
-  const result = detectAnomaly(stats, 5, "proj1", "Bot Created", "totalCount", stats.lastBucket);
+  const result = detectAnomaly(
+    stats,
+    5,
+    "proj1",
+    "Bot Created",
+    "totalCount",
+    stats.lastBucket,
+  );
   assertEquals(result !== null, true);
   assertEquals((result as Anomaly).actual, 5);
 });
@@ -781,7 +888,14 @@ Deno.test("rare event with long gap — z-score detects spike after zeros fill i
     updateStats(emptyStats("2026-02-26T00"), 1),
     133,
   );
-  const anomaly = detectAnomaly(stats, 20, "proj1", "credits", "totalCount", stats.lastBucket);
+  const anomaly = detectAnomaly(
+    stats,
+    20,
+    "proj1",
+    "credits",
+    "totalCount",
+    stats.lastBucket,
+  );
   assertEquals(anomaly !== null, true);
   assertEquals((anomaly as Anomaly).zScore > 2, true);
 });
@@ -791,7 +905,13 @@ Deno.test("rare event with long gap — percentage spike ignores when mean is be
     updateStats(emptyStats("2026-02-26T00"), 1),
     133,
   );
-  const anomaly = detectPercentageSpike(stats, 20, "proj1", "credits", stats.lastBucket);
+  const anomaly = detectPercentageSpike(
+    stats,
+    20,
+    "proj1",
+    "credits",
+    stats.lastBucket,
+  );
   assertEquals(anomaly, null);
 });
 
@@ -872,7 +992,8 @@ Deno.test("anomalyDirection — low when actual < expected", () => {
 });
 
 Deno.test({
-  name: "enqueueOutgoingAlerts and drainOutgoingAlerts — groups by project and deletes on drain",
+  name:
+    "enqueueOutgoingAlerts and drainOutgoingAlerts — groups by project and deletes on drain",
   sanitizeResources: false,
   fn: async () => {
     const anomaly = (
@@ -916,21 +1037,39 @@ Deno.test("detectPercentageSpike — suppresses low-volume percentage spikes (fi
   // 2. Error Occurred: expected 1.03, actual 6
   const errorStats = buildStats([1.03, 1.03, 1.03, 1.03], "2026-05-27T09");
   assertEquals(
-    detectPercentageSpike(errorStats, 6, "p", "Error Occurred", "2026-05-27T09"),
+    detectPercentageSpike(
+      errorStats,
+      6,
+      "p",
+      "Error Occurred",
+      "2026-05-27T09",
+    ),
     null,
   );
 
   // 3. Got Video Result: expected 3.76, actual 8
   const videoStats = buildStats([3.76, 3.76, 3.76, 3.76], "2026-05-27T09");
   assertEquals(
-    detectPercentageSpike(videoStats, 8, "p", "Got Video Result", "2026-05-27T09"),
+    detectPercentageSpike(
+      videoStats,
+      8,
+      "p",
+      "Got Video Result",
+      "2026-05-27T09",
+    ),
     null,
   );
 
   // 4. Performed Search: expected 8.41, actual 24
   const searchStats = buildStats([8.41, 8.41, 8.41, 8.41], "2026-05-27T09");
   assertEquals(
-    detectPercentageSpike(searchStats, 24, "p", "Performed Search", "2026-05-27T09"),
+    detectPercentageSpike(
+      searchStats,
+      24,
+      "p",
+      "Performed Search",
+      "2026-05-27T09",
+    ),
     null,
   );
 });
@@ -941,7 +1080,13 @@ Deno.test("detectPercentageSpike — suppresses noisy high-volume spike (prompt2
     "2026-05-27T09",
   );
   assertEquals(
-    detectPercentageSpike(stats, 197, "p", "Prompt Constructed", "2026-05-27T10"),
+    detectPercentageSpike(
+      stats,
+      197,
+      "p",
+      "Prompt Constructed",
+      "2026-05-27T10",
+    ),
     null,
   );
 });
@@ -1001,7 +1146,8 @@ Deno.test("gradual consistent rise — does not trigger percentageSpike alerts w
 });
 
 Deno.test({
-  name: "getTrendIndication — detects growth and decrease trends based on 24h past anomalies",
+  name:
+    "getTrendIndication — detects growth and decrease trends based on 24h past anomalies",
   sanitizeResources: false,
   fn: async () => {
     const kv = await Deno.openKv();
@@ -1010,7 +1156,12 @@ Deno.test({
       await kv.delete(entry.key);
     }
 
-    const createAnomaly = (eventName: string, actual: number, expected: number, hoursAgo: number): Anomaly => {
+    const createAnomaly = (
+      eventName: string,
+      actual: number,
+      expected: number,
+      hoursAgo: number,
+    ): Anomaly => {
       const date = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
       const bucket = date.toISOString().slice(0, 13);
       return {
@@ -1031,26 +1182,56 @@ Deno.test({
 
     // 2. Add one high anomaly from 5 hours ago
     const a1 = createAnomaly("my-event", 50, 10, 5);
-    await kv.set(["anomalies", "test-project", "my-event", a1.bucket, "totalCount", "_"], a1);
+    await kv.set([
+      "anomalies",
+      "test-project",
+      "my-event",
+      a1.bucket,
+      "totalCount",
+      "_",
+    ], a1);
 
     // With 1 past anomaly, we expect count to be 1 past + 1 current = 2 alerts in the last 24h
     const trend2 = await getTrendIndication("test-project", "my-event", "high");
-    assertEquals(trend2, "📈 Recurring growth trend (2 alerts in the last 24h)");
+    assertEquals(
+      trend2,
+      "📈 Recurring growth trend (2 alerts in the last 24h)",
+    );
 
     // 3. Add another high anomaly from 10 hours ago
     const a2 = createAnomaly("my-event", 40, 10, 10);
-    await kv.set(["anomalies", "test-project", "my-event", a2.bucket, "totalCount", "_"], a2);
+    await kv.set([
+      "anomalies",
+      "test-project",
+      "my-event",
+      a2.bucket,
+      "totalCount",
+      "_",
+    ], a2);
 
     // With 2 past anomalies, we expect count to be 2 past + 1 current = 3 alerts in the last 24h
     const trend3 = await getTrendIndication("test-project", "my-event", "high");
-    assertEquals(trend3, "📈 Recurring growth trend (3 alerts in the last 24h)");
+    assertEquals(
+      trend3,
+      "📈 Recurring growth trend (3 alerts in the last 24h)",
+    );
 
     // 4. Anomaly from 30 hours ago should be ignored (since it's older than 24h)
     const a3 = createAnomaly("my-event", 60, 10, 30);
-    await kv.set(["anomalies", "test-project", "my-event", a3.bucket, "totalCount", "_"], a3);
+    await kv.set([
+      "anomalies",
+      "test-project",
+      "my-event",
+      a3.bucket,
+      "totalCount",
+      "_",
+    ], a3);
 
     const trend4 = await getTrendIndication("test-project", "my-event", "high");
-    assertEquals(trend4, "📈 Recurring growth trend (3 alerts in the last 24h)");
+    assertEquals(
+      trend4,
+      "📈 Recurring growth trend (3 alerts in the last 24h)",
+    );
 
     // Clean up
     for await (const entry of kv.list({ prefix })) {
@@ -1131,7 +1312,8 @@ Deno.test("shouldSuppress — escalation: low direction escalation also not supp
 });
 
 Deno.test({
-  name: "checkAndSetCooldown — sets cooldown and suppresses repeating anomalies in same direction",
+  name:
+    "checkAndSetCooldown — sets cooldown and suppresses repeating anomalies in same direction",
   sanitizeResources: false,
   fn: async () => {
     const kv = await Deno.openKv();
@@ -1164,6 +1346,60 @@ Deno.test({
     const anomalyEscalated: Anomaly = { ...anomaly1, actual: 18 };
     const escalatedAllowed = await checkAndSetCooldown(anomalyEscalated);
     assertEquals(escalatedAllowed, true);
+
+    // Clean up
+    for await (const entry of kv.list({ prefix })) {
+      await kv.delete(entry.key);
+    }
+    kv.close();
+  },
+});
+
+Deno.test({
+  name:
+    "checkAndSetCooldown — independent directional cooldowns prevent toggling alert spam",
+  sanitizeResources: false,
+  fn: async () => {
+    const kv = await Deno.openKv();
+    const prefix = ["alertCooldown", "test-project-direction"];
+    for await (const entry of kv.list({ prefix })) {
+      await kv.delete(entry.key);
+    }
+
+    const dropAnomaly: Anomaly = {
+      projectId: "test-project-direction",
+      eventName: "user-signup",
+      bucket: "2026-05-31T15",
+      expected: 40,
+      actual: 10,
+      zScore: 3.5,
+      detectedAt: new Date().toISOString(),
+      metric: "totalCount",
+    };
+
+    const spikeAnomaly: Anomaly = {
+      ...dropAnomaly,
+      bucket: "2026-05-31T16",
+      actual: 80,
+    };
+
+    const secondDropAnomaly: Anomaly = {
+      ...dropAnomaly,
+      bucket: "2026-05-31T17",
+      actual: 12,
+    };
+
+    // 1. First drop alert should not be suppressed
+    const firstDropAllowed = await checkAndSetCooldown(dropAnomaly);
+    assertEquals(firstDropAllowed, true);
+
+    // 2. Toggling to a spike alert should also be allowed (independent direction)
+    const spikeAllowed = await checkAndSetCooldown(spikeAnomaly);
+    assertEquals(spikeAllowed, true);
+
+    // 3. Bouncing back to a drop alert (similar to first drop) should be suppressed
+    const secondDropAllowed = await checkAndSetCooldown(secondDropAnomaly);
+    assertEquals(secondDropAllowed, false);
 
     // Clean up
     for await (const entry of kv.list({ prefix })) {

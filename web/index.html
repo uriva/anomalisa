@@ -293,13 +293,22 @@
       <div class="code-section">
         <h2>Three lines to get started</h2>
         <div class="install-tabs">
-          <button class="install-tab active" onclick="showTab('npm')">npm</button>
-          <button class="install-tab" onclick="showTab('deno')">deno</button>
+          <button class="install-tab active" onclick='showTab("npm")'>
+            npm
+          </button>
+          <button class="install-tab" onclick='showTab("deno")'>deno</button>
         </div>
-        <pre class="code-block" id="tab-npm"><span class="comment">// npx jsr add @uri/anomalisa</span>
+        <pre
+          class="code-block"
+          id="tab-npm"
+        ><span class="comment">// npx jsr add @uri/anomalisa</span>
 <span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
 <span class="kw">await</span> <span class="fn">sendEvent</span>({ token: <span class="str">"your-token"</span>, userId: <span class="str">"user-123"</span>, eventName: <span class="str">"purchase"</span> });</pre>
-        <pre class="code-block" id="tab-deno" style="display:none"><span class="comment">// deno add jsr:@uri/anomalisa</span>
+        <pre
+          class="code-block"
+          id="tab-deno"
+          style="display: none"
+        ><span class="comment">// deno add jsr:@uri/anomalisa</span>
 <span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
 <span class="kw">await</span> <span class="fn">sendEvent</span>({ token: <span class="str">"your-token"</span>, userId: <span class="str">"user-123"</span>, eventName: <span class="str">"purchase"</span> });</pre>
       </div>
@@ -315,18 +324,21 @@
 
         <p class="how-prose">
           Anomalisa uses
-          <a href="https://en.wikipedia.org/wiki/Welford%27s_online_algorithm"
-            target="_blank">Welford's online algorithm</a>
+          <a
+            href="https://en.wikipedia.org/wiki/Welford%27s_online_algorithm"
+            target="_blank"
+          >Welford's online algorithm</a>
           to maintain a running mean and variance from your data. Three numbers
           in memory: count, mean, and sum of squared deviations. Each hour, the
           event count gets fed into the model. If the new count is more than 2
-          standard deviations from the running mean, you get an email. That's it.
+          standard deviations from the running mean, you get an email. That's
+          it.
         </p>
 
         <p class="how-prose">
-          No batch jobs, no time-series database. The model updates incrementally
-          with constant memory and stays numerically stable even over millions of
-          updates.
+          No batch jobs, no time-series database. The model updates
+          incrementally with constant memory and stays numerically stable even
+          over millions of updates.
         </p>
 
         <div class="how-subsection">
@@ -357,26 +369,30 @@
         </div>
 
         <p class="how-prose">
-          The entire storage layer is a key-value store. Event counts in hourly buckets
-          with a 7-day TTL, three Welford states per event name, detected
-          anomalies with a 30-day TTL. No relational queries, no migrations.
-          TTLs handle cleanup. The detection engine is
-          <a href="https://github.com/uriva/anomalisa/blob/main/src/anomaly.ts"
-            target="_blank">one file</a>
+          The entire storage layer is a key-value store. Event counts in hourly
+          buckets with a 7-day TTL, three Welford states per event name,
+          detected anomalies with a 30-day TTL. No relational queries, no
+          migrations. TTLs handle cleanup. The detection engine is
+          <a
+            href="https://github.com/uriva/anomalisa/blob/main/src/anomaly.ts"
+            target="_blank"
+          >one file</a>
           you can read in five minutes.
         </p>
 
         <p class="how-prose">
           It won't catch everything. If your system fails in a way that doesn't
-          affect event counts, you're on your own. But most real failures do show
-          up as something spiking or dropping, and the simplicity means there's
-          almost nothing to debug.
+          affect event counts, you're on your own. But most real failures do
+          show up as something spiking or dropping, and the simplicity means
+          there's almost nothing to debug.
         </p>
 
-        <p class="how-prose" style="color: #888; font-size: 0.82rem;">
+        <p class="how-prose" style="color: #888; font-size: 0.82rem">
           Deeper technical writeup:
-          <a href="https://uriv.me/blog/anomaly-detection-with-welford-and-kv"
-            target="_blank">anomaly detection with nothing but math and a key-value store</a>
+          <a
+            href="https://uriv.me/blog/anomaly-detection-with-welford-and-kv"
+            target="_blank"
+          >anomaly detection with nothing but math and a key-value store</a>
         </p>
       </div>
 
@@ -392,10 +408,16 @@
     </div>
     <script>
       const showTab = (id) => {
-        document.querySelectorAll(".install-tab").forEach((t) => t.classList.remove("active"));
-        document.querySelectorAll("[id^='tab-']").forEach((p) => (p.style.display = "none"));
+        document.querySelectorAll(".install-tab").forEach((t) =>
+          t.classList.remove("active")
+        );
+        document.querySelectorAll("[id^='tab-']").forEach((
+          p,
+        ) => (p.style.display = "none"));
         document.getElementById("tab-" + id).style.display = "";
-        document.querySelector("[onclick*=\"'" + id + "'\"]").classList.add("active");
+        document.querySelector("[onclick*=\"'" + id + "'\"]").classList.add(
+          "active",
+        );
       };
     </script>
   </body>

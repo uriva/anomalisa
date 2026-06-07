@@ -62,8 +62,8 @@ reason not to. Prefer typing inputs strictly.
 Never fix a quality issue without a failing test first.
 
 When tuning detection thresholds, compute the actual stats (mean, stdDev,
-z-score) from real production data before picking a number. Eyeballing leads
-to thresholds that don't suppress the case you set out to fix.
+z-score) from real production data before picking a number. Eyeballing leads to
+thresholds that don't suppress the case you set out to fix.
 
 # Deno stuff
 

@@ -167,7 +167,9 @@ Deno.cron("Drain outgoing alerts", "*/5 * * * *", async () => {
       const project = await lookupProjectById(projectId);
       if (project) {
         const counts = await getEventCounts(projectId).catch(() => undefined);
-        const maxUserCounts = await getMaxUserCounts(projectId).catch(() => undefined);
+        const maxUserCounts = await getMaxUserCounts(projectId).catch(() =>
+          undefined
+        );
         sendAnomalyAlerts(
           project.owner.email,
           project.name,

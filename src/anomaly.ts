@@ -51,6 +51,7 @@ const minPercentageDropMean = 30;
 const minPercentageSpikeMean = 10;
 const minPercentageSpikeZScore = 2.5;
 const poissonPThreshold = 1e-3;
+const lnPoissonPThreshold = Math.log(poissonPThreshold);
 const countTtlMs = 7 * 24 * 60 * 60 * 1000;
 const anomalyTtlMs = 30 * 24 * 60 * 60 * 1000;
 const cooldownTtlMs = 48 * 60 * 60 * 1000;
@@ -154,35 +155,46 @@ const logSumExp = (a: number, b: number): number => {
   return m + Math.log(Math.exp(a - m) + Math.exp(b - m));
 };
 
-// P(X >= k | lambda). Computed in log space for numerical stability.
-const poissonUpperTail = (k: number, lambda: number): number => {
-  if (k <= 0) return 1;
-  // Sum PMF from 0..k-1 in log space, then complement.
-  let logSum = -Infinity;
-  for (let i = 0; i < k; i++) {
-    logSum = logSumExp(logSum, lnPoissonPmf(i, lambda));
-  }
-  const cdfBelow = Math.exp(logSum);
-  return Math.max(0, 1 - cdfBelow);
-};
+// log of sum_{i=from}^{from+length-1} P(X = i | lambda), accumulated in log
+// space so the result never underflows to 0.
+const lnPoissonRangeMass = (
+  lambda: number,
+  from: number,
+  length: number,
+): number =>
+  Array.from({ length }).reduce<number>(
+    (logSum, _, i) => logSumExp(logSum, lnPoissonPmf(from + i, lambda)),
+    -Infinity,
+  );
 
-// P(X <= k | lambda).
-const poissonLowerTail = (k: number, lambda: number): number => {
-  if (k < 0) return 0;
-  let logSum = -Infinity;
-  for (let i = 0; i <= k; i++) {
-    logSum = logSumExp(logSum, lnPoissonPmf(i, lambda));
-  }
-  return Math.min(1, Math.exp(logSum));
-};
+// Ten standard deviations past the count hold all non-negligible mass (~e^-50),
+// so a bounded sum equals the infinite upper tail to float precision.
+const upperTailTerms = (lambda: number): number =>
+  Math.ceil(10 * Math.sqrt(lambda)) + 10;
 
-// Two-sided Poisson tail probability: 2 * min(upper, lower), clipped to 1.
-const poissonTwoSidedP = (count: number, lambda: number): number => {
-  if (lambda <= 0) return count === 0 ? 1 : 0;
-  const upper = poissonUpperTail(count, lambda);
-  const lower = poissonLowerTail(count, lambda);
-  return Math.min(1, 2 * Math.min(upper, lower));
-};
+// log P(X >= k | lambda), summed upward from k. Exact for k >= lambda, the only
+// side queried for an upper anomaly.
+const lnPoissonUpperTail = (k: number, lambda: number): number =>
+  lnPoissonRangeMass(lambda, Math.max(0, k), upperTailTerms(lambda));
+
+// log P(X <= k | lambda), summed from 0 to k.
+const lnPoissonLowerTail = (k: number, lambda: number): number =>
+  k < 0 ? -Infinity : lnPoissonRangeMass(lambda, 0, k + 1);
+
+// log of the two-sided tail probability, log(min(1, 2 * min(upper, lower))).
+// Only the tail on count's side of the mean is summed; the far tail is ~1 and
+// cannot change 2 * min(...). Staying in log space keeps -log10(p) finite for
+// extreme upticks where the linear probability underflows to 0.
+const lnPoissonTwoSidedP = (count: number, lambda: number): number =>
+  lambda <= 0
+    ? count === 0 ? 0 : -Infinity
+    : Math.min(
+      0,
+      Math.LN2 +
+        (count >= lambda
+          ? lnPoissonUpperTail(count, lambda)
+          : lnPoissonLowerTail(count, lambda)),
+    );
 
 export const detectPoissonAnomaly = (
   stats: Stats,
@@ -203,9 +215,9 @@ export const detectPoissonAnomaly = (
     if (Math.abs(count - stats.mean) < 10) return null;
   }
   const lambda = stats.mean;
-  const p = poissonTwoSidedP(count, lambda);
-  if (!(p < poissonPThreshold)) return null;
-  const score = p > 0 ? -Math.log10(p) : Infinity;
+  const lnP = lnPoissonTwoSidedP(count, lambda);
+  if (!(lnP < lnPoissonPThreshold)) return null;
+  const score = -lnP / Math.LN10;
   return {
     projectId,
     eventName,

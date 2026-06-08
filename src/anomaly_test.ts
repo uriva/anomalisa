@@ -493,6 +493,38 @@ Deno.test("detectPoissonAnomaly — zScore field encodes -log10(p), larger = mor
   );
 });
 
+Deno.test("detectPoissonAnomaly — extreme uptick keeps zScore finite (not null)", () => {
+  // Production regression: "Missing Google Ads Parameters" climbed to 269 over a
+  // baseline of ~84. The two-sided Poisson tail underflowed to 0 in linear space,
+  // so -log10(p) became Infinity, which JSON.stringify serializes as null — the
+  // stored anomaly and the alert email showed "(null)".
+  const stats = buildStats([83.83, 83.83, 83.83, 83.83], "2026-06-07T18");
+  const result = detectPoissonAnomaly(
+    stats,
+    269,
+    "prod",
+    "Missing Google Ads Parameters",
+    stats.lastBucket,
+  );
+  assertEquals(result !== null, true);
+  const anomaly = result as Anomaly;
+  assertEquals(Number.isFinite(anomaly.zScore), true);
+  assertEquals(JSON.parse(JSON.stringify(anomaly)).zScore, anomaly.zScore);
+});
+
+Deno.test("detectPoissonAnomaly — score stays finite and ordered for extreme upticks", () => {
+  const stats = buildStats([72.79, 72.79, 72.79, 72.79], "2026-06-07T19");
+  const milder = detectPoissonAnomaly(stats, 139, "p", "e", stats.lastBucket);
+  const extreme = detectPoissonAnomaly(stats, 296, "p", "e", stats.lastBucket);
+  assertEquals(milder !== null, true);
+  assertEquals(extreme !== null, true);
+  assertEquals(Number.isFinite((extreme as Anomaly).zScore), true);
+  assertEquals(
+    (extreme as Anomaly).zScore > (milder as Anomaly).zScore,
+    true,
+  );
+});
+
 Deno.test("Welford's — incremental matches batch calculation", () => {
   const values = [3, 7, 11, 5, 9, 2, 14, 6];
   const stats = buildStats(values, "x");

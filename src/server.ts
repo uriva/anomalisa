@@ -133,6 +133,12 @@ const handlePost = async (req: Request) => {
         { headers: corsHeaders },
       );
     } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.name === "ValidationError" || error.message === "Invalid token")
+      ) {
+        return jsonResponse({ error: error.message }, 400);
+      }
       console.error(error, json);
       return new Response(null, { status: 500, headers: corsHeaders });
     }

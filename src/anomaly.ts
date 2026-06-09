@@ -1,6 +1,30 @@
 let _kv: Deno.Kv | null = null;
 const getKv = async () => _kv ??= await Deno.openKv();
 
+const safeGet = async <T>(key: Deno.KvKey): Promise<T | null> => {
+  try {
+    const entry = await (await getKv()).get<T>(key);
+    return entry.value;
+  } catch (error) {
+    console.error(`Deserialization error at key ${JSON.stringify(key)}:`, error);
+    try {
+      await (await getKv()).delete(key);
+    } catch {
+      // ignore
+    }
+    return null;
+  }
+};
+
+const safeList = async <T>(selector: Parameters<Deno.Kv["list"]>[0]): Promise<Deno.KvEntry<T>[]> => {
+  try {
+    return await Array.fromAsync((await getKv()).list<T>(selector));
+  } catch (error) {
+    console.error(`Deserialization error during list with selector ${JSON.stringify(selector)}:`, error);
+    return [];
+  }
+};
+
 type Stats = {
   mean: number;
   m2: number;
@@ -409,11 +433,21 @@ const anomalyKey = (
 ];
 
 const storeAnomaly = async (anomaly: Anomaly): Promise<boolean> => {
-  const existing = await (await getKv()).get(anomalyKey(anomaly));
-  return existing.value ? false : (await (await getKv()).atomic()
-    .check(existing)
-    .set(anomalyKey(anomaly), anomaly, { expireIn: anomalyTtlMs })
-    .commit()).ok;
+  try {
+    const existing = await (await getKv()).get<Anomaly>(anomalyKey(anomaly));
+    return existing.value ? false : (await (await getKv()).atomic()
+      .check(existing)
+      .set(anomalyKey(anomaly), anomaly, { expireIn: anomalyTtlMs })
+      .commit()).ok;
+  } catch (error) {
+    console.error(`Failed to store anomaly:`, error);
+    try {
+      await (await getKv()).delete(anomalyKey(anomaly));
+    } catch {
+      // ignore
+    }
+    return false;
+  }
 };
 
 const cooldownKey = (
@@ -433,11 +467,11 @@ export const checkAndSetCooldown = async (
 ): Promise<boolean> => {
   const direction = anomalyDirection(anomaly);
   const key = cooldownKey(anomaly, direction);
-  const entry = await (await getKv()).get<CooldownEntry | Direction>(key);
-  const lastEntry = entry.value
-    ? (typeof entry.value === "string"
-      ? { direction: entry.value, actual: Infinity }
-      : entry.value)
+  const value = await safeGet<CooldownEntry | Direction>(key);
+  const lastEntry = value
+    ? (typeof value === "string"
+      ? { direction: value, actual: Infinity }
+      : value)
     : null;
   if (shouldSuppress(lastEntry, anomaly)) return false;
   await (await getKv()).set(key, { direction, actual: anomaly.actual }, {
@@ -498,23 +532,28 @@ const getOrInitStats = async (
   key: Deno.KvKey,
   bucket: string,
 ): Promise<Stats> => {
-  const entry = await (await getKv()).get<Stats>(key);
-  if (entry.value) return entry.value;
+  const value = await safeGet<Stats>(key);
+  if (value) {
+    if (!value.lastBucket) {
+      value.lastBucket = bucket;
+    }
+    return value;
+  }
   const initial = emptyStats(bucket);
   await (await getKv()).set(key, initial);
   return initial;
 };
 
 const incrementAndGet = async (key: Deno.KvKey, ttl: number) => {
-  const entry = await (await getKv()).get<number>(key);
-  const next = (entry.value ?? 0) + 1;
+  const value = await safeGet<number>(key);
+  const next = (value ?? 0) + 1;
   await (await getKv()).set(key, next, { expireIn: ttl });
   return next;
 };
 
 const updateMaxUserCount = async (key: Deno.KvKey, userCount: number) => {
-  const entry = await (await getKv()).get<number>(key);
-  const current = entry.value ?? 0;
+  const value = await safeGet<number>(key);
+  const current = value ?? 0;
   if (userCount > current) {
     await (await getKv()).set(key, userCount, { expireIn: countTtlMs });
   }
@@ -546,13 +585,12 @@ const handleBucketTransition = async (
   eventName: string,
   bucket: string,
 ): Promise<Anomaly[]> => {
-  const prevTotalCount = (await (await getKv()).get<number>([
+  const prevTotalCount = await safeGet<number>([
     "counts",
     projectId,
     eventName,
     stats.lastBucket,
-  ]))
-    .value ?? 0;
+  ]) ?? 0;
 
   const skippedHours = Math.max(0, hoursBetween(stats.lastBucket, bucket) - 1);
   const statsWithZeros = updateStatsWithZeros(stats, skippedHours, statsDecay);
@@ -572,12 +610,12 @@ const handleBucketTransition = async (
     statsDecay,
   );
 
-  const prevMaxUserCount = (await (await getKv()).get<number>([
+  const prevMaxUserCount = await safeGet<number>([
     "maxUserCount",
     projectId,
     eventName,
     stats.lastBucket,
-  ])).value ?? 0;
+  ]) ?? 0;
 
   const perUserStatsKey = ["stats", "perUser", projectId, eventName];
   const perUserStats = await getOrInitStats(perUserStatsKey, bucket);
@@ -667,9 +705,7 @@ export const recordEvent = async (
 export const getEventCounts = async (
   projectId: string,
 ): Promise<Record<string, Array<{ bucket: string; count: number }>>> => {
-  const entries = await Array.fromAsync(
-    (await getKv()).list<number>({ prefix: ["counts", projectId] }),
-  );
+  const entries = await safeList<number>({ prefix: ["counts", projectId] });
   const events: Record<string, Array<{ bucket: string; count: number }>> = {};
   entries.forEach(({ key, value }) => {
     const eventName = String(key[2]);
@@ -685,9 +721,7 @@ export const getEventCounts = async (
 export const getMaxUserCounts = async (
   projectId: string,
 ): Promise<Record<string, Array<{ bucket: string; count: number }>>> => {
-  const entries = await Array.fromAsync(
-    (await getKv()).list<number>({ prefix: ["maxUserCount", projectId] }),
-  );
+  const entries = await safeList<number>({ prefix: ["maxUserCount", projectId] });
   const events: Record<string, Array<{ bucket: string; count: number }>> = {};
   entries.forEach(({ key, value }) => {
     const eventName = String(key[2]);
@@ -701,9 +735,7 @@ export const getMaxUserCounts = async (
 };
 
 export const getAnomalies = async (projectId: string): Promise<Anomaly[]> => {
-  const entries = await Array.fromAsync(
-    (await getKv()).list<Anomaly>({ prefix: ["anomalies", projectId] }),
-  );
+  const entries = await safeList<Anomaly>({ prefix: ["anomalies", projectId] });
   return entries.map(({ value }) => value);
 };
 
@@ -711,9 +743,7 @@ export const checkAllEmptyBuckets = async (): Promise<
   Record<string, Anomaly[]>
 > => {
   const currentBucket = getHourBucket();
-  const entries = await Array.fromAsync(
-    (await getKv()).list<Stats>({ prefix: ["stats", "total"] }),
-  );
+  const entries = await safeList<Stats>({ prefix: ["stats", "total"] });
 
   const anomaliesByProject: Record<string, Anomaly[]> = {};
   for (const { key, value } of entries) {
@@ -760,9 +790,7 @@ export const drainOutgoingAlerts = async (): Promise<
   Record<string, Anomaly[]>
 > => {
   const kv = await getKv();
-  const entries = await Array.fromAsync(
-    kv.list<Anomaly>({ prefix: ["outgoingAlerts"] }),
-  );
+  const entries = await safeList<Anomaly>({ prefix: ["outgoingAlerts"] });
   const byProject: Record<string, Anomaly[]> = {};
   for (const { key, value } of entries) {
     const projectId = String(key[1]);

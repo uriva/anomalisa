@@ -15,6 +15,7 @@ import {
   enqueueOutgoingAlerts,
   getTrendIndication,
   hoursBetween,
+  recordEvent,
   shouldSuppress,
   stdDev,
   updateStats,
@@ -1438,5 +1439,22 @@ Deno.test({
       await kv.delete(entry.key);
     }
     kv.close();
+  },
+});
+
+Deno.test({
+  name: "recordEvent — handles Deno KV deserialization errors gracefully",
+  sanitizeResources: false,
+  fn: async () => {
+    const originalGet = Deno.Kv.prototype.get;
+    Deno.Kv.prototype.get = () => {
+      throw new RangeError("could not deserialize value");
+    };
+    try {
+      const result = await recordEvent("test-project-deserialization", "test-event");
+      assertEquals(result, []);
+    } finally {
+      Deno.Kv.prototype.get = originalGet;
+    }
   },
 });

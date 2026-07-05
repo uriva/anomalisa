@@ -274,6 +274,63 @@ Deno.test("detectAnomaly — userSpike omits userId when not provided", () => {
   assertEquals((result as Anomaly).userId, undefined);
 });
 
+Deno.test("detectAnomaly — userSpike ignores low-volume user spikes (expected ~0.11 or ~0.15, actual 3)", () => {
+  const statsMessage = buildStats(
+    [0, 0, 1, 0, 0, 0, 0, 0, 0],
+    "2026-07-05T13",
+  );
+  assertEquals(
+    detectAnomaly(
+      statsMessage,
+      3,
+      "p",
+      "Message",
+      "userSpike",
+      statsMessage.lastBucket,
+      "user-abc",
+    ),
+    null,
+  );
+
+  const statsEmail = buildStats(
+    [0, 0, 1, 0, 0, 0, 0],
+    "2026-07-05T13",
+  );
+  assertEquals(
+    detectAnomaly(
+      statsEmail,
+      3,
+      "p",
+      "Email Sent",
+      "userSpike",
+      statsEmail.lastBucket,
+      "user-abc",
+    ),
+    null,
+  );
+});
+
+Deno.test("detectAnomaly — 0 to non-zero is significant and triggers even below 5", () => {
+  const stats = buildStats([0, 0, 0, 0, 0], "2026-01-01T04");
+  
+  // For totalCount, 3 events from 0 mean triggers
+  const resultTotal = detectAnomaly(stats, 3, "proj1", "Bot Created", "totalCount", stats.lastBucket);
+  assertEquals(resultTotal !== null, true);
+  assertEquals((resultTotal as Anomaly).actual, 3);
+
+  // For userSpike, 3 events from 0 mean triggers
+  const resultUser = detectAnomaly(stats, 3, "proj1", "Bot Created", "userSpike", stats.lastBucket, "user-abc");
+  assertEquals(resultUser !== null, true);
+  assertEquals((resultUser as Anomaly).actual, 3);
+});
+
+Deno.test("detectPoissonAnomaly — 0 to non-zero is significant and triggers even below 5", () => {
+  const stats = buildStats([0, 0, 0, 0, 0], "2026-05-27T21");
+  const result = detectPoissonAnomaly(stats, 3, "proj1", "submit_exists", stats.lastBucket);
+  assertEquals(result !== null, true);
+  assertEquals((result as Anomaly).actual, 3);
+});
+
 // ---------------------------------------------------------------------------
 // detectPoissonAnomaly — count-aware tail-probability detector
 //

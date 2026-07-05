@@ -118,7 +118,7 @@ export const detectAnomaly = (
   if (stats.n < minDataPoints) return null;
   if (count > 0 && count < 2) return null;
   if (metric === "userSpike" && count < 3) return null;
-  if (metric === "totalCount" && stats.mean < 1 && count < 5) return null;
+  if ((metric === "totalCount" || metric === "userSpike") && stats.mean > 0 && stats.mean < 1 && count < 5) return null;
   const sd = stdDev(stats);
   const z = sd > 0
     ? Math.abs(count - stats.mean) / sd
@@ -233,9 +233,9 @@ export const detectPoissonAnomaly = (
   // but a couple of events in an hour isn't an alert-worthy event. Mirror the
   // floor in detectAnomaly: when the baseline is below 1/hr, require at least
   // 5 events to fire.
-  if (stats.mean < 1) {
+  if (stats.mean > 0 && stats.mean < 1) {
     if (count < 5) return null;
-  } else {
+  } else if (stats.mean >= 1) {
     if (Math.abs(count - stats.mean) < 10) return null;
   }
   const lambda = stats.mean;

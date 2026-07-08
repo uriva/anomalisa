@@ -34,3 +34,33 @@ export const getEventCounts: (
 ) => Promise<{
   events: Record<string, { bucket: string; count: number }[]>;
 }> = (payload) => client({ endpoint: "getEventCounts", payload });
+
+const uncaughtErrorEvent = "client_error";
+const unhandledRejectionEvent = "unhandled_rejection";
+
+const report = (token: string, userId: string | undefined) => {
+  const state = { reporting: false };
+  return (eventName: string) => {
+    if (state.reporting) return;
+    state.reporting = true;
+    sendEvent({ token, eventName, ...(userId ? { userId } : {}) })
+      .catch(() => {})
+      .finally(() => {
+        state.reporting = false;
+      });
+  };
+};
+
+export const captureClientErrors = (
+  { token, userId }: { token: string; userId?: string },
+): (eventName: string) => void => {
+  const capture = report(token, userId);
+  if (typeof globalThis.addEventListener === "function") {
+    globalThis.addEventListener("error", () => capture(uncaughtErrorEvent));
+    globalThis.addEventListener(
+      "unhandledrejection",
+      () => capture(unhandledRejectionEvent),
+    );
+  }
+  return capture;
+};

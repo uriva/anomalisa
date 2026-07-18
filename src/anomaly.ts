@@ -6,7 +6,10 @@ const safeGet = async <T>(key: Deno.KvKey): Promise<T | null> => {
     const entry = await (await getKv()).get<T>(key);
     return entry.value;
   } catch (error) {
-    console.error(`Deserialization error at key ${JSON.stringify(key)}:`, error);
+    console.error(
+      `Deserialization error at key ${JSON.stringify(key)}:`,
+      error,
+    );
     try {
       await (await getKv()).delete(key);
     } catch {
@@ -16,11 +19,18 @@ const safeGet = async <T>(key: Deno.KvKey): Promise<T | null> => {
   }
 };
 
-const safeList = async <T>(selector: Parameters<Deno.Kv["list"]>[0]): Promise<Deno.KvEntry<T>[]> => {
+const safeList = async <T>(
+  selector: Parameters<Deno.Kv["list"]>[0],
+): Promise<Deno.KvEntry<T>[]> => {
   try {
     return await Array.fromAsync((await getKv()).list<T>(selector));
   } catch (error) {
-    console.error(`Deserialization error during list with selector ${JSON.stringify(selector)}:`, error);
+    console.error(
+      `Deserialization error during list with selector ${
+        JSON.stringify(selector)
+      }:`,
+      error,
+    );
     return [];
   }
 };
@@ -118,7 +128,10 @@ export const detectAnomaly = (
   if (stats.n < minDataPoints) return null;
   if (count > 0 && count < 2) return null;
   if (metric === "userSpike" && count < 3) return null;
-  if ((metric === "totalCount" || metric === "userSpike") && stats.mean > 0 && stats.mean < 1 && count < 5) return null;
+  if (
+    (metric === "totalCount" || metric === "userSpike") && stats.mean > 0 &&
+    stats.mean < 1 && count < 5
+  ) return null;
   const sd = stdDev(stats);
   const z = sd > 0
     ? Math.abs(count - stats.mean) / sd
@@ -210,15 +223,13 @@ const lnPoissonLowerTail = (k: number, lambda: number): number =>
 // cannot change 2 * min(...). Staying in log space keeps -log10(p) finite for
 // extreme upticks where the linear probability underflows to 0.
 const lnPoissonTwoSidedP = (count: number, lambda: number): number =>
-  lambda <= 0
-    ? count === 0 ? 0 : -Infinity
-    : Math.min(
-      0,
-      Math.LN2 +
-        (count >= lambda
-          ? lnPoissonUpperTail(count, lambda)
-          : lnPoissonLowerTail(count, lambda)),
-    );
+  lambda <= 0 ? count === 0 ? 0 : -Infinity : Math.min(
+    0,
+    Math.LN2 +
+      (count >= lambda
+        ? lnPoissonUpperTail(count, lambda)
+        : lnPoissonLowerTail(count, lambda)),
+  );
 
 export const detectPoissonAnomaly = (
   stats: Stats,
@@ -228,6 +239,16 @@ export const detectPoissonAnomaly = (
   bucket: string,
 ): Anomaly | null => {
   if (stats.n < minDataPoints) return null;
+  if (stats.mean >= 10 && stdDev(stats) > Math.sqrt(stats.mean)) {
+    return detectAnomaly(
+      stats,
+      count,
+      projectId,
+      eventName,
+      "totalCount",
+      bucket,
+    );
+  }
   // At very sparse baselines the Poisson tail probability becomes statistically
   // significant for tiny absolute counts (e.g. lambda=0.03, count=2 -> p<1e-3),
   // but a couple of events in an hour isn't an alert-worthy event. Mirror the
@@ -721,7 +742,9 @@ export const getEventCounts = async (
 export const getMaxUserCounts = async (
   projectId: string,
 ): Promise<Record<string, Array<{ bucket: string; count: number }>>> => {
-  const entries = await safeList<number>({ prefix: ["maxUserCount", projectId] });
+  const entries = await safeList<number>({
+    prefix: ["maxUserCount", projectId],
+  });
   const events: Record<string, Array<{ bucket: string; count: number }>> = {};
   entries.forEach(({ key, value }) => {
     const eventName = String(key[2]);

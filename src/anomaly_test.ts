@@ -3,7 +3,6 @@ import {
   type Anomaly,
   anomalyDirection,
   checkAndSetCooldown,
-  type CooldownEntry,
   detectAnomaly,
   detectBucketAnomalies,
   detectPercentageDrop,
@@ -312,21 +311,42 @@ Deno.test("detectAnomaly — userSpike ignores low-volume user spikes (expected 
 
 Deno.test("detectAnomaly — 0 to non-zero is significant and triggers even below 5", () => {
   const stats = buildStats([0, 0, 0, 0, 0], "2026-01-01T04");
-  
+
   // For totalCount, 3 events from 0 mean triggers
-  const resultTotal = detectAnomaly(stats, 3, "proj1", "Bot Created", "totalCount", stats.lastBucket);
+  const resultTotal = detectAnomaly(
+    stats,
+    3,
+    "proj1",
+    "Bot Created",
+    "totalCount",
+    stats.lastBucket,
+  );
   assertEquals(resultTotal !== null, true);
   assertEquals((resultTotal as Anomaly).actual, 3);
 
   // For userSpike, 3 events from 0 mean triggers
-  const resultUser = detectAnomaly(stats, 3, "proj1", "Bot Created", "userSpike", stats.lastBucket, "user-abc");
+  const resultUser = detectAnomaly(
+    stats,
+    3,
+    "proj1",
+    "Bot Created",
+    "userSpike",
+    stats.lastBucket,
+    "user-abc",
+  );
   assertEquals(resultUser !== null, true);
   assertEquals((resultUser as Anomaly).actual, 3);
 });
 
 Deno.test("detectPoissonAnomaly — 0 to non-zero is significant and triggers even below 5", () => {
   const stats = buildStats([0, 0, 0, 0, 0], "2026-05-27T21");
-  const result = detectPoissonAnomaly(stats, 3, "proj1", "submit_exists", stats.lastBucket);
+  const result = detectPoissonAnomaly(
+    stats,
+    3,
+    "proj1",
+    "submit_exists",
+    stats.lastBucket,
+  );
   assertEquals(result !== null, true);
   assertEquals((result as Anomaly).actual, 3);
 });
@@ -529,6 +549,24 @@ Deno.test("detectPoissonAnomaly — does not fire on normal traffic at high mean
   const stats = buildStats([50, 48, 52, 49, 51, 50, 47, 53], "2026-05-27T21");
   assertEquals(
     detectPoissonAnomaly(stats, 55, "proj1", "signup", stats.lastBucket),
+    null,
+  );
+});
+
+Deno.test("detectPoissonAnomaly — suppresses high-volume overdispersed event (Model Latency: expected 135.86, actual 195)", () => {
+  // Stats matching Model Latency production stats
+  const stats = buildStats(
+    [135.86 - 67.73, 135.86 + 67.73, 135.86], // Mean is 135.86, stdDev is ~67.73
+    "2026-07-18T21",
+  );
+  assertEquals(
+    detectPoissonAnomaly(
+      stats,
+      195,
+      "uriva/anomalisa",
+      "Model Latency",
+      stats.lastBucket,
+    ),
     null,
   );
 });
@@ -1508,7 +1546,10 @@ Deno.test({
       throw new RangeError("could not deserialize value");
     };
     try {
-      const result = await recordEvent("test-project-deserialization", "test-event");
+      const result = await recordEvent(
+        "test-project-deserialization",
+        "test-event",
+      );
       assertEquals(result, []);
     } finally {
       Deno.Kv.prototype.get = originalGet;

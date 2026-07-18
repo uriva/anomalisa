@@ -5,138 +5,139 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>anomalisa - docs</title>
     <style>
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      body {
-        font-family: system-ui, -apple-system, sans-serif;
-        background: #0a0a0a;
-        color: #e0e0e0;
-        min-height: 100vh;
-      }
-      a {
-        color: #7eb8ff;
-        text-decoration: none;
-      }
-      a:hover {
-        text-decoration: underline;
-      }
-      .page {
-        max-width: 680px;
-        margin: 0 auto;
-        padding: 3rem 1.5rem;
-      }
-      .logo {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #fff;
-        letter-spacing: -0.03em;
-        margin-bottom: 2.5rem;
-      }
-      .logo a {
-        color: #fff;
-      }
-      .logo a:hover {
-        text-decoration: none;
-        opacity: 0.8;
-      }
-      h2 {
-        font-size: 1.1rem;
-        color: #fff;
-        margin: 2.5rem 0 0.75rem;
-        font-weight: 600;
-      }
-      h2:first-of-type {
-        margin-top: 0;
-      }
-      p {
-        font-size: 0.9rem;
-        color: #999;
-        line-height: 1.65;
-        margin-bottom: 0.75rem;
-      }
-      .code-block {
-        background: #111;
-        border: 1px solid #1a1a1a;
-        border-radius: 8px;
-        padding: 1.25rem 1.5rem;
-        overflow-x: auto;
-        font-family: "SF Mono", "Fira Code", monospace;
-        font-size: 0.82rem;
-        line-height: 1.65;
-        color: #c8d3e0;
-        margin-bottom: 1.5rem;
-      }
-      .code-block .kw {
-        color: #c586c0;
-      }
-      .code-block .fn {
-        color: #dcdcaa;
-      }
-      .code-block .str {
-        color: #ce9178;
-      }
-      .code-block .comment {
-        color: #6a9955;
-      }
-      .code-block .type {
-        color: #4ec9b0;
-      }
-      .code-block .num {
-        color: #b5cea8;
-      }
-      .field-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.85rem;
-        margin-bottom: 1.5rem;
-      }
-      .field-table th, .field-table td {
-        padding: 0.5rem 0.75rem;
-        border-bottom: 1px solid #1a1a1a;
-        text-align: left;
-      }
-      .field-table th {
-        color: #888;
-        font-weight: 500;
-        font-size: 0.8rem;
-      }
-      .field-table td {
-        color: #ccc;
-      }
-      .field-table code {
-        background: #1a1a1a;
-        padding: 0.15rem 0.4rem;
-        border-radius: 3px;
-        font-size: 0.8rem;
-      }
-      .muted {
-        color: #666;
-      }
-      .footer {
-        border-top: 1px solid #1a1a1a;
-        padding-top: 2rem;
-        margin-top: 3rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 0.8rem;
-        color: #555;
-        flex-wrap: wrap;
-        gap: 1rem;
-      }
-      .footer-links {
-        display: flex;
-        gap: 1.5rem;
-      }
-      .footer a {
-        color: #666;
-      }
-      .footer a:hover {
-        color: #999;
-      }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+    a {
+      color: #7eb8ff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .page {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem;
+    }
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.03em;
+      margin-bottom: 2.5rem;
+    }
+    .logo a {
+      color: #fff;
+    }
+    .logo a:hover {
+      text-decoration: none;
+      opacity: 0.8;
+    }
+    h2 {
+      font-size: 1.1rem;
+      color: #fff;
+      margin: 2.5rem 0 0.75rem;
+      font-weight: 600;
+    }
+    h2:first-of-type {
+      margin-top: 0;
+    }
+    p {
+      font-size: 0.9rem;
+      color: #999;
+      line-height: 1.65;
+      margin-bottom: 0.75rem;
+    }
+    .code-block {
+      background: #111;
+      border: 1px solid #1a1a1a;
+      border-radius: 8px;
+      padding: 1.25rem 1.5rem;
+      overflow-x: auto;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.82rem;
+      line-height: 1.65;
+      color: #c8d3e0;
+      margin-bottom: 1.5rem;
+    }
+    .code-block .kw {
+      color: #c586c0;
+    }
+    .code-block .fn {
+      color: #dcdcaa;
+    }
+    .code-block .str {
+      color: #ce9178;
+    }
+    .code-block .comment {
+      color: #6a9955;
+    }
+    .code-block .type {
+      color: #4ec9b0;
+    }
+    .code-block .num {
+      color: #b5cea8;
+    }
+    .field-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin-bottom: 1.5rem;
+    }
+    .field-table th,
+    .field-table td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid #1a1a1a;
+      text-align: left;
+    }
+    .field-table th {
+      color: #888;
+      font-weight: 500;
+      font-size: 0.8rem;
+    }
+    .field-table td {
+      color: #ccc;
+    }
+    .field-table code {
+      background: #1a1a1a;
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-size: 0.8rem;
+    }
+    .muted {
+      color: #666;
+    }
+    .footer {
+      border-top: 1px solid #1a1a1a;
+      padding-top: 2rem;
+      margin-top: 3rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: #555;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .footer-links {
+      display: flex;
+      gap: 1.5rem;
+    }
+    .footer a {
+      color: #666;
+    }
+    .footer a:hover {
+      color: #999;
+    }
     </style>
   </head>
   <body>

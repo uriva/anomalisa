@@ -56,7 +56,19 @@ export const captureClientErrors = (
 ): (eventName: string) => void => {
   const capture = report(token, userId);
   if (typeof globalThis.addEventListener === "function") {
-    globalThis.addEventListener("error", () => capture(uncaughtErrorEvent));
+    globalThis.addEventListener("error", (event: Event) => {
+      if (
+        event instanceof ErrorEvent &&
+        event.message === "Script error." &&
+        !event.error
+      ) {
+        return;
+      }
+      if (!(event instanceof ErrorEvent)) {
+        return;
+      }
+      capture(uncaughtErrorEvent);
+    });
     globalThis.addEventListener(
       "unhandledrejection",
       () => capture(unhandledRejectionEvent),

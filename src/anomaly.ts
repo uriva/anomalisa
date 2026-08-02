@@ -501,17 +501,26 @@ export const checkAndSetCooldown = async (
   return true;
 };
 
+const getEventAnomalies = async (
+  projectId: string,
+  eventName: string,
+): Promise<Anomaly[]> => {
+  const entries = await safeList<Anomaly>({
+    prefix: ["anomalies", projectId, eventName],
+  });
+  return entries.map(({ value }) => value);
+};
+
 export const getTrendIndication = async (
   projectId: string,
   eventName: string,
   currentDirection: "high" | "low",
 ): Promise<string | null> => {
-  const allAnomalies = await getAnomalies(projectId);
+  const eventAnomalies = await getEventAnomalies(projectId, eventName);
   const now = Date.now();
   const oneDayAgo = now - 24 * 60 * 60 * 1000;
 
-  const recentSameEventAndDirection = allAnomalies.filter((a) => {
-    if (a.eventName !== eventName) return false;
+  const recentSameEventAndDirection = eventAnomalies.filter((a) => {
     const direction = anomalyDirection(a);
     if (direction !== currentDirection) return false;
     const detectedMs = new Date(a.detectedAt).getTime();

@@ -1361,6 +1361,23 @@ Deno.test({
       "📈 Recurring growth trend (3 alerts in the last 24h)",
     );
 
+    // 5. Recent anomaly of a different event in the same project must not count
+    const a4 = createAnomaly("other-event", 99, 10, 3);
+    await kv.set([
+      "anomalies",
+      "test-project",
+      "other-event",
+      a4.bucket,
+      "totalCount",
+      "_",
+    ], a4);
+
+    const trend5 = await getTrendIndication("test-project", "my-event", "high");
+    assertEquals(
+      trend5,
+      "📈 Recurring growth trend (3 alerts in the last 24h)",
+    );
+
     // Clean up
     for await (const entry of kv.list({ prefix })) {
       await kv.delete(entry.key);

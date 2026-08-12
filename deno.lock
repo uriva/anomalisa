@@ -5,6 +5,7 @@
     "jsr:@std/assert@^1.0.19": "1.0.19",
     "jsr:@std/internal@^1.0.12": "1.0.12",
     "jsr:@uri/typed-api@0.0.11": "0.0.11",
+    "npm:@instantdb/admin@*": "1.0.41",
     "npm:@instantdb/admin@1.0.41": "1.0.41",
     "npm:gamla@124.0.0": "124.0.0",
     "npm:zod@3.25.57": "3.25.57"

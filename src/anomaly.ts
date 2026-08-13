@@ -82,6 +82,7 @@ const zScoreThreshold = 3;
 const percentageThreshold = 1.0;
 const minAbsoluteDiff = 3;
 const minPercentageDropMean = 30;
+const minPercentageDropZScore = 1.05;
 const minPercentageSpikeMean = 10;
 const minPercentageSpikeZScore = 2.5;
 const poissonPThreshold = 1e-3;
@@ -316,6 +317,9 @@ export const detectPercentageDrop = (
 ): Anomaly | null => {
   if (stats.n < minDataPoints) return null;
   if (stats.mean < minPercentageDropMean) return null;
+  const sd = stdDev(stats);
+  const z = sd > 0 ? (stats.mean - count) / sd : Infinity;
+  if (z < minPercentageDropZScore) return null;
   const pctChange = (stats.mean - count) / stats.mean;
   return pctChange > percentageThreshold / 2 &&
       stats.mean - count >= minAbsoluteDiff

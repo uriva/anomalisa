@@ -1154,6 +1154,25 @@ Deno.test({
   },
 });
 
+Deno.test("detectPercentageDrop — suppresses false positive drop when count is within noise (WhatsApp real numbers: expected 84.01, actual 42)", () => {
+  const stats = {
+    mean: 84.01,
+    m2: 76879.2,
+    n: 47.63,
+    lastBucket: "2026-08-12T21",
+  };
+  assertEquals(
+    detectPercentageDrop(
+      stats,
+      42,
+      "supergreen",
+      "WhatsApp Message Received",
+      stats.lastBucket,
+    ),
+    null,
+  );
+});
+
 Deno.test("detectPercentageSpike — suppresses low-volume percentage spikes (find-scene examples)", () => {
   // 1. Email Sent: expected 3.41, actual 8
   const emailStats = buildStats([3.41, 3.41, 3.41, 3.41], "2026-05-27T09");

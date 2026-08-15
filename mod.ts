@@ -47,7 +47,7 @@ const extensionPrefixes = [
   "extension://",
 ];
 
-const hasExtensionPrefix = (text: string) =>
+const hasExtensionPrefix = (text: string): boolean =>
   extensionPrefixes.some((prefix) => text.includes(prefix));
 
 const extractStrings = (input: unknown): string[] => {
@@ -60,20 +60,20 @@ const extractStrings = (input: unknown): string[] => {
     .filter((v): v is string => typeof v === "string");
 };
 
-export const isBrowserExtensionError = (reason: unknown) =>
+export const isBrowserExtensionError = (reason: unknown): boolean =>
   extractStrings(reason).some(
     (str) =>
       hasExtensionPrefix(str) ||
       str.includes("Object Not Found Matching Id"),
   );
 
-export const isResizeObserverError = (reason: unknown) =>
+export const isResizeObserverError = (reason: unknown): boolean =>
   extractStrings(reason).some((str) => str.includes("ResizeObserver"));
 
-export const isNullRejection = (reason: unknown) =>
+export const isNullRejection = (reason: unknown): boolean =>
   reason === null || reason === undefined;
 
-export const isEventRejection = (reason: unknown) => {
+export const isEventRejection = (reason: unknown): boolean => {
   if (!reason || typeof reason !== "object") return false;
   if (typeof Event !== "undefined" && reason instanceof Event) return true;
   if (typeof DOMException !== "undefined" && reason instanceof DOMException) {
@@ -102,13 +102,13 @@ export const isEventRejection = (reason: unknown) => {
   return false;
 };
 
-const isIgnoredRejection = (reason: unknown) =>
+const isIgnoredRejection = (reason: unknown): boolean =>
   isNullRejection(reason) ||
   isEventRejection(reason) ||
   isBrowserExtensionError(reason) ||
   isResizeObserverError(reason);
 
-const isIgnoredErrorEvent = (event: Event) => {
+const isIgnoredErrorEvent = (event: Event): boolean => {
   if (!(event instanceof ErrorEvent)) return true;
   if (event.message === "Script error." && !event.error) return true;
   if (

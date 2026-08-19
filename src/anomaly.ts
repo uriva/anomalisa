@@ -1,48 +1,17 @@
-let _kv: Deno.Kv | null = null;
-const getKv = async () => _kv ??= await Deno.openKv();
+import { getTurso } from "./turso.ts";
 
-const safeGet = async <T>(key: Deno.KvKey): Promise<T | null> => {
-  try {
-    const entry = await (await getKv()).get<T>(key);
-    return entry.value;
-  } catch (error) {
-    console.error(
-      `Deserialization error at key ${JSON.stringify(key)}:`,
-      error,
-    );
-    try {
-      await (await getKv()).delete(key);
-    } catch {
-      // ignore
-    }
-    return null;
-  }
-};
-
-const safeList = async <T>(
-  selector: Parameters<Deno.Kv["list"]>[0],
-): Promise<Deno.KvEntry<T>[]> => {
-  try {
-    return await Array.fromAsync((await getKv()).list<T>(selector));
-  } catch (error) {
-    console.error(
-      `Deserialization error during list with selector ${
-        JSON.stringify(selector)
-      }:`,
-      error,
-    );
-    return [];
-  }
-};
-
-type Stats = {
+export type Stats = {
   mean: number;
   m2: number;
   n: number;
   lastBucket: string;
 };
 
-type Metric = "totalCount" | "userSpike" | "percentageSpike" | "percentageDrop";
+export type Metric =
+  | "totalCount"
+  | "userSpike"
+  | "percentageSpike"
+  | "percentageDrop";
 
 export type Anomaly = {
   projectId: string;
@@ -154,7 +123,6 @@ export const detectAnomaly = (
     : null;
 };
 
-// Log-gamma via Lanczos approximation. Accurate to ~1e-10 for x > 0.
 const lnGamma = (x: number): number => {
   const g = 7;
   const c = [
@@ -179,13 +147,11 @@ const lnGamma = (x: number): number => {
     Math.log(a);
 };
 
-// log P(X = k | lambda) for Poisson.
 const lnPoissonPmf = (k: number, lambda: number): number => {
   if (lambda === 0) return k === 0 ? 0 : -Infinity;
   return k * Math.log(lambda) - lambda - lnGamma(k + 1);
 };
 
-// log(a + b) given log(a) and log(b), numerically stable.
 const logSumExp = (a: number, b: number): number => {
   if (a === -Infinity) return b;
   if (b === -Infinity) return a;
@@ -193,8 +159,6 @@ const logSumExp = (a: number, b: number): number => {
   return m + Math.log(Math.exp(a - m) + Math.exp(b - m));
 };
 
-// log of sum_{i=from}^{from+length-1} P(X = i | lambda), accumulated in log
-// space so the result never underflows to 0.
 const lnPoissonRangeMass = (
   lambda: number,
   from: number,
@@ -205,24 +169,15 @@ const lnPoissonRangeMass = (
     -Infinity,
   );
 
-// Ten standard deviations past the count hold all non-negligible mass (~e^-50),
-// so a bounded sum equals the infinite upper tail to float precision.
 const upperTailTerms = (lambda: number): number =>
   Math.ceil(10 * Math.sqrt(lambda)) + 10;
 
-// log P(X >= k | lambda), summed upward from k. Exact for k >= lambda, the only
-// side queried for an upper anomaly.
 const lnPoissonUpperTail = (k: number, lambda: number): number =>
   lnPoissonRangeMass(lambda, Math.max(0, k), upperTailTerms(lambda));
 
-// log P(X <= k | lambda), summed from 0 to k.
 const lnPoissonLowerTail = (k: number, lambda: number): number =>
   k < 0 ? -Infinity : lnPoissonRangeMass(lambda, 0, k + 1);
 
-// log of the two-sided tail probability, log(min(1, 2 * min(upper, lower))).
-// Only the tail on count's side of the mean is summed; the far tail is ~1 and
-// cannot change 2 * min(...). Staying in log space keeps -log10(p) finite for
-// extreme upticks where the linear probability underflows to 0.
 const lnPoissonTwoSidedP = (count: number, lambda: number): number =>
   lambda <= 0 ? count === 0 ? 0 : -Infinity : Math.min(
     0,
@@ -250,11 +205,6 @@ export const detectPoissonAnomaly = (
       bucket,
     );
   }
-  // At very sparse baselines the Poisson tail probability becomes statistically
-  // significant for tiny absolute counts (e.g. lambda=0.03, count=2 -> p<1e-3),
-  // but a couple of events in an hour isn't an alert-worthy event. Mirror the
-  // floor in detectAnomaly: when the baseline is below 1/hr, require at least
-  // 5 events to fire.
   if (stats.mean > 0 && stats.mean < 1) {
     if (count < 5) return null;
   } else if (stats.mean >= 1) {
@@ -446,73 +396,92 @@ export const shouldSuppress = (
   return !isEscalation;
 };
 
-const anomalyKey = (
-  { projectId, eventName, bucket, metric, userId }: Anomaly,
-): Deno.KvKey => [
-  "anomalies",
-  projectId,
-  eventName,
-  bucket,
-  metric,
-  userId ?? "_",
-];
-
 const storeAnomaly = async (anomaly: Anomaly): Promise<boolean> => {
-  try {
-    const existing = await (await getKv()).get<Anomaly>(anomalyKey(anomaly));
-    return existing.value ? false : (await (await getKv()).atomic()
-      .check(existing)
-      .set(anomalyKey(anomaly), anomaly, { expireIn: anomalyTtlMs })
-      .commit()).ok;
-  } catch (error) {
-    console.error(`Failed to store anomaly:`, error);
-    try {
-      await (await getKv()).delete(anomalyKey(anomaly));
-    } catch {
-      // ignore
-    }
-    return false;
-  }
+  const result = await getTurso().execute({
+    sql: `INSERT INTO anomalies (project_id, event_name, bucket, metric, user_id, expected, actual, z_score, detected_at, trend, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT (project_id, event_name, bucket, metric, user_id) DO NOTHING;`,
+    args: [
+      anomaly.projectId,
+      anomaly.eventName,
+      anomaly.bucket,
+      anomaly.metric,
+      anomaly.userId ?? "_",
+      anomaly.expected,
+      anomaly.actual,
+      anomaly.zScore,
+      anomaly.detectedAt,
+      anomaly.trend ?? null,
+      Date.now(),
+    ],
+  });
+  return result.rowsAffected > 0;
 };
-
-const cooldownKey = (
-  { projectId, eventName, metric, userId }: Anomaly,
-  direction: Direction,
-): Deno.KvKey => [
-  "alertCooldown",
-  projectId,
-  eventName,
-  metric,
-  direction,
-  userId ?? "_",
-];
 
 export const checkAndSetCooldown = async (
   anomaly: Anomaly,
 ): Promise<boolean> => {
   const direction = anomalyDirection(anomaly);
-  const key = cooldownKey(anomaly, direction);
-  const value = await safeGet<CooldownEntry | Direction>(key);
-  const lastEntry = value
-    ? (typeof value === "string"
-      ? { direction: value, actual: Infinity }
-      : value)
-    : null;
+  const now = Date.now();
+  const res = await getTurso().execute({
+    sql: `SELECT actual, expires_at FROM cooldowns
+          WHERE project_id = ? AND event_name = ? AND metric = ? AND direction = ? AND user_id = ?;`,
+    args: [
+      anomaly.projectId,
+      anomaly.eventName,
+      anomaly.metric,
+      direction,
+      anomaly.userId ?? "_",
+    ],
+  });
+  const row = res.rows[0];
+  const lastEntry: CooldownEntry | null =
+    row && Number(row.expires_at) > now
+      ? { direction, actual: Number(row.actual) }
+      : null;
   if (shouldSuppress(lastEntry, anomaly)) return false;
-  await (await getKv()).set(key, { direction, actual: anomaly.actual }, {
-    expireIn: cooldownTtlMs,
+  await getTurso().execute({
+    sql: `INSERT INTO cooldowns (project_id, event_name, metric, direction, user_id, actual, expires_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT (project_id, event_name, metric, direction, user_id)
+          DO UPDATE SET actual = excluded.actual, expires_at = excluded.expires_at;`,
+    args: [
+      anomaly.projectId,
+      anomaly.eventName,
+      anomaly.metric,
+      direction,
+      anomaly.userId ?? "_",
+      anomaly.actual,
+      now + cooldownTtlMs,
+    ],
   });
   return true;
 };
+
+const mapAnomalyRow = (row: Record<string, unknown>): Anomaly => ({
+  projectId: String(row.project_id),
+  eventName: String(row.event_name),
+  bucket: String(row.bucket),
+  metric: row.metric as Metric,
+  expected: Number(row.expected),
+  actual: Number(row.actual),
+  zScore: Number(row.z_score),
+  detectedAt: String(row.detected_at),
+  ...(row.user_id && row.user_id !== "_" ? { userId: String(row.user_id) } : {}),
+  ...(row.trend ? { trend: String(row.trend) } : {}),
+});
 
 const getEventAnomalies = async (
   projectId: string,
   eventName: string,
 ): Promise<Anomaly[]> => {
-  const entries = await safeList<Anomaly>({
-    prefix: ["anomalies", projectId, eventName],
+  const res = await getTurso().execute({
+    sql: `SELECT project_id, event_name, bucket, metric, user_id, expected, actual, z_score, detected_at, trend
+          FROM anomalies
+          WHERE project_id = ? AND event_name = ?;`,
+    args: [projectId, eventName],
   });
-  return entries.map(({ value }) => value);
+  return res.rows.map((row) => mapAnomalyRow(row as Record<string, unknown>));
 };
 
 export const getTrendIndication = async (
@@ -563,34 +532,134 @@ const storeAndFilter = async (anomalies: Anomaly[]): Promise<Anomaly[]> => {
 };
 
 const getOrInitStats = async (
-  key: Deno.KvKey,
+  projectId: string,
+  eventName: string,
+  type: string,
   bucket: string,
 ): Promise<Stats> => {
-  const value = await safeGet<Stats>(key);
-  if (value) {
-    if (!value.lastBucket) {
-      value.lastBucket = bucket;
-    }
-    return value;
+  const res = await getTurso().execute({
+    sql: `SELECT mean, m2, n, last_bucket FROM stats
+          WHERE project_id = ? AND event_name = ? AND type = ?;`,
+    args: [projectId, eventName, type],
+  });
+  const row = res.rows[0];
+  if (row) {
+    return {
+      mean: Number(row.mean),
+      m2: Number(row.m2),
+      n: Number(row.n),
+      lastBucket: String(row.last_bucket || bucket),
+    };
   }
   const initial = emptyStats(bucket);
-  await (await getKv()).set(key, initial);
+  await getTurso().execute({
+    sql: `INSERT INTO stats (project_id, event_name, type, mean, m2, n, last_bucket)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT (project_id, event_name, type) DO NOTHING;`,
+    args: [
+      projectId,
+      eventName,
+      type,
+      initial.mean,
+      initial.m2,
+      initial.n,
+      initial.lastBucket,
+    ],
+  });
   return initial;
 };
 
-const incrementAndGet = async (key: Deno.KvKey, ttl: number) => {
-  const value = await safeGet<number>(key);
-  const next = (value ?? 0) + 1;
-  await (await getKv()).set(key, next, { expireIn: ttl });
-  return next;
+const saveStats = (
+  projectId: string,
+  eventName: string,
+  type: string,
+  stats: Stats,
+) =>
+  getTurso().execute({
+    sql: `INSERT INTO stats (project_id, event_name, type, mean, m2, n, last_bucket)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT (project_id, event_name, type)
+          DO UPDATE SET mean = excluded.mean, m2 = excluded.m2, n = excluded.n, last_bucket = excluded.last_bucket;`,
+    args: [
+      projectId,
+      eventName,
+      type,
+      stats.mean,
+      stats.m2,
+      stats.n,
+      stats.lastBucket,
+    ],
+  });
+
+const incrementCount = async (
+  projectId: string,
+  eventName: string,
+  bucket: string,
+): Promise<number> => {
+  const res = await getTurso().execute({
+    sql: `INSERT INTO counts (project_id, event_name, bucket, count, created_at)
+          VALUES (?, ?, ?, 1, ?)
+          ON CONFLICT (project_id, event_name, bucket)
+          DO UPDATE SET count = count + 1
+          RETURNING count;`,
+    args: [projectId, eventName, bucket, Date.now()],
+  });
+  return Number(res.rows[0].count);
 };
 
-const updateMaxUserCount = async (key: Deno.KvKey, userCount: number) => {
-  const value = await safeGet<number>(key);
-  const current = value ?? 0;
-  if (userCount > current) {
-    await (await getKv()).set(key, userCount, { expireIn: countTtlMs });
-  }
+const incrementUserCount = async (
+  projectId: string,
+  eventName: string,
+  bucket: string,
+  userId: string,
+): Promise<number> => {
+  const res = await getTurso().execute({
+    sql: `INSERT INTO user_counts (project_id, event_name, bucket, user_id, count, created_at)
+          VALUES (?, ?, ?, ?, 1, ?)
+          ON CONFLICT (project_id, event_name, bucket, user_id)
+          DO UPDATE SET count = count + 1
+          RETURNING count;`,
+    args: [projectId, eventName, bucket, userId, Date.now()],
+  });
+  return Number(res.rows[0].count);
+};
+
+const updateMaxUserCount = (
+  projectId: string,
+  eventName: string,
+  bucket: string,
+  count: number,
+) =>
+  getTurso().execute({
+    sql: `INSERT INTO max_user_counts (project_id, event_name, bucket, count, created_at)
+          VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT (project_id, event_name, bucket)
+          DO UPDATE SET count = MAX(count, excluded.count);`,
+    args: [projectId, eventName, bucket, count, Date.now()],
+  });
+
+const getCount = async (
+  projectId: string,
+  eventName: string,
+  bucket: string,
+): Promise<number> => {
+  const res = await getTurso().execute({
+    sql: `SELECT count FROM counts WHERE project_id = ? AND event_name = ? AND bucket = ?;`,
+    args: [projectId, eventName, bucket],
+  });
+  return res.rows[0] ? Number(res.rows[0].count) : 0;
+};
+
+const getMaxUserCount = async (
+  projectId: string,
+  eventName: string,
+  bucket: string,
+): Promise<number> => {
+  const res = await getTurso().execute({
+    sql: `SELECT count FROM max_user_counts WHERE project_id = ? AND event_name = ? AND bucket = ?;`,
+    args: [projectId, eventName, bucket],
+  });
+  return res.rows[0] ? Number(res.rows[0].count) : 0;
 };
 
 const checkUserSpike = async (
@@ -600,8 +669,12 @@ const checkUserSpike = async (
   userId: string,
   userCount: number,
 ): Promise<Anomaly | null> => {
-  const perUserStatsKey = ["stats", "perUser", projectId, eventName];
-  const perUserStats = await getOrInitStats(perUserStatsKey, bucket);
+  const perUserStats = await getOrInitStats(
+    projectId,
+    eventName,
+    "perUser",
+    bucket,
+  );
   return detectAnomaly(
     perUserStats,
     userCount,
@@ -619,20 +692,19 @@ const handleBucketTransition = async (
   eventName: string,
   bucket: string,
 ): Promise<Anomaly[]> => {
-  const prevTotalCount = await safeGet<number>([
-    "counts",
-    projectId,
-    eventName,
-    stats.lastBucket,
-  ]) ?? 0;
+  const prevTotalCount = await getCount(projectId, eventName, stats.lastBucket);
 
   const skippedHours = Math.max(0, hoursBetween(stats.lastBucket, bucket) - 1);
   const statsWithZeros = updateStatsWithZeros(stats, skippedHours, statsDecay);
   const updatedStats = updateStats(statsWithZeros, prevTotalCount, statsDecay);
 
   const prevHourOfDay = parseInt(stats.lastBucket.slice(-2), 10);
-  const hourStatsKey = ["stats", "byHour", projectId, eventName, prevHourOfDay];
-  const hourStats = await getOrInitStats(hourStatsKey, stats.lastBucket);
+  const hourStats = await getOrInitStats(
+    projectId,
+    eventName,
+    `byHour:${prevHourOfDay}`,
+    stats.lastBucket,
+  );
 
   const anomalies = detectBucketAnomalies(
     stats,
@@ -644,15 +716,18 @@ const handleBucketTransition = async (
     statsDecay,
   );
 
-  const prevMaxUserCount = await safeGet<number>([
-    "maxUserCount",
+  const prevMaxUserCount = await getMaxUserCount(
     projectId,
     eventName,
     stats.lastBucket,
-  ]) ?? 0;
+  );
 
-  const perUserStatsKey = ["stats", "perUser", projectId, eventName];
-  const perUserStats = await getOrInitStats(perUserStatsKey, bucket);
+  const perUserStats = await getOrInitStats(
+    projectId,
+    eventName,
+    "perUser",
+    bucket,
+  );
   const perUserSkippedZeros = updateStatsWithZeros(
     perUserStats,
     skippedHours,
@@ -661,16 +736,23 @@ const handleBucketTransition = async (
 
   const [notifiable] = await Promise.all([
     storeAndFilter(anomalies),
-    (await getKv()).set(["stats", "total", projectId, eventName], {
+    saveStats(projectId, eventName, "total", {
       ...updatedStats,
       lastBucket: bucket,
     }),
-    (await getKv()).set(perUserStatsKey, {
-      ...updateStats(perUserSkippedZeros, prevMaxUserCount, statsDecay),
-      lastBucket: bucket,
-    }),
-    (await getKv()).set(
-      hourStatsKey,
+    saveStats(
+      projectId,
+      eventName,
+      "perUser",
+      {
+        ...updateStats(perUserSkippedZeros, prevMaxUserCount, statsDecay),
+        lastBucket: bucket,
+      },
+    ),
+    saveStats(
+      projectId,
+      eventName,
+      `byHour:${prevHourOfDay}`,
       updateStats(hourStats, prevTotalCount, statsDecay),
     ),
   ]);
@@ -688,15 +770,14 @@ const trackUserSpike = async (
   bucket: string,
   userId: string,
 ): Promise<Anomaly[]> => {
-  const userCount = await incrementAndGet(
-    ["userCounts", projectId, eventName, bucket, userId],
-    countTtlMs,
+  const userCount = await incrementUserCount(
+    projectId,
+    eventName,
+    bucket,
+    userId,
   );
 
-  await updateMaxUserCount(
-    ["maxUserCount", projectId, eventName, bucket],
-    userCount,
-  );
+  await updateMaxUserCount(projectId, eventName, bucket, userCount);
 
   const userSpikeAnomaly = await checkUserSpike(
     projectId,
@@ -716,10 +797,14 @@ export const recordEvent = async (
 ): Promise<Anomaly[]> => {
   const bucket = getHourBucket();
 
-  await incrementAndGet(["counts", projectId, eventName, bucket], countTtlMs);
+  await incrementCount(projectId, eventName, bucket);
 
-  const totalStatsKey = ["stats", "total", projectId, eventName];
-  const totalStats = await getOrInitStats(totalStatsKey, bucket);
+  const totalStats = await getOrInitStats(
+    projectId,
+    eventName,
+    "total",
+    bucket,
+  );
 
   const newUserSpike = userId
     ? await trackUserSpike(projectId, eventName, bucket, userId)
@@ -739,55 +824,70 @@ export const recordEvent = async (
 export const getEventCounts = async (
   projectId: string,
 ): Promise<Record<string, Array<{ bucket: string; count: number }>>> => {
-  const entries = await safeList<number>({ prefix: ["counts", projectId] });
-  const events: Record<string, Array<{ bucket: string; count: number }>> = {};
-  entries.forEach(({ key, value }) => {
-    const eventName = String(key[2]);
-    const bucket = String(key[3]);
-    (events[eventName] ??= []).push({ bucket, count: value });
+  const res = await getTurso().execute({
+    sql: `SELECT event_name, bucket, count FROM counts WHERE project_id = ? ORDER BY bucket ASC;`,
+    args: [projectId],
   });
-  Object.values(events).forEach((arr) =>
-    arr.sort((a, b) => a.bucket.localeCompare(b.bucket))
-  );
+  const events: Record<string, Array<{ bucket: string; count: number }>> = {};
+  res.rows.forEach((row) => {
+    const eventName = String(row.event_name);
+    const bucket = String(row.bucket);
+    const count = Number(row.count);
+    (events[eventName] ??= []).push({ bucket, count });
+  });
   return events;
 };
 
 export const getMaxUserCounts = async (
   projectId: string,
 ): Promise<Record<string, Array<{ bucket: string; count: number }>>> => {
-  const entries = await safeList<number>({
-    prefix: ["maxUserCount", projectId],
+  const res = await getTurso().execute({
+    sql: `SELECT event_name, bucket, count FROM max_user_counts WHERE project_id = ? ORDER BY bucket ASC;`,
+    args: [projectId],
   });
   const events: Record<string, Array<{ bucket: string; count: number }>> = {};
-  entries.forEach(({ key, value }) => {
-    const eventName = String(key[2]);
-    const bucket = String(key[3]);
-    (events[eventName] ??= []).push({ bucket, count: value });
+  res.rows.forEach((row) => {
+    const eventName = String(row.event_name);
+    const bucket = String(row.bucket);
+    const count = Number(row.count);
+    (events[eventName] ??= []).push({ bucket, count });
   });
-  Object.values(events).forEach((arr) =>
-    arr.sort((a, b) => a.bucket.localeCompare(b.bucket))
-  );
   return events;
 };
 
 export const getAnomalies = async (projectId: string): Promise<Anomaly[]> => {
-  const entries = await safeList<Anomaly>({ prefix: ["anomalies", projectId] });
-  return entries.map(({ value }) => value);
+  const res = await getTurso().execute({
+    sql: `SELECT project_id, event_name, bucket, metric, user_id, expected, actual, z_score, detected_at, trend
+          FROM anomalies
+          WHERE project_id = ?
+          ORDER BY detected_at DESC;`,
+    args: [projectId],
+  });
+  return res.rows.map((row) => mapAnomalyRow(row as Record<string, unknown>));
 };
 
 export const checkAllEmptyBuckets = async (): Promise<
   Record<string, Anomaly[]>
 > => {
   const currentBucket = getHourBucket();
-  const entries = await safeList<Stats>({ prefix: ["stats", "total"] });
+  const res = await getTurso().execute(
+    "SELECT project_id, event_name, mean, m2, n, last_bucket FROM stats WHERE type = 'total';",
+  );
 
   const anomaliesByProject: Record<string, Anomaly[]> = {};
-  for (const { key, value } of entries) {
-    const projectId = String(key[2]);
-    const eventName = String(key[3]);
-    if (value.lastBucket !== currentBucket) {
+  for (const row of res.rows) {
+    const projectId = String(row.project_id);
+    const eventName = String(row.event_name);
+    const lastBucket = String(row.last_bucket);
+    if (lastBucket !== currentBucket) {
+      const stats: Stats = {
+        mean: Number(row.mean),
+        m2: Number(row.m2),
+        n: Number(row.n),
+        lastBucket,
+      };
       const anomalies = await handleBucketTransition(
-        value,
+        stats,
         projectId,
         eventName,
         currentBucket,
@@ -800,38 +900,78 @@ export const checkAllEmptyBuckets = async (): Promise<
   return anomaliesByProject;
 };
 
-const outgoingAlertsPrefix = (projectId: string): Deno.KvKey => [
-  "outgoingAlerts",
-  projectId,
-];
-
-const outgoingAlertTtlMs = 5 * 60 * 1000;
-
 export const enqueueOutgoingAlerts = async (
   projectId: string,
   anomalies: Anomaly[],
 ): Promise<void> => {
   const now = Date.now();
-  const kv = await getKv();
-  await Promise.all(
-    anomalies.map((a, i) =>
-      kv.set([...outgoingAlertsPrefix(projectId), `${now}-${i}`], a, {
-        expireIn: outgoingAlertTtlMs,
-      })
-    ),
+  await getTurso().batch(
+    anomalies.map((a, i) => ({
+      sql:
+        `INSERT INTO outgoing_alerts (id, project_id, payload, created_at) VALUES (?, ?, ?, ?);`,
+      args: [`${projectId}-${now}-${i}`, projectId, JSON.stringify(a), now],
+    })),
+    "write",
   );
 };
 
 export const drainOutgoingAlerts = async (): Promise<
   Record<string, Anomaly[]>
 > => {
-  const kv = await getKv();
-  const entries = await safeList<Anomaly>({ prefix: ["outgoingAlerts"] });
+  const res = await getTurso().execute(
+    "SELECT id, project_id, payload FROM outgoing_alerts;",
+  );
+  if (res.rows.length === 0) return {};
+  const ids = res.rows.map((r) => String(r.id));
+  await getTurso().batch(
+    ids.map((id) => ({
+      sql: "DELETE FROM outgoing_alerts WHERE id = ?;",
+      args: [id],
+    })),
+    "write",
+  );
   const byProject: Record<string, Anomaly[]> = {};
-  for (const { key, value } of entries) {
-    const projectId = String(key[1]);
-    (byProject[projectId] ??= []).push(value);
-    kv.delete(key).catch(() => {});
+  for (const row of res.rows) {
+    const projectId = String(row.project_id);
+    try {
+      const anomaly = JSON.parse(String(row.payload)) as Anomaly;
+      (byProject[projectId] ??= []).push(anomaly);
+    } catch {
+      // ignore
+    }
   }
   return byProject;
+};
+
+export const cleanExpiredData = async () => {
+  const now = Date.now();
+  await getTurso().batch(
+    [
+      {
+        sql: "DELETE FROM counts WHERE created_at < ?;",
+        args: [now - countTtlMs],
+      },
+      {
+        sql: "DELETE FROM user_counts WHERE created_at < ?;",
+        args: [now - countTtlMs],
+      },
+      {
+        sql: "DELETE FROM max_user_counts WHERE created_at < ?;",
+        args: [now - countTtlMs],
+      },
+      {
+        sql: "DELETE FROM anomalies WHERE created_at < ?;",
+        args: [now - anomalyTtlMs],
+      },
+      {
+        sql: "DELETE FROM cooldowns WHERE expires_at < ?;",
+        args: [now],
+      },
+      {
+        sql: "DELETE FROM email_rate_limits WHERE expires_at < ?;",
+        args: [now],
+      },
+    ],
+    "write",
+  );
 };

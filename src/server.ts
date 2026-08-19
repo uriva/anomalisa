@@ -3,6 +3,7 @@ import { type Api, apiDefinition } from "./api.ts";
 import {
   type Anomaly,
   checkAllEmptyBuckets,
+  cleanExpiredData,
   drainOutgoingAlerts,
   enqueueOutgoingAlerts,
   getAnomalies,
@@ -12,6 +13,7 @@ import {
 } from "./anomaly.ts";
 import { lookupProjectById, lookupProjectByToken } from "./db.ts";
 import { sendAnomalyAlerts } from "./email.ts";
+import { initTursoSchema } from "./turso.ts";
 import { sendWebhook } from "./webhook.ts";
 
 const resolveProject = async (token: string) => {
@@ -156,6 +158,8 @@ const httpHandler = async (req: Request) => {
   return handlePost(req);
 };
 
+initTursoSchema().catch(logError("init turso schema"));
+
 Deno.serve(httpHandler);
 console.log("server.ts executing...");
 
@@ -194,4 +198,8 @@ Deno.cron("Drain outgoing alerts", "*/5 * * * *", async () => {
       console.error(`Failed to drain alerts for ${projectId}:`, e);
     }
   }
+});
+
+Deno.cron("Clean expired data", "0 3 * * *", () => {
+  cleanExpiredData().catch(logError("clean expired data"));
 });

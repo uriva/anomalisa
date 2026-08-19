@@ -7,6 +7,7 @@ import {
   formatBucket,
   sendAnomalyAlerts,
 } from "./email.ts";
+import { getTurso } from "./turso.ts";
 
 const mockFetch = (
   _input: string | Request | URL,
@@ -24,12 +25,7 @@ const withMockFetch = async <T>(fn: () => Promise<T>): Promise<T> => {
 };
 
 const clearEmailCounts = async () => {
-  const kv = await Deno.openKv();
-  const entries = kv.list<number>({ prefix: ["emailCount"] });
-  for await (const entry of entries) {
-    await kv.delete(entry.key);
-  }
-  kv.close();
+  await getTurso().execute("DELETE FROM email_rate_limits;");
 };
 
 const singleAnomaly: Anomaly = {
@@ -222,14 +218,7 @@ Deno.test({
   name: "sendAnomalyAlerts — rate limits per project+event",
   sanitizeResources: false,
   fn: async () => {
-    const kv = await Deno.openKv();
-    const clear = async () => {
-      const entries = kv.list<number>({ prefix: ["emailCount"] });
-      for await (const entry of entries) {
-        await kv.delete(entry.key);
-      }
-    };
-    await clear();
+    await clearEmailCounts();
 
     const anomaly = (
       eventName: string,
@@ -284,6 +273,6 @@ Deno.test({
       assertEquals(sixthAllowedProj, true);
     });
 
-    kv.close();
+    await clearEmailCounts();
   },
 });

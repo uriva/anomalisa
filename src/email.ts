@@ -1,5 +1,6 @@
 import { anomalyDirection } from "./anomaly.ts";
 import type { Anomaly } from "./anomaly.ts";
+import { getTurso } from "./turso.ts";
 
 type BucketCount = { bucket: string; count: number };
 export type EventCounts = Record<string, BucketCount[]>;
@@ -39,8 +40,6 @@ const sparkText = (counts: number[], anomalyIndex: number) => {
 const apiKey = Deno.env.get("FORWARD_EMAIL_API_KEY") ?? "";
 const emailDomain = Deno.env.get("EMAIL_DOMAIN") ?? "";
 const authHeader = `Basic ${btoa(apiKey + ":")}`;
-let _kv: Deno.Kv | null = null;
-const getKv = async () => _kv ??= await Deno.openKv();
 const maxEmailsPerDay = 5;
 
 type Email = {
@@ -53,37 +52,47 @@ type Email = {
 
 const getDayBucket = (): string => new Date().toISOString().slice(0, 10);
 
-const emailCountKey = (
-  toEmail: string,
-  projectName: string,
-  eventName: string,
-): Deno.KvKey => [
-  "emailCount",
-  toEmail,
-  projectName,
-  eventName,
-  getDayBucket(),
-];
-
 const incrementEmailCounts = async (
   toEmail: string,
   projectName: string,
   eventNames: string[],
 ): Promise<boolean> => {
-  const kv = await getKv();
+  const dayBucket = getDayBucket();
+  const now = Date.now();
+  const turso = getTurso();
+
   for (const eventName of eventNames) {
-    const entry = await kv.get<number>(
-      emailCountKey(toEmail, projectName, eventName),
-    );
-    if ((entry.value ?? 0) >= maxEmailsPerDay) return false;
-  }
-  for (const eventName of eventNames) {
-    const key = emailCountKey(toEmail, projectName, eventName);
-    const entry = await kv.get<number>(key);
-    await kv.set(key, (entry.value ?? 0) + 1, {
-      expireIn: 24 * 60 * 60 * 1000,
+    const res = await turso.execute({
+      sql: `SELECT count, expires_at FROM email_rate_limits
+            WHERE to_email = ? AND project_name = ? AND event_name = ? AND day_bucket = ?;`,
+      args: [toEmail, projectName, eventName, dayBucket],
     });
+    const row = res.rows[0];
+    if (
+      row && Number(row.expires_at) > now &&
+      Number(row.count) >= maxEmailsPerDay
+    ) {
+      return false;
+    }
   }
+
+  await turso.batch(
+    eventNames.map((eventName) => ({
+      sql:
+        `INSERT INTO email_rate_limits (to_email, project_name, event_name, day_bucket, count, expires_at)
+            VALUES (?, ?, ?, ?, 1, ?)
+            ON CONFLICT (to_email, project_name, event_name, day_bucket)
+            DO UPDATE SET count = count + 1, expires_at = excluded.expires_at;`,
+      args: [
+        toEmail,
+        projectName,
+        eventName,
+        dayBucket,
+        now + 24 * 60 * 60 * 1000,
+      ],
+    })),
+    "write",
+  );
   return true;
 };
 

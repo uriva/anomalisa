@@ -20,6 +20,7 @@ import {
   updateStats,
   updateStatsWithZeros,
 } from "./anomaly.ts";
+import { getTurso } from "./turso.ts";
 
 const buildStats = (values: number[], lastBucket: string) =>
   values.reduce(
@@ -1124,6 +1125,8 @@ Deno.test({
     "enqueueOutgoingAlerts and drainOutgoingAlerts — groups by project and deletes on drain",
   sanitizeResources: false,
   fn: async () => {
+    await getTurso().execute("DELETE FROM outgoing_alerts;");
+
     const anomaly = (
       projectId: string,
       eventName: string,
@@ -1297,11 +1300,10 @@ Deno.test({
     "getTrendIndication — detects growth and decrease trends based on 24h past anomalies",
   sanitizeResources: false,
   fn: async () => {
-    const kv = await Deno.openKv();
-    const prefix = ["anomalies", "test-project"];
-    for await (const entry of kv.list({ prefix })) {
-      await kv.delete(entry.key);
-    }
+    const turso = getTurso();
+    await turso.execute(
+      "DELETE FROM anomalies WHERE project_id = 'test-project';",
+    );
 
     const createAnomaly = (
       eventName: string,
@@ -1323,20 +1325,33 @@ Deno.test({
       };
     };
 
+    const insertTestAnomaly = (a: Anomaly) =>
+      turso.execute({
+        sql:
+          `INSERT INTO anomalies (project_id, event_name, bucket, metric, user_id, expected, actual, z_score, detected_at, trend, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        args: [
+          a.projectId,
+          a.eventName,
+          a.bucket,
+          a.metric,
+          a.userId ?? "_",
+          a.expected,
+          a.actual,
+          a.zScore,
+          a.detectedAt,
+          a.trend ?? null,
+          Date.now(),
+        ],
+      });
+
     // 1. With no past anomalies, getTrendIndication should return null
     const trend1 = await getTrendIndication("test-project", "my-event", "high");
     assertEquals(trend1, null);
 
     // 2. Add one high anomaly from 5 hours ago
     const a1 = createAnomaly("my-event", 50, 10, 5);
-    await kv.set([
-      "anomalies",
-      "test-project",
-      "my-event",
-      a1.bucket,
-      "totalCount",
-      "_",
-    ], a1);
+    await insertTestAnomaly(a1);
 
     // With 1 past anomaly, we expect count to be 1 past + 1 current = 2 alerts in the last 24h
     const trend2 = await getTrendIndication("test-project", "my-event", "high");
@@ -1347,14 +1362,7 @@ Deno.test({
 
     // 3. Add another high anomaly from 10 hours ago
     const a2 = createAnomaly("my-event", 40, 10, 10);
-    await kv.set([
-      "anomalies",
-      "test-project",
-      "my-event",
-      a2.bucket,
-      "totalCount",
-      "_",
-    ], a2);
+    await insertTestAnomaly(a2);
 
     // With 2 past anomalies, we expect count to be 2 past + 1 current = 3 alerts in the last 24h
     const trend3 = await getTrendIndication("test-project", "my-event", "high");
@@ -1365,14 +1373,7 @@ Deno.test({
 
     // 4. Anomaly from 30 hours ago should be ignored (since it's older than 24h)
     const a3 = createAnomaly("my-event", 60, 10, 30);
-    await kv.set([
-      "anomalies",
-      "test-project",
-      "my-event",
-      a3.bucket,
-      "totalCount",
-      "_",
-    ], a3);
+    await insertTestAnomaly(a3);
 
     const trend4 = await getTrendIndication("test-project", "my-event", "high");
     assertEquals(
@@ -1382,14 +1383,7 @@ Deno.test({
 
     // 5. Recent anomaly of a different event in the same project must not count
     const a4 = createAnomaly("other-event", 99, 10, 3);
-    await kv.set([
-      "anomalies",
-      "test-project",
-      "other-event",
-      a4.bucket,
-      "totalCount",
-      "_",
-    ], a4);
+    await insertTestAnomaly(a4);
 
     const trend5 = await getTrendIndication("test-project", "my-event", "high");
     assertEquals(
@@ -1398,10 +1392,9 @@ Deno.test({
     );
 
     // Clean up
-    for await (const entry of kv.list({ prefix })) {
-      await kv.delete(entry.key);
-    }
-    kv.close();
+    await turso.execute(
+      "DELETE FROM anomalies WHERE project_id = 'test-project';",
+    );
   },
 });
 
@@ -1480,11 +1473,10 @@ Deno.test({
     "checkAndSetCooldown — sets cooldown and suppresses repeating anomalies in same direction",
   sanitizeResources: false,
   fn: async () => {
-    const kv = await Deno.openKv();
-    const prefix = ["alertCooldown", "test-project"];
-    for await (const entry of kv.list({ prefix })) {
-      await kv.delete(entry.key);
-    }
+    const turso = getTurso();
+    await turso.execute(
+      "DELETE FROM cooldowns WHERE project_id = 'test-project';",
+    );
 
     const anomaly1: Anomaly = {
       projectId: "test-project",
@@ -1512,10 +1504,9 @@ Deno.test({
     assertEquals(escalatedAllowed, true);
 
     // Clean up
-    for await (const entry of kv.list({ prefix })) {
-      await kv.delete(entry.key);
-    }
-    kv.close();
+    await turso.execute(
+      "DELETE FROM cooldowns WHERE project_id = 'test-project';",
+    );
   },
 });
 
@@ -1524,11 +1515,10 @@ Deno.test({
     "checkAndSetCooldown — independent directional cooldowns prevent toggling alert spam",
   sanitizeResources: false,
   fn: async () => {
-    const kv = await Deno.openKv();
-    const prefix = ["alertCooldown", "test-project-direction"];
-    for await (const entry of kv.list({ prefix })) {
-      await kv.delete(entry.key);
-    }
+    const turso = getTurso();
+    await turso.execute(
+      "DELETE FROM cooldowns WHERE project_id = 'test-project-direction';",
+    );
 
     const dropAnomaly: Anomaly = {
       projectId: "test-project-direction",
@@ -1566,29 +1556,8 @@ Deno.test({
     assertEquals(secondDropAllowed, false);
 
     // Clean up
-    for await (const entry of kv.list({ prefix })) {
-      await kv.delete(entry.key);
-    }
-    kv.close();
-  },
-});
-
-Deno.test({
-  name: "recordEvent — handles Deno KV deserialization errors gracefully",
-  sanitizeResources: false,
-  fn: async () => {
-    const originalGet = Deno.Kv.prototype.get;
-    Deno.Kv.prototype.get = () => {
-      throw new RangeError("could not deserialize value");
-    };
-    try {
-      const result = await recordEvent(
-        "test-project-deserialization",
-        "test-event",
-      );
-      assertEquals(result, []);
-    } finally {
-      Deno.Kv.prototype.get = originalGet;
-    }
+    await turso.execute(
+      "DELETE FROM cooldowns WHERE project_id = 'test-project-direction';",
+    );
   },
 });

@@ -96,8 +96,8 @@ in InstantDB.
 
 ## Database
 
-- **Deno KV** — event counts (hourly buckets, 7d TTL), running stats
-  (mean/variance via Welford's), detected anomalies (30d TTL)
+- **Turso (libSQL)** — event counts (hourly buckets), running stats
+  (mean/variance via Welford's), detected anomalies, cooldowns, rate limits
 - **InstantDB** — user accounts (magic code auth), projects (name + token),
   project-owner links. Schema in `instant.schema.ts`.
 
@@ -124,7 +124,8 @@ management.
 | `mod.ts`            | Client SDK (sendEvent, getAnomalies)      |
 | `src/api.ts`        | Zod-validated API definition              |
 | `src/server.ts`     | HTTP server, auth, routing, web serving   |
-| `src/anomaly.ts`    | Deno KV anomaly detection engine          |
+| `src/turso.ts`      | Turso database client and schema setup    |
+| `src/anomaly.ts`    | Anomaly detection engine and stats storage|
 | `src/db.ts`         | InstantDB admin client, token lookup      |
 | `src/email.ts`      | Forward Email client for anomaly alerts   |
 | `instant.schema.ts` | InstantDB schema (projects, users, links) |
@@ -138,42 +139,5 @@ management.
 - `INSTANTDB_ADMIN_TOKEN` — InstantDB admin token
 - `FORWARD_EMAIL_API_KEY` — Forward Email API key
 - `EMAIL_DOMAIN` — domain for sending emails (e.g. `f0mo.com`)
-
-# Connecting to Production Deno KV Remotely
-
-To troubleshoot issues, retrieve live baseline models, or inspect active
-cooldowns directly, you can connect to the production Deno KV database remotely.
-
-## 1. Retrieve the Database list and DB ID
-
-Use the Deno Deploy CLI to list database identifiers for your environment:
-
-```bash
-deno deploy database list --token "$DENO_DEPLOY_TOKEN" --org uriva
-```
-
-Look for `anomalisa-kv` under the assignments. Grab the `td_id` UUID from the
-database metadata list (this is the actual remote `DB_ID`, **not** the
-`clientId` UUID).
-
-## 2. Querying the Database with a Remote Deno script
-
-Define the access token in your environment, and use
-`Deno.openKv("https://api.deno.com/v2/databases/${DB_ID}/connect")` to open a
-direct remote connection:
-
-```bash
-# Set your token in the standard Deno KV environment variable
-export DENO_KV_ACCESS_TOKEN="your-deno-deploy-token"
-
-# Run your script with the unstable KV and net flags enabled
-deno eval --unstable-kv --allow-net "
-  const kv = await Deno.openKv('https://api.deno.com/v2/databases/YOUR-DATABASE-UUID-HERE/connect');
-  
-  // Example: List all running baseline stats for a specific project
-  const projectId = 'your-project-id';
-  for await (const entry of kv.list({ prefix: ['stats', 'total', projectId] })) {
-    console.log(entry.key, entry.value);
-  }
-"
-```
+- `TURSO_DATABASE_URL` — Turso / libSQL database URL
+- `TURSO_AUTH_TOKEN` — Turso authentication token

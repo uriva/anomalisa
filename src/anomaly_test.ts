@@ -368,12 +368,30 @@ Deno.test("detectPoissonAnomaly — 0 to non-zero is significant and triggers ev
 //       zScore = -log10(p) (so larger = more anomalous, comparable to old z)
 // ---------------------------------------------------------------------------
 
-Deno.test("detectPoissonAnomaly — returns null on cold start (n < 3)", () => {
+Deno.test("detectPoissonAnomaly — returns null on cold start (n < 3) for small count (< 5)", () => {
   const stats = buildStats([1, 0], "2026-05-27T21");
   assertEquals(
-    detectPoissonAnomaly(stats, 6, "proj1", "submit_exists", stats.lastBucket),
+    detectPoissonAnomaly(stats, 2, "proj1", "submit_exists", stats.lastBucket),
     null,
   );
+});
+
+Deno.test("detectPoissonAnomaly — detects anomaly on cold start (n < 3) for rare event burst (count >= 5)", () => {
+  const stats = emptyStats("2026-08-20T06");
+  const result = detectPoissonAnomaly(
+    stats,
+    8,
+    "prompt2bot-proj",
+    "Gemini Error",
+    stats.lastBucket,
+  );
+  assertEquals(result !== null, true);
+  const anomaly = result as Anomaly;
+  assertEquals(anomaly.projectId, "prompt2bot-proj");
+  assertEquals(anomaly.eventName, "Gemini Error");
+  assertEquals(anomaly.actual, 8);
+  assertEquals(anomaly.expected, 0);
+  assertEquals(anomaly.metric, "totalCount");
 });
 
 Deno.test("detectPoissonAnomaly — returns null for normal value at low mean", () => {
@@ -827,6 +845,25 @@ Deno.test("detectBucketAnomalies — does not fire percentageDrop for quiet hour
   assertEquals(
     result.some((a: Anomaly) => a.metric === "percentageDrop"),
     false,
+  );
+});
+
+Deno.test("detectBucketAnomalies — detects totalCount anomaly on cold-start burst of rare event (e.g. Gemini Error)", () => {
+  const globalStats = emptyStats("2026-08-20T05");
+  const hourStats = emptyStats("2026-08-20T05");
+  const result = detectBucketAnomalies(
+    globalStats,
+    hourStats,
+    8,
+    0,
+    "prompt2bot-proj",
+    "Gemini Error",
+  );
+  assertEquals(
+    result.some(
+      (a: Anomaly) => a.metric === "totalCount" && a.actual === 8,
+    ),
+    true,
   );
 });
 

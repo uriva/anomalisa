@@ -47,6 +47,7 @@ export const stdDev = ({ m2, n }: Stats): number =>
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
 const minDataPoints = 3;
+const minColdStartCount = 5;
 const zScoreThreshold = 3;
 const percentageThreshold = 1.0;
 const minAbsoluteDiff = 3;
@@ -194,7 +195,19 @@ export const detectPoissonAnomaly = (
   eventName: string,
   bucket: string,
 ): Anomaly | null => {
-  if (stats.n < minDataPoints) return null;
+  if (stats.n < minDataPoints) {
+    if (count < minColdStartCount) return null;
+    return {
+      projectId,
+      eventName,
+      bucket,
+      expected: round2(stats.mean),
+      actual: count,
+      zScore: Infinity,
+      detectedAt: new Date().toISOString(),
+      metric: "totalCount",
+    };
+  }
   if (stats.mean >= 10 && stdDev(stats) > Math.sqrt(stats.mean)) {
     return detectAnomaly(
       stats,

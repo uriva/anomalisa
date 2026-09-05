@@ -718,6 +718,10 @@
             ? "User Spike"
             : m === "percentageSpike"
             ? "% Spike"
+            : m === "percentageDrop"
+            ? "% Drop"
+            : m === "correlatedFailure"
+            ? "Correlated Failure"
             : "Total Count";
         list.innerHTML = `
         <table class="anomaly-table">

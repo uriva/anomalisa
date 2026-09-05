@@ -148,6 +148,8 @@ const metricLabel = (metric: Anomaly["metric"]) =>
     ? "Percentage Spike"
     : metric === "percentageDrop"
     ? "Percentage Drop"
+    : metric === "correlatedFailure"
+    ? "Correlated Failure"
     : "Total Count";
 
 const truncate = (s: string, max: number) =>
@@ -160,7 +162,9 @@ const labels = (a: Anomaly) =>
 
 const labelsHtml = (a: Anomaly) => {
   const dir = anomalyDirection(a);
-  const badge = dir === "high"
+  const badge = a.metric === "correlatedFailure"
+    ? `<span style="display: inline-block; padding: 2px 6px; font-size: 11px; font-weight: 600; border-radius: 4px; background-color: #fef2f2; color: #b91c1c; margin-right: 6px; vertical-align: middle;">⚠️ Outage</span>`
+    : dir === "high"
     ? `<span style="display: inline-block; padding: 2px 6px; font-size: 11px; font-weight: 600; border-radius: 4px; background-color: #ecfdf5; color: #047857; margin-right: 6px; vertical-align: middle;">▲ Uptick</span>`
     : `<span style="display: inline-block; padding: 2px 6px; font-size: 11px; font-weight: 600; border-radius: 4px; background-color: #fef2f2; color: #b91c1c; margin-right: 6px; vertical-align: middle;">▼ Drop</span>`;
   const trendMarkup = a.trend

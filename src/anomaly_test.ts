@@ -5,6 +5,7 @@ import {
   checkAndSetCooldown,
   detectAnomaly,
   detectBucketAnomalies,
+  detectCorrelatedFailure,
   detectPercentageDrop,
   detectPercentageSpike,
   detectPoissonAnomaly,
@@ -1597,4 +1598,91 @@ Deno.test({
       "DELETE FROM cooldowns WHERE project_id = 'test-project-direction';",
     );
   },
+});
+
+Deno.test("detectCorrelatedFailure — fires on find-scene outage (failure spike + success drop to zero)", () => {
+  const spikeStats = buildStats(
+    [1, 0, 1, 2, 0, 1, 0, 2, 1, 0],
+    "2026-09-05T18",
+  );
+  const dropStats = buildStats([3, 2, 3, 4, 2, 3, 2, 3], "2026-09-05T18");
+  const result = detectCorrelatedFailure({
+    spikeStats,
+    spikeCount: 10,
+    dropStats,
+    dropCount: 0,
+    projectId: "find-scene",
+    spikeEvent: "No Video Sources Found",
+    dropEvent: "Got Video Result",
+    bucket: "2026-09-05T18",
+  });
+  assertEquals(result !== null, true);
+  const anomaly = result as Anomaly;
+  assertEquals(anomaly.metric, "correlatedFailure");
+  assertEquals(anomaly.eventName, "No Video Sources Found");
+  assertEquals(anomaly.actual, 10);
+  assertEquals(anomaly.trend?.includes("Got Video Result"), true);
+});
+
+Deno.test("detectCorrelatedFailure — silent when drop baseline is noise (mean < 2)", () => {
+  const spikeStats = buildStats(
+    [1, 0, 1, 2, 0, 1, 0, 2, 1, 0],
+    "2026-09-05T18",
+  );
+  const dropStats = buildStats([0, 1, 0, 0, 1, 0, 0, 0], "2026-09-05T18");
+  assertEquals(
+    detectCorrelatedFailure({
+      spikeStats,
+      spikeCount: 10,
+      dropStats,
+      dropCount: 0,
+      projectId: "p",
+      spikeEvent: "Some Error",
+      dropEvent: "Rare Success",
+      bucket: "2026-09-05T18",
+    }),
+    null,
+  );
+});
+
+Deno.test("detectCorrelatedFailure — silent when spike is normal", () => {
+  const spikeStats = buildStats(
+    [1, 0, 1, 2, 0, 1, 0, 2, 1, 0],
+    "2026-09-05T18",
+  );
+  const dropStats = buildStats([3, 2, 3, 4, 2, 3, 2, 3], "2026-09-05T18");
+  assertEquals(
+    detectCorrelatedFailure({
+      spikeStats,
+      spikeCount: 1,
+      dropStats,
+      dropCount: 0,
+      projectId: "p",
+      spikeEvent: "Some Error",
+      dropEvent: "Some Success",
+      bucket: "2026-09-05T18",
+    }),
+    null,
+  );
+});
+
+Deno.test("detectCorrelatedFailure — silent on partial drop (successes still flowing)", () => {
+  const spikeStats = buildStats(
+    [1, 0, 1, 2, 0, 1, 0, 2, 1, 0],
+    "2026-09-05T18",
+  );
+  const dropStats = buildStats([3, 2, 3, 4, 2, 3, 2, 3], "2026-09-05T18");
+  assertEquals(
+    detectCorrelatedFailure({
+      spikeStats,
+      spikeCount: 10,
+      dropStats,
+      dropCount: 2,
+      projectId: "p",
+      spikeEvent: "Some Error",
+      dropEvent: "Some Success",
+      bucket: "2026-09-05T18",
+    }),
+    null,
+  );
 });

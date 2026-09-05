@@ -11,7 +11,8 @@ export type Metric =
   | "totalCount"
   | "userSpike"
   | "percentageSpike"
-  | "percentageDrop";
+  | "percentageDrop"
+  | "correlatedFailure";
 
 export type Anomaly = {
   projectId: string;
@@ -55,11 +56,13 @@ const minPercentageDropMean = 30;
 const minPercentageDropZScore = 1.05;
 const minPercentageSpikeMean = 10;
 const minPercentageSpikeZScore = 2.5;
+const minCorrelatedDropMean = 2;
 const poissonPThreshold = 1e-3;
 const lnPoissonPThreshold = Math.log(poissonPThreshold);
 const countTtlMs = 7 * 24 * 60 * 60 * 1000;
 const anomalyTtlMs = 30 * 24 * 60 * 60 * 1000;
 const cooldownTtlMs = 48 * 60 * 60 * 1000;
+const correlatedCooldownTtlMs = 2 * 60 * 60 * 1000;
 const statsDecay = 0.98;
 
 export const emptyStats = (lastBucket: string): Stats => ({
@@ -299,6 +302,47 @@ export const detectPercentageDrop = (
     : null;
 };
 
+export const detectCorrelatedFailure = ({
+  spikeStats,
+  spikeCount,
+  dropStats,
+  dropCount,
+  projectId,
+  spikeEvent,
+  dropEvent,
+  bucket,
+}: {
+  spikeStats: Stats;
+  spikeCount: number;
+  dropStats: Stats;
+  dropCount: number;
+  projectId: string;
+  spikeEvent: string;
+  dropEvent: string;
+  bucket: string;
+}): Anomaly | null => {
+  if (dropCount !== 0) return null;
+  if (dropStats.n < minDataPoints || dropStats.mean < minCorrelatedDropMean) {
+    return null;
+  }
+  const spike =
+    detectPoissonAnomaly(spikeStats, spikeCount, projectId, spikeEvent, bucket) ||
+    detectAnomaly(spikeStats, spikeCount, projectId, spikeEvent, "totalCount", bucket);
+  if (!spike) return null;
+
+  return {
+    projectId,
+    eventName: spikeEvent,
+    bucket,
+    expected: spike.expected,
+    actual: spikeCount,
+    zScore: spike.zScore,
+    detectedAt: new Date().toISOString(),
+    metric: "correlatedFailure",
+    trend: `⚠️ Correlated with drop in "${dropEvent}" (0 vs expected ${round2(dropStats.mean)})`,
+  };
+};
+
 const detectSkippedHour = (
   stats: Stats,
   projectId: string,
@@ -453,6 +497,9 @@ export const checkAndSetCooldown = async (
       ? { direction, actual: Number(row.actual) }
       : null;
   if (shouldSuppress(lastEntry, anomaly)) return false;
+  const ttl = anomaly.metric === "correlatedFailure"
+    ? correlatedCooldownTtlMs
+    : cooldownTtlMs;
   await getTurso().execute({
     sql: `INSERT INTO cooldowns (project_id, event_name, metric, direction, user_id, actual, expires_at)
           VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -465,7 +512,7 @@ export const checkAndSetCooldown = async (
       direction,
       anomaly.userId ?? "_",
       anomaly.actual,
-      now + cooldownTtlMs,
+      now + ttl,
     ],
   });
   return true;
@@ -699,6 +746,42 @@ const checkUserSpike = async (
   );
 };
 
+export const findCorrelatedDrop = async (
+  projectId: string,
+  bucket: string,
+  excludeEvent: string,
+): Promise<{ dropEvent: string; dropStats: Stats } | null> => {
+  const res = await getTurso().execute({
+    sql: `SELECT s.event_name, s.mean, s.m2, s.n, s.last_bucket, COALESCE(c.count, 0) as count
+          FROM stats s
+          LEFT JOIN counts c ON c.project_id = s.project_id AND c.event_name = s.event_name AND c.bucket = ?
+          WHERE s.project_id = ? AND s.type = 'total' AND s.event_name != ?;`,
+    args: [bucket, projectId, excludeEvent],
+  });
+  const candidates = res.rows
+    .map((row) => ({
+      event: String(row.event_name),
+      stats: {
+        mean: Number(row.mean),
+        m2: Number(row.m2),
+        n: Number(row.n),
+        lastBucket: String(row.last_bucket),
+      },
+      count: Number(row.count),
+    }))
+    .filter(
+      ({ stats, count }) =>
+        count === 0 &&
+        stats.n >= minDataPoints &&
+        stats.mean >= minCorrelatedDropMean,
+    )
+    .sort((a, b) => b.stats.mean - a.stats.mean);
+
+  return candidates.length > 0
+    ? { dropEvent: candidates[0].event, dropStats: candidates[0].stats }
+    : null;
+};
+
 const handleBucketTransition = async (
   stats: Stats,
   projectId: string,
@@ -729,6 +812,28 @@ const handleBucketTransition = async (
     statsDecay,
   );
 
+  const correlated = await findCorrelatedDrop(
+    projectId,
+    stats.lastBucket,
+    eventName,
+  );
+  const correlatedAnomaly = correlated
+    ? detectCorrelatedFailure({
+      spikeStats: stats,
+      spikeCount: prevTotalCount,
+      dropStats: correlated.dropStats,
+      dropCount: 0,
+      projectId,
+      spikeEvent: eventName,
+      dropEvent: correlated.dropEvent,
+      bucket: stats.lastBucket,
+    })
+    : null;
+
+  const allAnomalies = correlatedAnomaly
+    ? [...anomalies, correlatedAnomaly]
+    : anomalies;
+
   const prevMaxUserCount = await getMaxUserCount(
     projectId,
     eventName,
@@ -748,7 +853,7 @@ const handleBucketTransition = async (
   );
 
   const [notifiable] = await Promise.all([
-    storeAndFilter(anomalies),
+    storeAndFilter(allAnomalies),
     saveStats(projectId, eventName, "total", {
       ...updatedStats,
       lastBucket: bucket,

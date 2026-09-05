@@ -91,6 +91,32 @@ Deno.test("batchSubject labels percentageDrop as Percentage Drop", () => {
   );
 });
 
+const correlatedAnomaly: Anomaly = {
+  projectId: "proj1",
+  eventName: "No Video Sources Found",
+  bucket: "2026-09-05T18",
+  expected: 1,
+  actual: 10,
+  zScore: 6.7,
+  metric: "correlatedFailure",
+  detectedAt: "2026-09-05T19:00:41Z",
+  trend: '⚠️ Correlated with drop in "Got Video Result" (0 vs expected 2.77)',
+};
+
+Deno.test("batchSubject labels correlatedFailure as Correlated Failure", () => {
+  assertEquals(
+    batchSubject("find-scene", [correlatedAnomaly]),
+    "[find-scene] Correlated Failure: No Video Sources Found",
+  );
+});
+
+Deno.test("anomaliesHtml renders correlatedFailure with Outage badge and trend explanation", () => {
+  const html = anomaliesHtml("find-scene", [correlatedAnomaly]);
+  assertEquals(html.includes("Correlated Failure"), true);
+  assertEquals(html.includes("⚠️ Outage"), true);
+  assertEquals(html.includes("Got Video Result"), true);
+});
+
 Deno.test("anomaliesHtml renders percentageDrop section", () => {
   const html = anomaliesHtml("myapp", [dropAnomaly]);
   assertEquals(html.includes("Percentage Drop"), true);

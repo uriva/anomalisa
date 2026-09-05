@@ -31,6 +31,7 @@ export const apiDefinition = {
             "userSpike",
             "percentageSpike",
             "percentageDrop",
+            "correlatedFailure",
           ]),
           userId: z.string().optional(),
         }),

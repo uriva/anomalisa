@@ -7,7 +7,6 @@
     "jsr:@uri/typed-api@0.0.11": "0.0.11",
     "npm:@instantdb/admin@1.0.65": "1.0.65",
     "npm:@libsql/client@0.14": "0.14.0",
-    "npm:@libsql/client@0.14.0": "0.14.0",
     "npm:gamla@124.0.0": "124.0.0",
     "npm:zod@3.25.57": "3.25.57"
   },

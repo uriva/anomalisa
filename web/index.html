@@ -3,330 +3,1538 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>anomalisa - anomaly detection for your events</title>
+    <title>anomalisa: anomaly detection for your events</title>
     <meta
       name="description"
-      content="Send events, get emailed when something weird happens. No dashboards, no thresholds. Just math and email."
+      content="Send events, get emailed when something weird happens. No dashboards to stare at. No thresholds to configure. Just math and email."
     />
+    <link rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2'><path d='M3 3v18h18'/><path d='m19 9-5 5-4-4-3 3'/></svg>" />
     <style>
+    :root {
+      --bg: #09090b;
+      --bg-subtle: #0f1015;
+      --surface: #13141a;
+      --surface-hover: #181a22;
+      --border: #22242e;
+      --border-subtle: #1a1c24;
+      --border-hover: #2f3240;
+      --text: #f4f4f5;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --accent: #3b82f6;
+      --accent-light: #60a5fa;
+      --accent-subtle: rgba(59, 130, 246, 0.12);
+      --green: #10b981;
+      --green-subtle: rgba(16, 185, 129, 0.12);
+      --red: #f43f5e;
+      --red-subtle: rgba(244, 63, 94, 0.12);
+      --amber: #f59e0b;
+      --mono: ui-monospace, "SF Mono", "Fira Code", Menlo, Monaco, Consolas, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --radius: 8px;
+      --radius-lg: 12px;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
     }
+
+    html {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
     body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #0a0a0a;
-      color: #e0e0e0;
       min-height: 100vh;
+      background-image:
+        radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        radial-gradient(circle at 50% -10%, rgba(59, 130, 246, 0.15), transparent
+        60%);
+      background-size: 24px 24px, 100% 100%;
+      background-position: 0 0, 0 0;
+      background-repeat: repeat, no-repeat;
     }
+
     a {
-      color: #7eb8ff;
+      color: var(--accent-light);
       text-decoration: none;
+      transition: color 0.15s ease;
     }
+
     a:hover {
+      color: #93c5fd;
       text-decoration: underline;
     }
-    code {
-      font-family: "SF Mono", "Fira Code", monospace;
+
+    code,
+    pre,
+    .mono {
+      font-family: var(--mono);
     }
-    .landing {
-      max-width: 680px;
+
+    /* Navbar */
+    .nav-wrap {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      background: rgba(9, 9, 11, 0.82);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .nav-container {
+      max-width: 820px;
       margin: 0 auto;
-      padding: 4rem 1.5rem;
+      padding: 0 1.5rem;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
-    .logo {
-      font-size: 2rem;
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-size: 1.15rem;
       font-weight: 700;
       color: #fff;
-      letter-spacing: -0.03em;
-      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+      text-decoration: none;
     }
+
+    .brand:hover {
+      text-decoration: none;
+      opacity: 0.9;
+    }
+
+    .brand-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      font-size: 0.9rem;
+    }
+
+    .nav-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: color 0.15s;
+    }
+
+    .nav-link:hover {
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .nav-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 36px;
+      padding: 0 1rem;
+      background: #fff;
+      color: #09090b;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+
+    .nav-cta:hover {
+      background: #e4e4e7;
+      color: #09090b;
+      text-decoration: none;
+    }
+
+    /* Container */
+    .container {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 3.5rem 1.5rem 6rem;
+    }
+
+    /* Hero */
+    .hero {
+      margin-bottom: 3.5rem;
+    }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.8rem;
+      border-radius: 9999px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+    }
+
+    .badge-status {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .hero h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+      color: #fff;
+      margin-bottom: 1.25rem;
+    }
+
     .tagline {
       font-size: 1.15rem;
-      color: #999;
-      line-height: 1.6;
-      margin-bottom: 3rem;
-      max-width: 520px;
+      color: var(--text-secondary);
+      line-height: 1.65;
+      max-width: 660px;
+      margin-bottom: 2rem;
     }
+
+    .shipping-note {
+      padding: 0.9rem 1.25rem;
+      background: var(--bg-subtle);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      font-size: 0.92rem;
+      color: var(--text-secondary);
+      margin-bottom: 2.25rem;
+      line-height: 1.6;
+    }
+
+    .shipping-note strong {
+      color: var(--text);
+    }
+
+    /* Buttons & CTA */
     .cta-row {
       display: flex;
-      gap: 0.75rem;
-      margin-bottom: 4rem;
+      gap: 0.85rem;
+      align-items: center;
       flex-wrap: wrap;
+      margin-bottom: 1.5rem;
     }
-    .btn-primary {
-      display: inline-block;
-      background: #fff;
-      color: #0a0a0a;
-      border: none;
-      padding: 0.65rem 1.5rem;
-      border-radius: 6px;
-      cursor: pointer;
+
+    .btn {
+      box-sizing: border-box;
+      height: 48px;
+      min-height: 48px;
+      padding: 0 1.5rem;
+      border-radius: var(--radius);
+      font-size: 0.95rem;
       font-weight: 600;
-      font-size: 0.95rem;
-      font-family: inherit;
-      text-decoration: none;
-    }
-    .btn-primary:hover {
-      background: #ddd;
-      text-decoration: none;
-    }
-    .btn-ghost {
-      background: transparent;
-      color: #999;
-      border: 1px solid #333;
-      padding: 0.65rem 1.5rem;
-      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
       cursor: pointer;
-      font-size: 0.95rem;
-      font-family: inherit;
+      transition: all 0.15s ease;
+      text-decoration: none;
+      border: none;
     }
+
+    .btn-primary {
+      background: #fff;
+      color: #09090b;
+    }
+
+    .btn-primary:hover {
+      background: #e4e4e7;
+      text-decoration: none;
+      color: #09090b;
+      transform: translateY(-1px);
+    }
+
+    .btn-ghost {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
     .btn-ghost:hover {
-      border-color: #555;
-      color: #ccc;
+      background: var(--surface-hover);
+      border-color: var(--border-hover);
+      color: #fff;
       text-decoration: none;
     }
+
+    /* Quick Command Box */
+    .quick-install {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.55rem 0.9rem;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-family: var(--mono);
+      margin-top: 0.5rem;
+    }
+
+    .quick-install-prompt {
+      color: var(--text-muted);
+      user-select: none;
+    }
+
+    .quick-install-code {
+      color: #e4e4e7;
+    }
+
+    .copy-btn-mini {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 0.25rem 0.55rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      font-family: var(--sans);
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .copy-btn-mini:hover {
+      color: #fff;
+      border-color: var(--border-hover);
+      background: var(--surface-hover);
+    }
+
+    /* Section Common */
+    .section {
+      margin-bottom: 4.5rem;
+    }
+
+    .section-header {
+      margin-bottom: 1.5rem;
+    }
+
+    .section-tag {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-light);
+      margin-bottom: 0.35rem;
+    }
+
+    .section-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+
+    .section-desc {
+      font-size: 0.92rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      max-width: 640px;
+    }
+
+    /* Simulator Card */
+    .simulator-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .sim-controls-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sim-presets-title {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-family: var(--mono);
+      margin-bottom: 0.5rem;
+    }
+
+    .sim-presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .preset-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 0.45rem 0.85rem;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-family: var(--mono);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .preset-btn:hover {
+      color: #fff;
+      border-color: var(--border-hover);
+      background: var(--surface-hover);
+    }
+
+    .preset-btn.active {
+      background: var(--accent-subtle);
+      border-color: var(--accent);
+      color: #93c5fd;
+    }
+
+    .sim-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      width: 100%;
+      margin-bottom: 1.5rem;
+      background: var(--bg);
+      border: 1px solid var(--border-subtle);
+      padding: 0.9rem 1.25rem;
+      border-radius: var(--radius);
+    }
+
+    .sim-slider-label {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      font-weight: 500;
+    }
+
+    .sim-slider {
+      flex: 1;
+      accent-color: var(--accent-light);
+      cursor: pointer;
+    }
+
+    .sim-slider-val {
+      font-family: var(--mono);
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+      min-width: 60px;
+      text-align: right;
+    }
+
+    /* Visual Chart Container */
+    .sim-chart-wrap {
+      background: var(--bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1.25rem;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-family: var(--mono);
+      margin-bottom: 1rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+    }
+
+    .legend-dot.baseline {
+      background: #3f3f46;
+    }
+
+    .legend-dot.normal {
+      background: var(--green);
+    }
+
+    .legend-dot.anomaly {
+      background: var(--red);
+    }
+
+    .legend-line {
+      width: 14px;
+      height: 2px;
+      background: var(--amber);
+      border-style: dashed;
+    }
+
+    .chart-svg {
+      width: 100%;
+      height: 140px;
+      display: block;
+      overflow: visible;
+    }
+
+    /* Math HUD */
+    .sim-hud {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .hud-card {
+      background: var(--bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 0.75rem 0.9rem;
+    }
+
+    .hud-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: var(--mono);
+      margin-bottom: 0.25rem;
+    }
+
+    .hud-value {
+      font-family: var(--mono);
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* Result Alert Banner */
+    .sim-result-banner {
+      padding: 0.9rem 1.15rem;
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      transition: all 0.2s ease;
+    }
+
+    .sim-result-banner.normal {
+      background: var(--green-subtle);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #a7f3d0;
+    }
+
+    .sim-result-banner.anomaly {
+      background: var(--red-subtle);
+      border: 1px solid rgba(244, 63, 94, 0.4);
+      color: #fecdd3;
+    }
+
+    .result-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .result-sub {
+      font-size: 0.8rem;
+      opacity: 0.85;
+    }
+
+    /* Live Output Drawer */
+    .sim-drawer {
+      background: var(--bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .drawer-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: #0c0d12;
+    }
+
+    .drawer-tab {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      padding: 0.6rem 1.1rem;
+      font-size: 0.82rem;
+      font-family: var(--mono);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .drawer-tab:hover {
+      color: var(--text);
+    }
+
+    .drawer-tab.active {
+      color: #fff;
+      border-bottom-color: var(--accent);
+      background: var(--bg);
+    }
+
+    .drawer-content {
+      padding: 1.15rem;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.65;
+      overflow-x: auto;
+    }
+
+    .email-preview {
+      background: #111218;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      color: #d4d4d8;
+    }
+
+    .email-header-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      padding-bottom: 0.75rem;
+      margin-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .email-header-row span {
+      color: var(--text);
+    }
+
+    .email-stat-line {
+      margin-bottom: 0.35rem;
+    }
+
+    /* Code Integration Section */
+    .code-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .code-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #0c0d12;
+      border-bottom: 1px solid var(--border);
+      padding: 0 0.5rem;
+    }
+
+    .code-tabs {
+      display: flex;
+    }
+
+    .code-tab {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      padding: 0.75rem 1rem;
+      font-size: 0.82rem;
+      font-family: var(--mono);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .code-tab:hover {
+      color: var(--text);
+    }
+
+    .code-tab.active {
+      color: #fff;
+      border-bottom-color: #fff;
+      background: var(--surface);
+    }
+
+    .code-copy-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 0.35rem 0.75rem;
+      border-radius: 4px;
+      font-size: 0.78rem;
+      font-family: var(--sans);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.15s;
+    }
+
+    .code-copy-btn:hover {
+      color: #fff;
+      border-color: var(--border-hover);
+      background: var(--surface-hover);
+    }
+
+    .code-block {
+      padding: 1.5rem;
+      margin: 0;
+      font-family: var(--mono);
+      font-size: 0.84rem;
+      line-height: 1.7;
+      color: #d4d4d8;
+      overflow-x: auto;
+      background: var(--surface);
+    }
+
+    .code-block .kw {
+      color: #c084fc;
+    }
+
+    .code-block .fn {
+      color: #60a5fa;
+    }
+
+    .code-block .str {
+      color: #34d399;
+    }
+
+    .code-block .comment {
+      color: #71717a;
+    }
+
+    .code-block .num {
+      color: #f59e0b;
+    }
+
+    /* Features Grid */
     .features {
       display: grid;
-      gap: 1.5rem;
-      margin-bottom: 4rem;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1rem;
     }
-    .feature {
-      background: #111;
-      border: 1px solid #1a1a1a;
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      transition: border-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .feature-card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
+    }
+
+    .feature-icon {
+      width: 38px;
+      height: 38px;
       border-radius: 8px;
-      padding: 1.25rem 1.5rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+      color: var(--accent-light);
     }
+
     .feature-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 0.45rem;
+    }
+
+    .feature-desc {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* How it works */
+    .prose {
+      font-size: 0.92rem;
+      color: var(--text-secondary);
+      line-height: 1.75;
+      margin-bottom: 1.35rem;
+    }
+
+    .prose strong {
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .prose code {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.84rem;
+      color: #e4e4e7;
+    }
+
+    .modes-grid {
+      display: grid;
+      gap: 0.85rem;
+      margin: 1.5rem 0 2rem;
+    }
+
+    .mode-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.15rem 1.35rem;
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+
+    .mode-pill {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--accent-light);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      white-space: nowrap;
+      margin-top: 0.15rem;
+    }
+
+    .mode-body h4 {
+      font-size: 0.95rem;
+      color: #fff;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .mode-body p {
+      font-size: 0.86rem;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    /* Architecture pipeline */
+    .pipeline-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin: 1.5rem 0 2rem;
+    }
+
+    .pipeline-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-family: var(--mono);
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+
+    .pipeline-steps {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+    }
+
+    .pipeline-node {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 0.5rem 0.85rem;
+      border-radius: 6px;
+      color: #e4e4e7;
+    }
+
+    .pipeline-arrow {
+      color: var(--text-muted);
+    }
+
+    /* Honest disclaimer callout */
+    .callout-box {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      margin: 1.75rem 0;
+      line-height: 1.65;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .callout-box strong {
+      color: #fff;
+    }
+
+    /* Self-hosting */
+    .selfhost-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+    }
+
+    /* FAQ */
+    .faq-grid {
+      display: grid;
+      gap: 0.85rem;
+    }
+
+    .faq-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.15rem 1.35rem;
+    }
+
+    .faq-q {
       font-size: 0.95rem;
       font-weight: 600;
       color: #fff;
       margin-bottom: 0.4rem;
     }
-    .feature-desc {
-      font-size: 0.85rem;
-      color: #888;
-      line-height: 1.55;
+
+    .faq-a {
+      font-size: 0.87rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
     }
-    .code-section {
-      margin-bottom: 4rem;
+
+    /* Bottom CTA banner */
+    .cta-banner {
+      background: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.15),
+        transparent 70%), var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2.75rem 2rem;
+      text-align: center;
+      margin-top: 4rem;
     }
-    .code-section h2 {
-      font-size: 1rem;
-      color: #ccc;
-      margin-bottom: 1rem;
-      font-weight: 500;
+
+    .cta-banner h2 {
+      font-size: 1.75rem;
+      color: #fff;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
     }
-    .code-block {
-      background: #111;
-      border: 1px solid #1a1a1a;
-      border-radius: 8px;
-      padding: 1.25rem 1.5rem;
-      overflow-x: auto;
-      font-size: 0.82rem;
-      line-height: 1.65;
-      color: #c8d3e0;
-      margin: 0;
-      font-family: inherit;
+
+    .cta-banner p {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      max-width: 520px;
+      margin: 0 auto 1.75rem;
     }
-    .code-block .kw {
-      color: #c586c0;
-    }
-    .code-block .fn {
-      color: #dcdcaa;
-    }
-    .code-block .str {
-      color: #ce9178;
-    }
-    .code-block .comment {
-      color: #6a9955;
-    }
-    .install-tabs {
+
+    .cta-banner-buttons {
       display: flex;
-      gap: 0;
-      margin-bottom: -1px;
-      position: relative;
-      z-index: 1;
+      justify-content: center;
+      gap: 0.85rem;
+      flex-wrap: wrap;
     }
-    .install-tab {
-      background: transparent;
-      color: #666;
-      border: 1px solid #1a1a1a;
-      border-bottom: none;
-      padding: 0.4rem 1rem;
-      border-radius: 6px 6px 0 0;
-      cursor: pointer;
-      font-size: 0.82rem;
-      font-family: "SF Mono", "Fira Code", monospace;
-    }
-    .install-tab.active {
-      background: #111;
-      color: #ccc;
-      border-color: #1a1a1a;
-    }
-    .install-tab:not(.active):hover {
-      color: #999;
-    }
-    .how-section {
-      margin-bottom: 4rem;
-    }
-    .how-section h2 {
-      font-size: 1.15rem;
-      color: #fff;
-      margin-bottom: 1.25rem;
-      font-weight: 600;
-    }
-    .how-prose {
-      font-size: 0.88rem;
-      color: #999;
-      line-height: 1.7;
-      margin-bottom: 1.25rem;
-    }
-    .how-prose strong {
-      color: #ccc;
-      font-weight: 600;
-    }
-    .how-subsection {
-      margin-bottom: 1.5rem;
-    }
-    .how-subsection h3 {
-      font-size: 0.92rem;
-      color: #ccc;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-    }
-    .detection-modes {
-      display: grid;
-      gap: 1rem;
-      margin-bottom: 1.25rem;
-    }
-    .detection-mode {
-      background: #111;
-      border: 1px solid #1a1a1a;
-      border-radius: 8px;
-      padding: 1rem 1.25rem;
-    }
-    .detection-mode-title {
-      font-size: 0.88rem;
-      font-weight: 600;
-      color: #fff;
-      margin-bottom: 0.3rem;
-    }
-    .detection-mode-desc {
-      font-size: 0.82rem;
-      color: #888;
-      line-height: 1.55;
-    }
+
+    /* Footer */
     .footer {
-      border-top: 1px solid #1a1a1a;
-      padding-top: 2rem;
+      border-top: 1px solid var(--border-subtle);
+      margin-top: 5rem;
+      padding-top: 2.5rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.8rem;
-      color: #555;
+      font-size: 0.85rem;
+      color: var(--text-muted);
       flex-wrap: wrap;
-      gap: 1rem;
+      gap: 1.25rem;
     }
+
     .footer-links {
       display: flex;
       gap: 1.5rem;
+      flex-wrap: wrap;
     }
+
     .footer a {
-      color: #666;
+      color: var(--text-secondary);
     }
+
     .footer a:hover {
-      color: #999;
+      color: #fff;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 640px) {
+      .hero h1 {
+        font-size: 2.25rem;
+      }
+      .cta-row,
+      .cta-banner-buttons {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .btn {
+        width: 100%;
+      }
+      .sim-controls-top {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .sim-slider-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+      .sim-slider {
+        width: 100%;
+      }
+      .features {
+        grid-template-columns: 1fr;
+      }
+      .nav-links .nav-link:not(.primary-only) {
+        display: none;
+      }
     }
     </style>
   </head>
   <body>
-    <div class="landing">
-      <div class="logo">anomalisa</div>
-      <p class="tagline">
-        Send events, get emailed when something weird happens. No dashboards to
-        stare at. No thresholds to configure. Just statistics and email.
-      </p>
-      <div class="cta-row">
-        <a href="/app" class="btn-primary">Get started</a>
-        <a href="/docs" class="btn-ghost">Docs</a>
-        <a
-          href="https://github.com/uriva/anomalisa"
-          class="btn-ghost"
-          target="_blank"
-        >GitHub</a>
+    <!-- Top Navigation Bar -->
+    <header class="nav-wrap">
+      <div class="nav-container">
+        <a href="/" class="brand">
+          <div class="brand-dot"></div>
+          <span>anomalisa</span>
+        </a>
+        <nav class="nav-links">
+          <a href="/docs" class="nav-link">Docs</a>
+          <a
+            href="https://github.com/uriva/anomalisa"
+            class="nav-link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+            </svg>
+            <span>GitHub</span>
+          </a>
+          <a
+            href="https://jsr.io/@uri/anomalisa"
+            class="nav-link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span>JSR</span>
+          </a>
+          <a href="/app" class="nav-cta">Open App</a>
+        </nav>
       </div>
+    </header>
 
-      <div class="features">
-        <div class="feature">
-          <div class="feature-title">Event spike detection</div>
-          <div class="feature-desc">
-            Your signup event usually gets ~50/hour. Suddenly it's 200. Or 3.
-            You get an email.
-          </div>
+    <main class="container">
+      <!-- Hero Section -->
+      <section class="hero">
+        <div class="badge-pill">
+          <div class="badge-status"></div>
+          <span>Zero-config statistical anomaly alerts via email</span>
         </div>
-        <div class="feature">
-          <div class="feature-title">Per-user anomalies</div>
-          <div class="feature-desc">
-            One user generating 100x more events than usual. Could be a bot,
-            abuse, or a bug. You'll know.
-          </div>
-        </div>
-        <div class="feature">
-          <div class="feature-title">Zero configuration</div>
-          <div class="feature-desc">
-            It learns what's normal from your data using Welford's online
-            algorithm. Stays quiet until the math says something is genuinely
-            off.
-          </div>
-        </div>
-        <div class="feature">
-          <div class="feature-title">Open source</div>
-          <div class="feature-desc">
-            Run it yourself, fork it, rip it apart. Or just use the hosted
-            version and move on with your life.
-          </div>
-        </div>
-      </div>
+        <h1>anomalisa</h1>
+        <p class="tagline">
+          Send events, get emailed when something weird happens. No dashboards to
+          stare at. No thresholds to configure. Just statistics and email.
+        </p>
 
-      <div class="code-section">
-        <h2>Three lines to get started</h2>
-        <div class="install-tabs">
-          <button class="install-tab active" onclick='showTab("npm")'>
-            npm
+        <div class="shipping-note">
+          You're shipping fast. Multiple projects, lots of moving parts.
+          Something breaks or spikes at 2am and you find out the next morning
+          from a user complaint. Anomalisa watches your event streams and notifies
+          you the moment the distribution breaks.
+        </div>
+
+        <div class="cta-row">
+          <a href="/app" class="btn btn-primary">
+            <span>Get started</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </a>
+          <a href="/docs" class="btn btn-ghost">Documentation</a>
+          <a
+            href="https://github.com/uriva/anomalisa"
+            class="btn btn-ghost"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            GitHub
+          </a>
+        </div>
+
+        <div class="quick-install">
+          <span class="quick-install-prompt">$</span>
+          <span class="quick-install-code"
+            id="heroInstallCmd">npx jsr add @uri/anomalisa</span>
+          <button
+            class="copy-btn-mini"
+            onclick="copySnippet('heroInstallCmd', this)"
+            title="Copy command"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2">
+              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+              <path
+                d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+            </svg>
+            <span>Copy</span>
           </button>
-          <button class="install-tab" onclick='showTab("deno")'>deno</button>
         </div>
-        <pre
-          class="code-block"
-          id="tab-npm"
-        ><span class="comment">// npx jsr add @uri/anomalisa</span>
-<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
-<span class="kw">await</span> <span class="fn">sendEvent</span>({ token: <span class="str">"your-token"</span>, userId: <span class="str">"user-123"</span>, eventName: <span class="str">"purchase"</span> });</pre>
-        <pre
-          class="code-block"
-          id="tab-deno"
-          style="display: none"
-        ><span class="comment">// deno add jsr:@uri/anomalisa</span>
-<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
-<span class="kw">await</span> <span class="fn">sendEvent</span>({ token: <span class="str">"your-token"</span>, userId: <span class="str">"user-123"</span>, eventName: <span class="str">"purchase"</span> });</pre>
-      </div>
+      </section>
 
-      <div class="how-section">
-        <h2>How does this actually work?</h2>
+      <!-- Live Interactive Simulator -->
+      <section class="section">
+        <div class="section-header">
+          <div class="section-tag">Interactive math playground</div>
+          <h2 class="section-title">See the detection algorithm in action</h2>
+          <p class="section-desc">
+            Anomalisa maintains running mean and variance using Welford's algorithm
+            in constant O(1) memory. Test different traffic patterns below to observe
+            the math and see when alerts fire.
+          </p>
+        </div>
 
-        <p class="how-prose">
+        <div class="simulator-card">
+          <!-- Preset selector buttons -->
+          <div class="sim-controls-top">
+            <div>
+              <div class="sim-presets-title">Simulate traffic pattern</div>
+              <div class="sim-presets">
+                <button
+                  class="preset-btn active"
+                  onclick="setPreset('normal', this)"
+                >
+                  Normal (51/hr)
+                </button>
+                <button
+                  class="preset-btn"
+                  onclick="setPreset('spike', this)"
+                >
+                  Spike (215/hr)
+                </button>
+                <button
+                  class="preset-btn"
+                  onclick="setPreset('drop', this)"
+                >
+                  Drop (2/hr)
+                </button>
+                <button
+                  class="preset-btn"
+                  onclick="setPreset('user_spike', this)"
+                >
+                  User Hammering (x100)
+                </button>
+              </div>
+            </div>
+            <div id="simModeTag" class="badge-pill" style="margin-bottom:0">
+              metric: totalCount
+            </div>
+          </div>
+
+          <!-- Slider control -->
+          <div class="sim-slider-row">
+            <span class="sim-slider-label">Simulated hourly events:</span>
+            <input
+              type="range"
+              id="eventCountSlider"
+              class="sim-slider"
+              min="0"
+              max="260"
+              value="51"
+              oninput="handleSliderChange(this.value)"
+            />
+            <span class="sim-slider-val" id="sliderValDisplay">51</span>
+          </div>
+
+          <!-- Visual Bar Chart -->
+          <div class="sim-chart-wrap">
+            <div class="chart-legend">
+              <div class="legend-item">
+                <div class="legend-dot baseline"></div>
+                <span>Baseline hours (historical mean ~50)</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-line"></div>
+                <span>Alert threshold (z = 2.0)</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-dot normal" id="legendCurrentDot"></div>
+                <span>Current hour</span>
+              </div>
+            </div>
+
+            <!-- SVG Visual Representation -->
+            <svg
+              id="simChartSvg"
+              class="chart-svg"
+              viewBox="0 0 700 140"
+              preserveAspectRatio="none"
+            >
+              <!-- Threshold bands and bars rendered by JS -->
+            </svg>
+          </div>
+
+          <!-- Statistical HUD -->
+          <div class="sim-hud">
+            <div class="hud-card">
+              <div class="hud-label">SAMPLES (N)</div>
+              <div class="hud-value">48 hours</div>
+            </div>
+            <div class="hud-card">
+              <div class="hud-label">RUNNING MEAN (μ)</div>
+              <div class="hud-value" id="hudMean">49.8 / hr</div>
+            </div>
+            <div class="hud-card">
+              <div class="hud-label">STD DEV (σ)</div>
+              <div class="hud-value" id="hudStdDev">6.4</div>
+            </div>
+            <div class="hud-card">
+              <div class="hud-label">CURRENT (X)</div>
+              <div class="hud-value" id="hudActual">51</div>
+            </div>
+            <div class="hud-card">
+              <div class="hud-label">Z-SCORE (|X-μ|/σ)</div>
+              <div class="hud-value" id="hudZScore">0.19</div>
+            </div>
+          </div>
+
+          <!-- Alert Outcome Banner -->
+          <div id="simResultBanner" class="sim-result-banner normal">
+            <div>
+              <div class="result-title" id="bannerTitle">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+                <span
+                  id="bannerTitleText">Normal distribution: no alert sent</span>
+              </div>
+              <div class="result-sub" id="bannerSubText">
+                Hourly count falls safely within 2 standard deviations of the running mean.
+              </div>
+            </div>
+            <div class="badge-pill"
+              style="background:rgba(0,0,0,0.2);margin-bottom:0;border:none;"
+              id="bannerZBadge">
+              z = 0.19 (threshold: 2.0)
+            </div>
+          </div>
+
+          <!-- Alert Output Tabs -->
+          <div class="sim-drawer">
+            <div class="drawer-tabs">
+              <button
+                class="drawer-tab active"
+                id="tabBtnEmail"
+                onclick="showDrawerTab('email')"
+              >
+                Simulated Email Alert
+              </button>
+              <button
+                class="drawer-tab"
+                id="tabBtnJson"
+                onclick="showDrawerTab('json')"
+              >
+                Webhook Payload (JSON)
+              </button>
+            </div>
+
+            <div class="drawer-content" id="drawerContentEmail">
+              <div class="email-preview">
+                <div class="email-header-row">
+                  <div><strong>From:</strong> alerts@f0mo.com</div>
+                  <div><strong>Subject:</strong> <span id="emailSubject">[Anomalisa] purchase: totalCount anomaly</span></div>
+                  <div><strong>To:</strong> engineering@company.com</div>
+                </div>
+                <div id="emailBody">
+                  <div
+                    class="email-stat-line"><strong>Status:</strong> Normal (z-score within 2 standard deviations).</div>
+                  <div
+                    class="email-stat-line">No action required. Your inbox stays completely quiet.</div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="drawer-content"
+              id="drawerContentJson"
+              style="display:none;"
+            >
+              <pre id="jsonPayloadPreview"
+                style="margin:0;color:#c8d3e0;"></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Three lines to get started -->
+      <section class="section">
+        <div class="section-header">
+          <div class="section-tag">Quickstart</div>
+          <h2 class="section-title">Three lines to get started</h2>
+          <p class="section-desc">
+            Install the client SDK, import <code>sendEvent</code>, and send your
+            key business events. No configuration files, no metric schemas.
+          </p>
+        </div>
+
+        <div class="code-wrap">
+          <div class="code-nav">
+            <div class="code-tabs">
+              <button class="code-tab active"
+                onclick="switchInstallTab('npm', this)">npm</button>
+              <button class="code-tab"
+                onclick="switchInstallTab('deno', this)">deno</button>
+              <button class="code-tab"
+                onclick="switchInstallTab('pnpm', this)">pnpm</button>
+              <button class="code-tab"
+                onclick="switchInstallTab('bun', this)">bun</button>
+              <button class="code-tab"
+                onclick="switchInstallTab('curl', this)">curl</button>
+            </div>
+            <button class="code-copy-btn" onclick="copyActiveCodeSnippet(this)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                <path
+                  d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+              </svg>
+              <span>Copy</span>
+            </button>
+          </div>
+
+          <pre class="code-block"
+            id="snippet-npm"><span class="comment">// 1. Install package</span>
+<span class="comment">// npx jsr add @uri/anomalisa</span>
+
+<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
+
+<span class="kw">await</span> <span class="fn">sendEvent</span>({
+  token: <span class="str">"your-project-token"</span>,
+  userId: <span class="str">"user-123"</span>,
+  eventName: <span class="str">"purchase"</span>,
+});</pre>
+
+          <pre class="code-block" id="snippet-deno"
+            style="display:none"><span class="comment">// 1. Install package</span>
+<span class="comment">// deno add jsr:@uri/anomalisa</span>
+
+<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
+
+<span class="kw">await</span> <span class="fn">sendEvent</span>({
+  token: <span class="str">"your-project-token"</span>,
+  userId: <span class="str">"user-123"</span>,
+  eventName: <span class="str">"purchase"</span>,
+});</pre>
+
+          <pre class="code-block" id="snippet-pnpm"
+            style="display:none"><span class="comment">// 1. Install package</span>
+<span class="comment">// pnpm dlx jsr add @uri/anomalisa</span>
+
+<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
+
+<span class="kw">await</span> <span class="fn">sendEvent</span>({
+  token: <span class="str">"your-project-token"</span>,
+  userId: <span class="str">"user-123"</span>,
+  eventName: <span class="str">"purchase"</span>,
+});</pre>
+
+          <pre class="code-block" id="snippet-bun"
+            style="display:none"><span class="comment">// 1. Install package</span>
+<span class="comment">// bunx jsr add @uri/anomalisa</span>
+
+<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
+
+<span class="kw">await</span> <span class="fn">sendEvent</span>({
+  token: <span class="str">"your-project-token"</span>,
+  userId: <span class="str">"user-123"</span>,
+  eventName: <span class="str">"purchase"</span>,
+});</pre>
+
+          <pre class="code-block" id="snippet-curl"
+            style="display:none"><span class="comment"># Raw JSON-RPC API endpoint</span>
+curl -X POST https://anomalisa.uriva.deno.net \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"endpoint":"sendEvent","payload":{"token":"your-token","eventName":"purchase","userId":"user-123"}}'</span></pre>
+        </div>
+
+        <!-- Automatic client error tracking callout -->
+        <div style="margin-top: 1.5rem;" class="code-wrap">
+          <div class="code-nav">
+            <div
+              style="padding: 0.75rem 1rem; font-size: 0.82rem; font-family: var(--mono); color: #fff;">
+              Automatic frontend error tracking
+            </div>
+            <button class="code-copy-btn"
+              onclick="copyText('clientErrorsSnippet', this)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                <path
+                  d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+              </svg>
+              <span>Copy</span>
+            </button>
+          </div>
+          <pre class="code-block"
+            id="clientErrorsSnippet"><span class="kw">import</span> { <span class="fn">captureClientErrors</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
+
+<span class="comment">// Listens to window.onerror and unhandledrejection</span>
+<span class="comment">// Automatically filters out browser extensions, DOMExceptions, and ResizeObserver loops</span>
+<span class="fn">captureClientErrors</span>({
+  token: <span class="str">"your-project-token"</span>,
+  userId: <span class="str">"user-123"</span>,
+});</pre>
+        </div>
+      </section>
+
+      <!-- Core Features Grid -->
+      <section class="section">
+        <div class="section-header">
+          <div class="section-tag">Capabilities</div>
+          <h2 class="section-title">Built for engineers shipping products</h2>
+          <p class="section-desc">
+            Traditional monitoring forces you to maintain alerts that decay as your
+            traffic scales. Anomalisa adapts automatically.
+          </p>
+        </div>
+
+        <div class="features">
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
+            </div>
+            <div class="feature-title">Event spike detection</div>
+            <div class="feature-desc">
+              Your signup event usually gets ~50/hour. Suddenly it's 200. Or 3.
+              You get an email. Catches unexpected outages and surprise spikes.
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            </div>
+            <div class="feature-title">Per-user anomalies</div>
+            <div class="feature-desc">
+              One user generating 100x more events than usual. Could be a bot,
+              abuse, or an infinite retry loop in their client. You'll know.
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="m4.93 4.93 4.24 4.24" />
+                <path d="m14.83 9.17 4.24-4.24" />
+                <path d="m14.83 14.83 4.24 4.24" />
+                <path d="m9.17 14.83-4.24 4.24" />
+                <circle cx="12" cy="12" r="4" />
+              </svg>
+            </div>
+            <div class="feature-title">Zero configuration</div>
+            <div class="feature-desc">
+              It learns what's normal from your data using Welford's online
+              algorithm. Stays quiet until the math says something is genuinely
+              off.
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <path
+                  d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+                <path d="M9 18c-4.51 2-5-2-7-2" />
+              </svg>
+            </div>
+            <div class="feature-title">Open source</div>
+            <div class="feature-desc">
+              Run it yourself, fork it, rip it apart. Or just use the hosted
+              version and move on with your life. MIT licensed with zero locks.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Deep Dive: How Does This Actually Work? -->
+      <section class="section">
+        <div class="section-header">
+          <div class="section-tag">Architecture & Math</div>
+          <h2 class="section-title">How does this actually work?</h2>
+        </div>
+
+        <p class="prose">
           Most anomaly detection tools want you to set thresholds. "Alert me if
           signups drop below 40 per hour." That means you need to already know
           what normal looks like, which defeats the purpose.
         </p>
 
-        <p class="how-prose">
+        <p class="prose">
           Anomalisa uses
           <a
             href="https://en.wikipedia.org/wiki/Welford%27s_online_algorithm"
             target="_blank"
+            rel="noopener noreferrer"
           >Welford's online algorithm</a>
           to maintain a running mean and variance from your data. Three numbers
           in memory: count, mean, and sum of squared deviations. Each hour, the
@@ -335,40 +1543,65 @@
           it.
         </p>
 
-        <p class="how-prose">
+        <p class="prose">
           No batch jobs, no time-series database. The model updates
           incrementally with constant memory and stays numerically stable even
           over millions of updates.
         </p>
 
-        <div class="how-subsection">
-          <h3>Three detection modes from one event stream</h3>
-          <div class="detection-modes">
-            <div class="detection-mode">
-              <div class="detection-mode-title">Total count</div>
-              <div class="detection-mode-desc">
+        <!-- Three detection modes -->
+        <div class="modes-grid">
+          <div class="mode-card">
+            <div class="mode-pill">totalCount</div>
+            <div class="mode-body">
+              <h4>Total count anomalies</h4>
+              <p>
                 Your signup event usually gets ~50/hour, suddenly it's 200 or 3.
                 Works in both directions, catches drops as well as spikes.
-              </div>
+              </p>
             </div>
-            <div class="detection-mode">
-              <div class="detection-mode-title">Percentage spike</div>
-              <div class="detection-mode-desc">
+          </div>
+
+          <div class="mode-card">
+            <div class="mode-pill">percentageSpike</div>
+            <div class="mode-body">
+              <h4>Percentage spike detection</h4>
+              <p>
                 Errors go from 2% to 30% of your traffic while total volume
                 stays flat. Absolute counts look fine, but the ratio is off.
-              </div>
+              </p>
             </div>
-            <div class="detection-mode">
-              <div class="detection-mode-title">Per-user anomaly</div>
-              <div class="detection-mode-desc">
+          </div>
+
+          <div class="mode-card">
+            <div class="mode-pill">userSpike</div>
+            <div class="mode-body">
+              <h4>Per-user spike detection</h4>
+              <p>
                 One user generating 100x their normal volume. Could be a bot,
                 abuse, or a bug in their integration.
-              </div>
+              </p>
             </div>
           </div>
         </div>
 
-        <p class="how-prose">
+        <!-- Pipeline Diagram -->
+        <div class="pipeline-wrap">
+          <div class="pipeline-title">Event processing pipeline</div>
+          <div class="pipeline-steps">
+            <span class="pipeline-node">App (sendEvent)</span>
+            <span class="pipeline-arrow">→</span>
+            <span class="pipeline-node">Deno Deploy Edge</span>
+            <span class="pipeline-arrow">→</span>
+            <span class="pipeline-node">Welford Engine [n, μ, M2]</span>
+            <span class="pipeline-arrow">→</span>
+            <span class="pipeline-node">Turso libSQL</span>
+            <span class="pipeline-arrow">→</span>
+            <span class="pipeline-node">Email / Webhook (z > 2)</span>
+          </div>
+        </div>
+
+        <p class="prose">
           The entire storage layer is a key-value store. Event counts in hourly
           buckets with a 7-day TTL, three Welford states per event name,
           detected anomalies with a 30-day TTL. No relational queries, no
@@ -376,49 +1609,514 @@
           <a
             href="https://github.com/uriva/anomalisa/blob/main/src/anomaly.ts"
             target="_blank"
+            rel="noopener noreferrer"
           >one file</a>
           you can read in five minutes.
         </p>
 
-        <p class="how-prose">
-          It won't catch everything. If your system fails in a way that doesn't
-          affect event counts, you're on your own. But most real failures do
-          show up as something spiking or dropping, and the simplicity means
-          there's almost nothing to debug.
-        </p>
+        <div class="callout-box">
+          <strong>The honest engineering reality:</strong> It won't catch
+          everything. If your system fails in a way that doesn't affect event
+          counts, you're on your own. But most real failures do show up as
+          something spiking or dropping, and the simplicity means there's
+          almost nothing to debug.
+        </div>
 
-        <p class="how-prose" style="color: #888; font-size: 0.82rem">
+        <p class="prose" style="font-size: 0.85rem; color: var(--text-muted);">
           Deeper technical writeup:
           <a
             href="https://uriv.me/blog/anomaly-detection-with-welford-and-kv"
             target="_blank"
+            rel="noopener noreferrer"
           >anomaly detection with nothing but math and a key-value store</a>
         </p>
-      </div>
+      </section>
 
-      <div class="footer">
-        <span>anomalisa</span>
+      <!-- Self-Hosting Section -->
+      <section class="section">
+        <div class="section-header">
+          <div class="section-tag">Independence</div>
+          <h2 class="section-title">Self-host in 60 seconds</h2>
+          <p class="section-desc">
+            No vendor lock-in. Run the identical stack on your own Deno Deploy,
+            Turso, and InstantDB instances.
+          </p>
+        </div>
+
+        <div class="selfhost-card">
+          <div class="code-wrap">
+            <div class="code-nav">
+              <div
+                style="padding: 0.65rem 1rem; font-size: 0.82rem; font-family: var(--mono); color: var(--text-secondary);">
+                Terminal setup
+              </div>
+              <button class="code-copy-btn"
+                onclick="copyText('selfHostCommands', this)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2">
+                  <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                  <path
+                    d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                </svg>
+                <span>Copy</span>
+              </button>
+            </div>
+            <pre class="code-block"
+              id="selfHostCommands"><span class="comment"># 1. Clone repository</span>
+git clone https://github.com/uriva/anomalisa.git
+cd anomalisa
+
+<span class="comment"># 2. Configure credentials in .env</span>
+<span class="comment"># INSTANTDB_APP_ID=...</span>
+<span class="comment"># TURSO_DATABASE_URL=...</span>
+<span class="comment"># TURSO_AUTH_TOKEN=...</span>
+<span class="comment"># FORWARD_EMAIL_API_KEY=...</span>
+
+<span class="comment"># 3. Run server locally</span>
+deno run --allow-net --allow-env --allow-read src/server.ts</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- Developer FAQ -->
+      <section class="section">
+        <div class="section-header">
+          <div class="section-tag">Questions</div>
+          <h2 class="section-title">Common developer questions</h2>
+        </div>
+
+        <div class="faq-grid">
+          <div class="faq-item">
+            <div class="faq-q">How does cold-start work?</div>
+            <div class="faq-a">
+              Anomalisa requires 3 hourly data points before statistical detection
+              activates. During these initial hours, baseline data is collected
+              quietly to avoid alerting on empty or incomplete baselines.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-q">Does sendEvent block my application?</div>
+            <div class="faq-a">
+              No. <code>sendEvent</code> makes an asynchronous HTTP call with
+              automatic retries. If the network or tracking endpoint fails, your
+              business logic continues uninterrupted.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-q">What data do you store?</div>
+            <div class="faq-a">
+              Only hourly integer counts, Welford state variables (count, mean,
+              variance), and anonymized user tokens. No event payloads, no request
+              bodies, and no PII are stored.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <div
+              class="faq-q">How do you prevent email spam during an outage?</div>
+            <div class="faq-a">
+              Anomalisa incorporates directional cooldown timers and trend detection.
+              If an event stays in an anomalous state across multiple consecutive
+              hours without escalating, repetitive alerts are suppressed.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bottom CTA Banner -->
+      <section class="cta-banner">
+        <h2>Start catching anomalies before your users complain</h2>
+        <p>
+          Create a project in 10 seconds. Copy your token, send one event, and
+          let the statistics do the monitoring for you.
+        </p>
+        <div class="cta-banner-buttons">
+          <a href="/app" class="btn btn-primary">
+            <span>Create free project</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </a>
+          <a href="/docs" class="btn btn-ghost">Browse Documentation</a>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <div class="brand-dot"></div>
+          <span>anomalisa</span>
+        </div>
         <div class="footer-links">
           <a href="/docs">Docs</a>
-          <a href="https://github.com/uriva/anomalisa" target="_blank"
+          <a href="/app">App</a>
+          <a
+            href="https://github.com/uriva/anomalisa"
+            target="_blank"
+            rel="noopener noreferrer"
           >GitHub</a>
-          <a href="https://jsr.io/@uri/anomalisa" target="_blank">JSR</a>
+          <a
+            href="https://jsr.io/@uri/anomalisa"
+            target="_blank"
+            rel="noopener noreferrer"
+          >JSR</a>
+          <a
+            href="https://uriv.me/blog/anomaly-detection-with-welford-and-kv"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Blog post</a>
         </div>
-      </div>
-    </div>
+      </footer>
+    </main>
+
+    <!-- Simulator & Page Logic -->
     <script>
-    const showTab = (id) => {
-      document.querySelectorAll(".install-tab").forEach((t) =>
+    // Baseline historical statistics
+    const baselineHours = [48, 52, 49, 53, 47, 50];
+    const baselineMean = 49.8;
+    const baselineStdDev = 6.4;
+    const zThreshold = 2.0;
+
+    let currentMode = "totalCount";
+    let currentPreset = "normal";
+
+    // Calculate Welford Z-score
+    const calculateZ = (val, mean, sd) => {
+      if (!sd || sd <= 0) return 0;
+      return Math.abs(val - mean) / sd;
+    };
+
+    // Update simulator chart and HUD
+    const updateSimulator = (countVal, customUserId = null) => {
+      const count = parseFloat(countVal);
+      const z = calculateZ(count, baselineMean, baselineStdDev);
+      const isUserSpike = currentMode === "userSpike";
+      const isAnomaly = isUserSpike || z > zThreshold;
+
+      // Update HUD
+      document.getElementById("sliderValDisplay").textContent = count;
+      document.getElementById("hudActual").textContent = count;
+      document.getElementById("hudZScore").textContent = z.toFixed(2);
+
+      // Update Banner
+      const banner = document.getElementById("simResultBanner");
+      const titleText = document.getElementById("bannerTitleText");
+      const subText = document.getElementById("bannerSubText");
+      const zBadge = document.getElementById("bannerZBadge");
+      const legendDot = document.getElementById("legendCurrentDot");
+
+      if (isAnomaly) {
+        banner.className = "sim-result-banner anomaly";
+        legendDot.className = "legend-dot anomaly";
+
+        if (isUserSpike) {
+          titleText.textContent = "User Spike Alert: single user abuse pattern";
+          subText.textContent =
+            "User 'usr_dev_409' generated 100x more events than typical user baseline.";
+          zBadge.textContent = "metric: userSpike";
+        } else if (count > baselineMean) {
+          titleText.textContent = "High Traffic Anomaly: unexpected surge";
+          subText.textContent = `Actual (${count}) exceeds upper threshold of ${
+            Math.round(baselineMean + zThreshold * baselineStdDev)
+          }.`;
+          zBadge.textContent = `z = ${z.toFixed(2)} (> ${zThreshold.toFixed(1)})`;
+        } else {
+          titleText.textContent = "Traffic Drop Anomaly: potential outage";
+          subText.textContent =
+            `Actual (${count}) collapsed below expected threshold of ${
+              Math.round(baselineMean - zThreshold * baselineStdDev)
+            }.`;
+          zBadge.textContent = `z = ${z.toFixed(2)} (> ${zThreshold.toFixed(1)})`;
+        }
+      } else {
+        banner.className = "sim-result-banner normal";
+        legendDot.className = "legend-dot normal";
+        titleText.textContent = "Normal distribution: no alert sent";
+        subText.textContent =
+          "Hourly count falls safely within 2 standard deviations of the running mean.";
+        zBadge.textContent = `z = ${z.toFixed(2)} (threshold: ${
+          zThreshold.toFixed(1)
+        })`;
+      }
+
+      // Render SVG Chart
+      renderChart(count, isAnomaly);
+
+      // Update Drawer Content
+      updateDrawerContent(count, z, isAnomaly, customUserId);
+    };
+
+    // SVG Chart Renderer
+    const renderChart = (currentVal, isAnomaly) => {
+      const svg = document.getElementById("simChartSvg");
+      const maxVal = 260;
+      const chartHeight = 110;
+      const baselineY = 120;
+      const barWidth = 44;
+      const gap = 46;
+      const startX = 40;
+
+      const scaleY = (v) => Math.min(chartHeight, (v / maxVal) * chartHeight);
+
+      // Clear previous SVG
+      svg.innerHTML = "";
+
+      // Threshold line at baselineMean + 2*sigma (~62.6)
+      const upperThresholdVal = baselineMean + zThreshold * baselineStdDev;
+      const upperThreshY = baselineY - scaleY(upperThresholdVal);
+
+      const threshLine = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "line",
+      );
+      threshLine.setAttribute("x1", "20");
+      threshLine.setAttribute("y1", upperThreshY);
+      threshLine.setAttribute("x2", "680");
+      threshLine.setAttribute("y2", upperThreshY);
+      threshLine.setAttribute("stroke", "#f59e0b");
+      threshLine.setAttribute("stroke-width", "1.5");
+      threshLine.setAttribute("stroke-dasharray", "4 4");
+      threshLine.setAttribute("opacity", "0.6");
+      svg.appendChild(threshLine);
+
+      // Baseline bars
+      baselineHours.forEach((val, idx) => {
+        const x = startX + idx * (barWidth + gap);
+        const h = scaleY(val);
+        const y = baselineY - h;
+
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", x);
+        rect.setAttribute("y", y);
+        rect.setAttribute("width", barWidth);
+        rect.setAttribute("height", h);
+        rect.setAttribute("rx", "4");
+        rect.setAttribute("fill", "#27272a");
+        svg.appendChild(rect);
+
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", x + barWidth / 2);
+        text.setAttribute("y", baselineY + 18);
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("fill", "#71717a");
+        text.setAttribute("font-size", "11");
+        text.setAttribute("font-family", "ui-monospace, monospace");
+        text.textContent = `-0${6 - idx}h`;
+        svg.appendChild(text);
+      });
+
+      // 7th Bar: Current Hour
+      const curX = startX + 6 * (barWidth + gap);
+      const curH = scaleY(currentVal);
+      const curY = baselineY - curH;
+
+      const curRect = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "rect",
+      );
+      curRect.setAttribute("x", curX);
+      curRect.setAttribute("y", curY);
+      curRect.setAttribute("width", barWidth);
+      curRect.setAttribute("height", Math.max(3, curH));
+      curRect.setAttribute("rx", "4");
+      curRect.setAttribute("fill", isAnomaly ? "#f43f5e" : "#10b981");
+      svg.appendChild(curRect);
+
+      const curText = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "text",
+      );
+      curText.setAttribute("x", curX + barWidth / 2);
+      curText.setAttribute("y", baselineY + 18);
+      curText.setAttribute("text-anchor", "middle");
+      curText.setAttribute("fill", isAnomaly ? "#fca5a5" : "#6ee7b7");
+      curText.setAttribute("font-size", "11");
+      curText.setAttribute("font-weight", "600");
+      curText.setAttribute("font-family", "ui-monospace, monospace");
+      curText.textContent = "NOW";
+      svg.appendChild(curText);
+    };
+
+    // Drawer Content Updater
+    const updateDrawerContent = (count, z, isAnomaly, customUserId) => {
+      const emailSubject = document.getElementById("emailSubject");
+      const emailBody = document.getElementById("emailBody");
+      const jsonPreview = document.getElementById("jsonPayloadPreview");
+
+      const metricName = currentMode;
+      const nowIso = new Date().toISOString();
+      const hourBucket = nowIso.slice(0, 13);
+
+      if (isAnomaly) {
+        emailSubject.textContent =
+          `[Anomalisa] purchase: ${metricName} anomaly detected`;
+        emailBody.innerHTML = `
+          <div class="email-stat-line"><strong>Alert Triggered:</strong> ${metricName}</div>
+          <div class="email-stat-line"><strong>Event:</strong> purchase</div>
+          <div class="email-stat-line"><strong>Expected Baseline:</strong> ~${baselineMean} / hr</div>
+          <div class="email-stat-line"><strong>Actual Value:</strong> ${count} ${
+          metricName === "userSpike" ? "(from single user)" : "/ hr"
+        }</div>
+          <div class="email-stat-line"><strong>Calculated Z-Score:</strong> ${
+          z.toFixed(2)
+        }</div>
+          <div class="email-stat-line"><strong>Bucket:</strong> ${hourBucket}:00:00Z</div>
+          ${
+          customUserId
+            ? `<div class="email-stat-line"><strong>User ID:</strong> ${customUserId}</div>`
+            : ""
+        }
+          <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid #27272a;font-size:0.75rem;color:#71717a;">
+            Alert generated automatically via Forward Email.
+          </div>
+        `;
+      } else {
+        emailSubject.textContent = `[Anomalisa] System normal`;
+        emailBody.innerHTML = `
+          <div class="email-stat-line"><strong>Status:</strong> Normal (z-score ${
+          z.toFixed(2)
+        } within threshold).</div>
+          <div class="email-stat-line">No action required. No alert sent to your email.</div>
+        `;
+      }
+
+      const jsonObj = isAnomaly
+        ? {
+          projectId: "proj_9f82a1c0",
+          eventName: "purchase",
+          bucket: hourBucket,
+          expected: baselineMean,
+          actual: count,
+          zScore: parseFloat(z.toFixed(2)),
+          metric: metricName,
+          ...(customUserId ? { userId: customUserId } : {}),
+          detectedAt: nowIso,
+        }
+        : {
+          status: "healthy",
+          zScore: parseFloat(z.toFixed(2)),
+          threshold: zThreshold,
+          message: "No anomalies detected in current hourly window.",
+        };
+
+      jsonPreview.textContent = JSON.stringify(jsonObj, null, 2);
+    };
+
+    // Preset Handler
+    const setPreset = (name, btn) => {
+      document.querySelectorAll(".preset-btn").forEach((b) =>
+        b.classList.remove("active")
+      );
+      if (btn) btn.classList.add("active");
+
+      currentPreset = name;
+      const slider = document.getElementById("eventCountSlider");
+      const modeTag = document.getElementById("simModeTag");
+
+      if (name === "normal") {
+        currentMode = "totalCount";
+        modeTag.textContent = "metric: totalCount";
+        slider.value = 51;
+        updateSimulator(51);
+      } else if (name === "spike") {
+        currentMode = "totalCount";
+        modeTag.textContent = "metric: totalCount";
+        slider.value = 215;
+        updateSimulator(215);
+      } else if (name === "drop") {
+        currentMode = "percentageDrop";
+        modeTag.textContent = "metric: percentageDrop";
+        slider.value = 2;
+        updateSimulator(2);
+      } else if (name === "user_spike") {
+        currentMode = "userSpike";
+        modeTag.textContent = "metric: userSpike";
+        slider.value = 110;
+        updateSimulator(110, "usr_dev_409");
+      }
+    };
+
+    const handleSliderChange = (val) => {
+      document.querySelectorAll(".preset-btn").forEach((b) =>
+        b.classList.remove("active")
+      );
+      currentMode = "totalCount";
+      document.getElementById("simModeTag").textContent = "metric: totalCount";
+      updateSimulator(val);
+    };
+
+    // Drawer Tab Switcher
+    const showDrawerTab = (tabName) => {
+      document.getElementById("tabBtnEmail").classList.toggle(
+        "active",
+        tabName === "email",
+      );
+      document.getElementById("tabBtnJson").classList.toggle(
+        "active",
+        tabName === "json",
+      );
+      document.getElementById("drawerContentEmail").style.display =
+        tabName === "email" ? "block" : "none";
+      document.getElementById("drawerContentJson").style.display =
+        tabName === "json" ? "block" : "none";
+    };
+
+    // Quickstart Tab Switcher
+    let currentLang = "npm";
+    const switchInstallTab = (lang, btn) => {
+      currentLang = lang;
+      document.querySelectorAll(".code-tab").forEach((t) =>
         t.classList.remove("active")
       );
-      document.querySelectorAll("[id^='tab-']").forEach((
-        p,
-      ) => (p.style.display = "none"));
-      document.getElementById("tab-" + id).style.display = "";
-      document.querySelector("[onclick*=\"'" + id + "'\"]").classList.add(
-        "active",
-      );
+      if (btn) btn.classList.add("active");
+
+      const languages = ["npm", "deno", "pnpm", "bun", "curl"];
+      languages.forEach((l) => {
+        const el = document.getElementById(`snippet-${l}`);
+        if (el) el.style.display = l === lang ? "block" : "none";
+      });
     };
+
+    // Clipboard Helpers
+    const copySnippet = (elementId, btn) => {
+      const text = document.getElementById(elementId).textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const span = btn.querySelector("span");
+        const original = span.textContent;
+        span.textContent = "Copied!";
+        setTimeout(() => (span.textContent = original), 1800);
+      });
+    };
+
+    const copyText = (elementId, btn) => {
+      const text = document.getElementById(elementId).textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const span = btn.querySelector("span");
+        const original = span.textContent;
+        span.textContent = "Copied!";
+        setTimeout(() => (span.textContent = original), 1800);
+      });
+    };
+
+    const copyActiveCodeSnippet = (btn) => {
+      const activeBlock = document.getElementById(`snippet-${currentLang}`);
+      if (activeBlock) {
+        navigator.clipboard.writeText(activeBlock.textContent).then(() => {
+          const span = btn.querySelector("span");
+          const original = span.textContent;
+          span.textContent = "Copied!";
+          setTimeout(() => (span.textContent = original), 1800);
+        });
+      }
+    };
+
+    // Initialize on load
+    window.addEventListener("DOMContentLoaded", () => {
+      updateSimulator(51);
+    });
     </script>
   </body>
 </html>

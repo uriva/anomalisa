@@ -1,12 +1,12 @@
 {
   "name": "@uri/anomalisa",
-  "version": "0.0.28",
+  "version": "0.0.29",
   "license": "MIT",
   "exports": "./mod.ts",
   "tasks": {
     "check": "deno check",
     "precommit": "deno task check",
-    "test": "deno test --env --allow-env --allow-net"
+    "test": "deno test --env --allow-env --allow-net --allow-read"
   },
   "deploy": {
     "org": "uriva",

@@ -1243,11 +1243,11 @@ curl -X POST https://anomalisa.uriva.deno.net \
           <div class="pipeline-steps">
             <span class="pipeline-node">App (sendEvent)</span>
             <span class="pipeline-arrow">→</span>
-            <span class="pipeline-node">Deno Deploy Edge</span>
+            <span class="pipeline-node">API Gateway</span>
             <span class="pipeline-arrow">→</span>
             <span class="pipeline-node">Welford Engine [n, μ, M2]</span>
             <span class="pipeline-arrow">→</span>
-            <span class="pipeline-node">Turso libSQL</span>
+            <span class="pipeline-node">Key-Value Store</span>
             <span class="pipeline-arrow">→</span>
             <span class="pipeline-node">Email / Webhook (z > 2)</span>
           </div>
@@ -1290,8 +1290,7 @@ curl -X POST https://anomalisa.uriva.deno.net \
           <div class="section-tag">Independence</div>
           <h2 class="section-title">Self-host in 60 seconds</h2>
           <p class="section-desc">
-            No vendor lock-in. Run the identical stack on your own Deno Deploy,
-            Turso, and InstantDB instances.
+            No vendor lock-in. Run the identical stack on your own servers or cloud infrastructure.
           </p>
         </div>
 
@@ -1319,10 +1318,9 @@ git clone https://github.com/uriva/anomalisa.git
 cd anomalisa
 
 <span class="comment"># 2. Configure credentials in .env</span>
-<span class="comment"># INSTANTDB_APP_ID=...</span>
-<span class="comment"># TURSO_DATABASE_URL=...</span>
-<span class="comment"># TURSO_AUTH_TOKEN=...</span>
-<span class="comment"># FORWARD_EMAIL_API_KEY=...</span>
+<span class="comment"># DATABASE_URL=...</span>
+<span class="comment"># DATABASE_AUTH_TOKEN=...</span>
+<span class="comment"># EMAIL_API_KEY=...</span>
 
 <span class="comment"># 3. Run server locally</span>
 deno run --allow-net --allow-env --allow-read src/server.ts</pre>
@@ -1373,7 +1371,7 @@ deno run --allow-net --allow-env --allow-read src/server.ts</pre>
                   stroke="currentColor" stroke-width="2.5">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
-                <span>Instant email alerts via Forward Email</span>
+                <span>Instant email alerts</span>
               </li>
               <li>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
@@ -1483,7 +1481,7 @@ deno run --allow-net --allow-env --allow-read src/server.ts</pre>
               <span class="pricing-period">/ MIT License</span>
             </div>
             <p class="pricing-desc">
-              Run Anomalisa on your own Deno Deploy, Turso, and InstantDB setup.
+              Run Anomalisa on your own servers and infrastructure.
             </p>
             <ul class="pricing-features">
               <li>
@@ -1526,7 +1524,7 @@ deno run --allow-net --allow-env --allow-read src/server.ts</pre>
                   stroke="currentColor" stroke-width="2.5">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
-                <span>Self-managed Forward Email integration</span>
+                <span>Custom email provider integration</span>
               </li>
               <li>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none"

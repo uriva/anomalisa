@@ -110,3 +110,15 @@ Deno.test("web/index.html includes all key outbound and navigation links", async
     'href="https://uriv.me/blog/anomaly-detection-with-welford-and-kv"',
   );
 });
+
+Deno.test("web/index.html does not mention internal third-party services", async () => {
+  const html = await Deno.readTextFile(
+    new URL("./index.html", import.meta.url),
+  );
+  const normalized = html.toLowerCase();
+  assertEquals(normalized.includes("forward email"), false);
+  assertEquals(normalized.includes("forwardemail"), false);
+  assertEquals(normalized.includes("turso"), false);
+  assertEquals(normalized.includes("instantdb"), false);
+  assertEquals(normalized.includes("deno deploy"), false);
+});

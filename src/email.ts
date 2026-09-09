@@ -37,13 +37,13 @@ const sparkText = (counts: number[], anomalyIndex: number) => {
   ).join("");
 };
 
-const getApiKey = () => Deno.env.get("FORWARD_EMAIL_API_KEY") ?? "";
-const getEmailDomain = () => Deno.env.get("EMAIL_DOMAIN") ?? "";
-const getAuthHeader = () => `Basic ${btoa(getApiKey() + ":")}`;
+const agentmailBaseUrl = "https://api.theagentmail.net/v1";
+const getApiKey = () => Deno.env.get("AGENTMAIL_API_KEY") ?? "";
+const getAccountId = () =>
+  Deno.env.get("AGENTMAIL_ACCOUNT_ID") ?? "12dece4a-771d-4bbf-b374-8bc2d8870c7b";
 const maxEmailsPerDay = 5;
 
 type Email = {
-  from: string;
   to: string;
   subject: string;
   html: string;
@@ -96,15 +96,23 @@ const incrementEmailCounts = async (
   return true;
 };
 
-const sendEmail = async (email: Email) => {
-  const response = await fetch("https://api.forwardemail.net/v1/emails", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: getAuthHeader(),
+const sendEmail = async ({ to, subject, html, text }: Email) => {
+  const response = await fetch(
+    `${agentmailBaseUrl}/accounts/${getAccountId()}/messages`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getApiKey()}`,
+      },
+      body: JSON.stringify({
+        to: [to],
+        subject,
+        html,
+        text,
+      }),
     },
-    body: JSON.stringify({ ...email, encoding: "utf-8" }),
-  });
+  );
   if (!response.ok) {
     const body = await response.text().catch(() => "");
     throw new Error(
@@ -381,7 +389,6 @@ export const sendAnomalyAlerts = async (
     return;
   }
   return sendEmail({
-    from: `alerts@${getEmailDomain()}`,
     to: toEmail,
     subject: batchSubject(projectName, anomalies),
     html: anomaliesHtml(projectName, anomalies, counts, maxUserCounts),
@@ -398,14 +405,12 @@ export const sendAdminNotification = async ({
   html: string;
   text: string;
 }) => {
-  const domain = getEmailDomain();
   const key = getApiKey();
-  if (!domain || !key) {
-    console.warn("Forward Email not configured, skipping admin notification");
+  if (!key) {
+    console.warn("AgentMail not configured, skipping admin notification");
     return;
   }
   return sendEmail({
-    from: `alerts@${domain}`,
     to: "uri.valevski@gmail.com",
     subject,
     html,

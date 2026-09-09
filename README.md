@@ -98,14 +98,13 @@ Clone the repo and create a `.env`:
 ```
 INSTANTDB_APP_ID=your-instantdb-app-id
 INSTANTDB_ADMIN_TOKEN=your-instantdb-admin-token
-FORWARD_EMAIL_API_KEY=your-forward-email-api-key
-EMAIL_DOMAIN=your-domain.com
+AGENTMAIL_API_KEY=your-agentmail-api-key
 TURSO_DATABASE_URL=your-turso-database-url
 TURSO_AUTH_TOKEN=your-turso-auth-token
 ```
 
 You'll need an [InstantDB](https://instantdb.com) app for user/project
-management, a [Turso](https://turso.tech) database for event counts/anomalies, and a [Forward Email](https://forwardemail.net) account for alerts.
+management, a [Turso](https://turso.tech) database for event counts/anomalies, and an [AgentMail](https://theagentmail.net) account for alerts.
 
 Push the schema and permissions:
 

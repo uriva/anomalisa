@@ -103,7 +103,7 @@ in InstantDB.
 
 ## Email
 
-Forward Email from domain `f0mo.com`. API key and domain are env vars in `.env`.
+AgentMail from `anomalisa@theagentmail.net`. API key is env var `AGENTMAIL_API_KEY` in `.env`.
 
 ## Web
 
@@ -127,7 +127,7 @@ management.
 | `src/turso.ts`      | Turso database client and schema setup    |
 | `src/anomaly.ts`    | Anomaly detection engine and stats storage|
 | `src/db.ts`         | InstantDB admin client, token lookup      |
-| `src/email.ts`      | Forward Email client for anomaly alerts   |
+| `src/email.ts`      | AgentMail client for anomaly alerts       |
 | `instant.schema.ts` | InstantDB schema (projects, users, links) |
 | `web/index.html`    | Landing page                              |
 | `web/app.html`      | Dashboard app (auth, projects, anomalies) |
@@ -137,7 +137,6 @@ management.
 
 - `INSTANTDB_APP_ID` — InstantDB app identifier
 - `INSTANTDB_ADMIN_TOKEN` — InstantDB admin token
-- `FORWARD_EMAIL_API_KEY` — Forward Email API key
-- `EMAIL_DOMAIN` — domain for sending emails (e.g. `f0mo.com`)
+- `AGENTMAIL_API_KEY` — AgentMail API key
 - `TURSO_DATABASE_URL` — Turso / libSQL database URL
 - `TURSO_AUTH_TOKEN` — Turso authentication token

@@ -279,12 +279,10 @@ Deno.test({
 });
 
 Deno.test("sendAdminNotification sends email to uri.valevski@gmail.com", async () => {
-  const captured: { to?: string; subject?: string } = {};
+  const captured: { to?: string[]; subject?: string } = {};
   const original = globalThis.fetch;
-  const originalKey = Deno.env.get("FORWARD_EMAIL_API_KEY");
-  const originalDomain = Deno.env.get("EMAIL_DOMAIN");
-  Deno.env.set("FORWARD_EMAIL_API_KEY", "test-key");
-  Deno.env.set("EMAIL_DOMAIN", "f0mo.com");
+  const originalKey = Deno.env.get("AGENTMAIL_API_KEY");
+  Deno.env.set("AGENTMAIL_API_KEY", "test-key");
 
   globalThis.fetch = ((_input: string | Request | URL, init?: RequestInit) => {
     Object.assign(captured, JSON.parse(init?.body ? String(init.body) : "{}"));
@@ -297,13 +295,45 @@ Deno.test("sendAdminNotification sends email to uri.valevski@gmail.com", async (
       html: "<p>Hello</p>",
       text: "Hello",
     });
-    assertEquals(captured.to, "uri.valevski@gmail.com");
+    assertEquals(captured.to, ["uri.valevski@gmail.com"]);
     assertEquals(captured.subject, "Test Notification");
   } finally {
     globalThis.fetch = original;
-    if (originalKey) Deno.env.set("FORWARD_EMAIL_API_KEY", originalKey);
-    else Deno.env.delete("FORWARD_EMAIL_API_KEY");
-    if (originalDomain) Deno.env.set("EMAIL_DOMAIN", originalDomain);
-    else Deno.env.delete("EMAIL_DOMAIN");
+    if (originalKey) Deno.env.set("AGENTMAIL_API_KEY", originalKey);
+    else Deno.env.delete("AGENTMAIL_API_KEY");
+  }
+});
+
+Deno.test("sendAnomalyAlerts sends email via AgentMail", async () => {
+  let capturedUrl = "";
+  let capturedAuth = "";
+  const capturedBody: { to?: string[]; subject?: string } = {};
+  const original = globalThis.fetch;
+  const originalKey = Deno.env.get("AGENTMAIL_API_KEY");
+  Deno.env.set("AGENTMAIL_API_KEY", "test-key");
+
+  globalThis.fetch = ((input: string | Request | URL, init?: RequestInit) => {
+    capturedUrl = String(input);
+    capturedAuth = new Headers(init?.headers).get("authorization") ?? "";
+    Object.assign(
+      capturedBody,
+      JSON.parse(init?.body ? String(init.body) : "{}"),
+    );
+    return Promise.resolve(new Response("OK", { status: 200 }));
+  }) as typeof fetch;
+
+  try {
+    await sendAnomalyAlerts("user@example.com", "myproject", [singleAnomaly]);
+    assertEquals(
+      capturedUrl,
+      "https://api.theagentmail.net/v1/accounts/12dece4a-771d-4bbf-b374-8bc2d8870c7b/messages",
+    );
+    assertEquals(capturedAuth, "Bearer test-key");
+    assertEquals(capturedBody.to, ["user@example.com"]);
+    assertEquals(capturedBody.subject, "[myproject] Total Count: login");
+  } finally {
+    globalThis.fetch = original;
+    if (originalKey) Deno.env.set("AGENTMAIL_API_KEY", originalKey);
+    else Deno.env.delete("AGENTMAIL_API_KEY");
   }
 });

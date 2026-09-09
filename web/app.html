@@ -348,6 +348,7 @@
               email: sentEmail,
               code,
             });
+            notifySignup(sentEmail);
             overlay.remove();
           } catch (e) {
             document.getElementById("login-msg").textContent = e.message;
@@ -750,9 +751,23 @@
       "<p class='muted' style='padding:2rem 1rem'>Loading...</p>",
     );
 
+    const notifySignup = (email) => {
+      if (!email) return;
+      fetch("/notify-signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      }).catch(() => {});
+      if (window.posthog) {
+        window.posthog.identify(email);
+        window.posthog.capture("User Signed Up", { email });
+      }
+    };
+
     db.subscribeAuth((auth) => {
       currentUser = auth.user;
       if (auth.user) {
+        if (auth.user.email) notifySignup(auth.user.email);
         selectedProjectId ? renderProjectDetail() : renderProjectList();
       } else {
         selectedProjectId = null;

@@ -72,22 +72,28 @@ Deno.test("web/index.html contains developer quickstarts and SDK methods", async
   assertStringIncludes(html, "captureClientErrors");
 });
 
-Deno.test("web/index.html includes interactive simulator and 48px CTA buttons", async () => {
+Deno.test("web/index.html includes pricing section with generous free tier and disabled upgrade", async () => {
   const html = await Deno.readTextFile(
     new URL("./index.html", import.meta.url),
   );
+  const normalizedHtml = html.replace(/\s+/g, " ");
 
-  // Simulator elements
-  assertStringIncludes(html, "sim-slider");
-  assertStringIncludes(html, "simChartSvg");
-  assertStringIncludes(html, "sim-hud");
-  assertStringIncludes(html, "hudZScore");
-  assertStringIncludes(html, "drawerContentEmail");
-  assertStringIncludes(html, "drawerContentJson");
+  // Pricing header and tiers
+  assertStringIncludes(normalizedHtml, 'id="pricing"');
+  assertStringIncludes(normalizedHtml, "Simple, transparent pricing");
+  assertStringIncludes(normalizedHtml, "100,000");
+  assertStringIncludes(normalizedHtml, "1,000,000");
+  assertStringIncludes(normalizedHtml, "Self-Hosted");
+
+  // Upgrade button disabled
+  assertStringIncludes(
+    normalizedHtml,
+    '<button class="btn btn-disabled pricing-btn" disabled>Coming soon</button>',
+  );
 
   // 48px CTA touch targets
-  assertStringIncludes(html, "height: 48px");
-  assertStringIncludes(html, "min-height: 48px");
+  assertStringIncludes(normalizedHtml, "height: 48px");
+  assertStringIncludes(normalizedHtml, "min-height: 48px");
 });
 
 Deno.test("web/index.html includes all key outbound and navigation links", async () => {

@@ -5,6 +5,7 @@ import {
   anomaliesText,
   batchSubject,
   formatBucket,
+  sendAdminNotification,
   sendAnomalyAlerts,
 } from "./email.ts";
 import { getTurso } from "./turso.ts";
@@ -275,4 +276,34 @@ Deno.test({
 
     await clearEmailCounts();
   },
+});
+
+Deno.test("sendAdminNotification sends email to uri.valevski@gmail.com", async () => {
+  const captured: { to?: string; subject?: string } = {};
+  const original = globalThis.fetch;
+  const originalKey = Deno.env.get("FORWARD_EMAIL_API_KEY");
+  const originalDomain = Deno.env.get("EMAIL_DOMAIN");
+  Deno.env.set("FORWARD_EMAIL_API_KEY", "test-key");
+  Deno.env.set("EMAIL_DOMAIN", "f0mo.com");
+
+  globalThis.fetch = ((_input: string | Request | URL, init?: RequestInit) => {
+    Object.assign(captured, JSON.parse(init?.body ? String(init.body) : "{}"));
+    return Promise.resolve(new Response("OK", { status: 200 }));
+  }) as typeof fetch;
+
+  try {
+    await sendAdminNotification({
+      subject: "Test Notification",
+      html: "<p>Hello</p>",
+      text: "Hello",
+    });
+    assertEquals(captured.to, "uri.valevski@gmail.com");
+    assertEquals(captured.subject, "Test Notification");
+  } finally {
+    globalThis.fetch = original;
+    if (originalKey) Deno.env.set("FORWARD_EMAIL_API_KEY", originalKey);
+    else Deno.env.delete("FORWARD_EMAIL_API_KEY");
+    if (originalDomain) Deno.env.set("EMAIL_DOMAIN", originalDomain);
+    else Deno.env.delete("EMAIL_DOMAIN");
+  }
 });

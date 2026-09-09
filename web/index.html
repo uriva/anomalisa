@@ -282,6 +282,15 @@
       text-decoration: none;
     }
 
+    .btn-disabled,
+    .btn:disabled {
+      background: var(--bg-subtle) !important;
+      color: var(--text-muted) !important;
+      border: 1px solid var(--border) !important;
+      cursor: not-allowed !important;
+      opacity: 0.7;
+    }
+
     /* Quick Command Box */
     .quick-install {
       display: inline-flex;
@@ -358,294 +367,6 @@
       color: var(--text-secondary);
       line-height: 1.6;
       max-width: 640px;
-    }
-
-    /* Simulator Card */
-    .simulator-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 1.5rem;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
-    }
-
-    .sim-controls-top {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-      padding-bottom: 1.25rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .sim-presets-title {
-      font-size: 0.82rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      font-family: var(--mono);
-      margin-bottom: 0.5rem;
-    }
-
-    .sim-presets {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
-
-    .preset-btn {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      padding: 0.45rem 0.85rem;
-      border-radius: 6px;
-      font-size: 0.82rem;
-      font-family: var(--mono);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .preset-btn:hover {
-      color: #fff;
-      border-color: var(--border-hover);
-      background: var(--surface-hover);
-    }
-
-    .preset-btn.active {
-      background: var(--accent-subtle);
-      border-color: var(--accent);
-      color: #93c5fd;
-    }
-
-    .sim-slider-row {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      width: 100%;
-      margin-bottom: 1.5rem;
-      background: var(--bg);
-      border: 1px solid var(--border-subtle);
-      padding: 0.9rem 1.25rem;
-      border-radius: var(--radius);
-    }
-
-    .sim-slider-label {
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      white-space: nowrap;
-      font-weight: 500;
-    }
-
-    .sim-slider {
-      flex: 1;
-      accent-color: var(--accent-light);
-      cursor: pointer;
-    }
-
-    .sim-slider-val {
-      font-family: var(--mono);
-      font-size: 1rem;
-      font-weight: 700;
-      color: #fff;
-      min-width: 60px;
-      text-align: right;
-    }
-
-    /* Visual Chart Container */
-    .sim-chart-wrap {
-      background: var(--bg);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius);
-      padding: 1.25rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .chart-legend {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 1.25rem;
-      font-size: 0.78rem;
-      color: var(--text-muted);
-      font-family: var(--mono);
-      margin-bottom: 1rem;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
-
-    .legend-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 2px;
-    }
-
-    .legend-dot.baseline {
-      background: #3f3f46;
-    }
-
-    .legend-dot.normal {
-      background: var(--green);
-    }
-
-    .legend-dot.anomaly {
-      background: var(--red);
-    }
-
-    .legend-line {
-      width: 14px;
-      height: 2px;
-      background: var(--amber);
-      border-style: dashed;
-    }
-
-    .chart-svg {
-      width: 100%;
-      height: 140px;
-      display: block;
-      overflow: visible;
-    }
-
-    /* Math HUD */
-    .sim-hud {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-      gap: 0.75rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .hud-card {
-      background: var(--bg);
-      border: 1px solid var(--border-subtle);
-      border-radius: 6px;
-      padding: 0.75rem 0.9rem;
-    }
-
-    .hud-label {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      font-family: var(--mono);
-      margin-bottom: 0.25rem;
-    }
-
-    .hud-value {
-      font-family: var(--mono);
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: #fff;
-    }
-
-    /* Result Alert Banner */
-    .sim-result-banner {
-      padding: 0.9rem 1.15rem;
-      border-radius: var(--radius);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-      transition: all 0.2s ease;
-    }
-
-    .sim-result-banner.normal {
-      background: var(--green-subtle);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      color: #a7f3d0;
-    }
-
-    .sim-result-banner.anomaly {
-      background: var(--red-subtle);
-      border: 1px solid rgba(244, 63, 94, 0.4);
-      color: #fecdd3;
-    }
-
-    .result-title {
-      font-size: 0.88rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .result-sub {
-      font-size: 0.8rem;
-      opacity: 0.85;
-    }
-
-    /* Live Output Drawer */
-    .sim-drawer {
-      background: var(--bg);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-
-    .drawer-tabs {
-      display: flex;
-      border-bottom: 1px solid var(--border);
-      background: #0c0d12;
-    }
-
-    .drawer-tab {
-      background: transparent;
-      border: none;
-      border-bottom: 2px solid transparent;
-      color: var(--text-muted);
-      padding: 0.6rem 1.1rem;
-      font-size: 0.82rem;
-      font-family: var(--mono);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .drawer-tab:hover {
-      color: var(--text);
-    }
-
-    .drawer-tab.active {
-      color: #fff;
-      border-bottom-color: var(--accent);
-      background: var(--bg);
-    }
-
-    .drawer-content {
-      padding: 1.15rem;
-      font-family: var(--mono);
-      font-size: 0.82rem;
-      line-height: 1.65;
-      overflow-x: auto;
-    }
-
-    .email-preview {
-      background: #111218;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 1rem 1.25rem;
-      color: #d4d4d8;
-    }
-
-    .email-header-row {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-      padding-bottom: 0.75rem;
-      margin-bottom: 0.75rem;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.8rem;
-      color: var(--text-muted);
-    }
-
-    .email-header-row span {
-      color: var(--text);
-    }
-
-    .email-stat-line {
-      margin-bottom: 0.35rem;
     }
 
     /* Code Integration Section */
@@ -915,6 +636,121 @@
       padding: 1.5rem;
     }
 
+    /* Pricing */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .pricing-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: border-color 0.2s ease;
+    }
+
+    .pricing-card.featured {
+      border-color: var(--accent);
+      background: linear-gradient(180deg, rgba(59, 130, 246, 0.08) 0%,
+        var(--surface) 100%);
+    }
+
+    .pricing-tag-featured {
+      display: inline-block;
+      align-self: flex-start;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      margin-bottom: 0.75rem;
+    }
+
+    .pricing-badge-space {
+      height: 23px;
+      margin-bottom: 0.75rem;
+    }
+
+    .pricing-tier-name {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.5rem;
+    }
+
+    .pricing-price-row {
+      display: flex;
+      align-items: baseline;
+      gap: 0.35rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .pricing-price {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.03em;
+      font-family: var(--mono);
+    }
+
+    .pricing-period {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .pricing-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.55;
+      margin-bottom: 1.5rem;
+      min-height: 40px;
+    }
+
+    .pricing-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      margin-bottom: 2rem;
+      flex: 1;
+      padding: 0;
+    }
+
+    .pricing-features li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .pricing-features li svg {
+      color: var(--green);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .pricing-features li strong {
+      color: #fff;
+    }
+
+    .pricing-btn {
+      width: 100%;
+      box-sizing: border-box;
+      height: 48px;
+      min-height: 48px;
+    }
+
     /* FAQ */
     .faq-grid {
       display: grid;
@@ -1044,6 +880,7 @@
           <span>anomalisa</span>
         </a>
         <nav class="nav-links">
+          <a href="#pricing" class="nav-link">Pricing</a>
           <a href="/docs" class="nav-link">Docs</a>
           <a
             href="https://github.com/uriva/anomalisa"
@@ -1126,191 +963,6 @@
             </svg>
             <span>Copy</span>
           </button>
-        </div>
-      </section>
-
-      <!-- Live Interactive Simulator -->
-      <section class="section">
-        <div class="section-header">
-          <div class="section-tag">Interactive math playground</div>
-          <h2 class="section-title">See the detection algorithm in action</h2>
-          <p class="section-desc">
-            Anomalisa maintains running mean and variance using Welford's algorithm
-            in constant O(1) memory. Test different traffic patterns below to observe
-            the math and see when alerts fire.
-          </p>
-        </div>
-
-        <div class="simulator-card">
-          <!-- Preset selector buttons -->
-          <div class="sim-controls-top">
-            <div>
-              <div class="sim-presets-title">Simulate traffic pattern</div>
-              <div class="sim-presets">
-                <button
-                  class="preset-btn active"
-                  onclick="setPreset('normal', this)"
-                >
-                  Normal (51/hr)
-                </button>
-                <button
-                  class="preset-btn"
-                  onclick="setPreset('spike', this)"
-                >
-                  Spike (215/hr)
-                </button>
-                <button
-                  class="preset-btn"
-                  onclick="setPreset('drop', this)"
-                >
-                  Drop (2/hr)
-                </button>
-                <button
-                  class="preset-btn"
-                  onclick="setPreset('user_spike', this)"
-                >
-                  User Hammering (x100)
-                </button>
-              </div>
-            </div>
-            <div id="simModeTag" class="badge-pill" style="margin-bottom:0">
-              metric: totalCount
-            </div>
-          </div>
-
-          <!-- Slider control -->
-          <div class="sim-slider-row">
-            <span class="sim-slider-label">Simulated hourly events:</span>
-            <input
-              type="range"
-              id="eventCountSlider"
-              class="sim-slider"
-              min="0"
-              max="260"
-              value="51"
-              oninput="handleSliderChange(this.value)"
-            />
-            <span class="sim-slider-val" id="sliderValDisplay">51</span>
-          </div>
-
-          <!-- Visual Bar Chart -->
-          <div class="sim-chart-wrap">
-            <div class="chart-legend">
-              <div class="legend-item">
-                <div class="legend-dot baseline"></div>
-                <span>Baseline hours (historical mean ~50)</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-line"></div>
-                <span>Alert threshold (z = 2.0)</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-dot normal" id="legendCurrentDot"></div>
-                <span>Current hour</span>
-              </div>
-            </div>
-
-            <!-- SVG Visual Representation -->
-            <svg
-              id="simChartSvg"
-              class="chart-svg"
-              viewBox="0 0 700 140"
-              preserveAspectRatio="none"
-            >
-              <!-- Threshold bands and bars rendered by JS -->
-            </svg>
-          </div>
-
-          <!-- Statistical HUD -->
-          <div class="sim-hud">
-            <div class="hud-card">
-              <div class="hud-label">SAMPLES (N)</div>
-              <div class="hud-value">48 hours</div>
-            </div>
-            <div class="hud-card">
-              <div class="hud-label">RUNNING MEAN (μ)</div>
-              <div class="hud-value" id="hudMean">49.8 / hr</div>
-            </div>
-            <div class="hud-card">
-              <div class="hud-label">STD DEV (σ)</div>
-              <div class="hud-value" id="hudStdDev">6.4</div>
-            </div>
-            <div class="hud-card">
-              <div class="hud-label">CURRENT (X)</div>
-              <div class="hud-value" id="hudActual">51</div>
-            </div>
-            <div class="hud-card">
-              <div class="hud-label">Z-SCORE (|X-μ|/σ)</div>
-              <div class="hud-value" id="hudZScore">0.19</div>
-            </div>
-          </div>
-
-          <!-- Alert Outcome Banner -->
-          <div id="simResultBanner" class="sim-result-banner normal">
-            <div>
-              <div class="result-title" id="bannerTitle">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2">
-                  <path d="M20 6L9 17l-5-5" />
-                </svg>
-                <span
-                  id="bannerTitleText">Normal distribution: no alert sent</span>
-              </div>
-              <div class="result-sub" id="bannerSubText">
-                Hourly count falls safely within 2 standard deviations of the running mean.
-              </div>
-            </div>
-            <div class="badge-pill"
-              style="background:rgba(0,0,0,0.2);margin-bottom:0;border:none;"
-              id="bannerZBadge">
-              z = 0.19 (threshold: 2.0)
-            </div>
-          </div>
-
-          <!-- Alert Output Tabs -->
-          <div class="sim-drawer">
-            <div class="drawer-tabs">
-              <button
-                class="drawer-tab active"
-                id="tabBtnEmail"
-                onclick="showDrawerTab('email')"
-              >
-                Simulated Email Alert
-              </button>
-              <button
-                class="drawer-tab"
-                id="tabBtnJson"
-                onclick="showDrawerTab('json')"
-              >
-                Webhook Payload (JSON)
-              </button>
-            </div>
-
-            <div class="drawer-content" id="drawerContentEmail">
-              <div class="email-preview">
-                <div class="email-header-row">
-                  <div><strong>From:</strong> alerts@f0mo.com</div>
-                  <div><strong>Subject:</strong> <span id="emailSubject">[Anomalisa] purchase: totalCount anomaly</span></div>
-                  <div><strong>To:</strong> engineering@company.com</div>
-                </div>
-                <div id="emailBody">
-                  <div
-                    class="email-stat-line"><strong>Status:</strong> Normal (z-score within 2 standard deviations).</div>
-                  <div
-                    class="email-stat-line">No action required. Your inbox stays completely quiet.</div>
-                </div>
-              </div>
-            </div>
-
-            <div
-              class="drawer-content"
-              id="drawerContentJson"
-              style="display:none;"
-            >
-              <pre id="jsonPayloadPreview"
-                style="margin:0;color:#c8d3e0;"></pre>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -1678,6 +1330,219 @@ deno run --allow-net --allow-env --allow-read src/server.ts</pre>
         </div>
       </section>
 
+      <!-- Pricing Section -->
+      <section class="section" id="pricing">
+        <div class="section-header">
+          <div class="section-tag">Pricing</div>
+          <h2 class="section-title">Simple, transparent pricing</h2>
+          <p class="section-desc">
+            Start free without a credit card. Generous limits designed for developers
+            shipping real projects.
+          </p>
+        </div>
+
+        <div class="pricing-grid">
+          <!-- Free Tier -->
+          <div class="pricing-card">
+            <div class="pricing-badge-space"></div>
+            <h3 class="pricing-tier-name">Free</h3>
+            <div class="pricing-price-row">
+              <span class="pricing-price">$0</span>
+              <span class="pricing-period">/ month</span>
+            </div>
+            <p class="pricing-desc">
+              Generous free tier for side projects, indie hackers, and early prototypes.
+            </p>
+            <ul class="pricing-features">
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span><strong>100,000</strong> events / month</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span><strong>Unlimited</strong> projects and tokens</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Instant email alerts via Forward Email</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Webhook notifications</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>7-day hourly counts retention</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>30-day anomaly history</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Frontend error tracking SDK</span>
+              </li>
+            </ul>
+            <a href="/app"
+              class="btn btn-primary pricing-btn">Get started free</a>
+          </div>
+
+          <!-- Pro Tier -->
+          <div class="pricing-card featured">
+            <div class="pricing-tag-featured">Pro</div>
+            <h3 class="pricing-tier-name">Production</h3>
+            <div class="pricing-price-row">
+              <span class="pricing-price">$15</span>
+              <span class="pricing-period">/ month</span>
+            </div>
+            <p class="pricing-desc">
+              For active production applications with higher throughput and team alerting.
+            </p>
+            <ul class="pricing-features">
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span><strong>1,000,000</strong> events / month</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Everything in Free</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Multiple email alert recipients</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Signed webhooks with delivery retries</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>30-day hourly counts retention</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>90-day anomaly history</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Directional cooldown tuning</span>
+              </li>
+            </ul>
+            <button class="btn btn-disabled pricing-btn"
+              disabled>Coming soon</button>
+          </div>
+
+          <!-- Self-Hosted Tier -->
+          <div class="pricing-card">
+            <div class="pricing-badge-space"></div>
+            <h3 class="pricing-tier-name">Self-Hosted</h3>
+            <div class="pricing-price-row">
+              <span class="pricing-price">Free</span>
+              <span class="pricing-period">/ MIT License</span>
+            </div>
+            <p class="pricing-desc">
+              Run Anomalisa on your own Deno Deploy, Turso, and InstantDB setup.
+            </p>
+            <ul class="pricing-features">
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span><strong>Unlimited</strong> events and projects</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Full source code available</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Deploy to any cloud or VPS</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Zero vendor lock-in</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Custom database retention policies</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Self-managed Forward Email integration</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>Community support on GitHub</span>
+              </li>
+            </ul>
+            <a href="https://github.com/uriva/anomalisa" target="_blank"
+              rel="noopener noreferrer"
+              class="btn btn-ghost pricing-btn">View on GitHub</a>
+          </div>
+        </div>
+      </section>
+
       <!-- Developer FAQ -->
       <section class="section">
         <div class="section-header">
@@ -1772,298 +1637,8 @@ deno run --allow-net --allow-env --allow-read src/server.ts</pre>
       </footer>
     </main>
 
-    <!-- Simulator & Page Logic -->
+    <!-- Page Logic -->
     <script>
-    // Baseline historical statistics
-    const baselineHours = [48, 52, 49, 53, 47, 50];
-    const baselineMean = 49.8;
-    const baselineStdDev = 6.4;
-    const zThreshold = 2.0;
-
-    let currentMode = "totalCount";
-    let currentPreset = "normal";
-
-    // Calculate Welford Z-score
-    const calculateZ = (val, mean, sd) => {
-      if (!sd || sd <= 0) return 0;
-      return Math.abs(val - mean) / sd;
-    };
-
-    // Update simulator chart and HUD
-    const updateSimulator = (countVal, customUserId = null) => {
-      const count = parseFloat(countVal);
-      const z = calculateZ(count, baselineMean, baselineStdDev);
-      const isUserSpike = currentMode === "userSpike";
-      const isAnomaly = isUserSpike || z > zThreshold;
-
-      // Update HUD
-      document.getElementById("sliderValDisplay").textContent = count;
-      document.getElementById("hudActual").textContent = count;
-      document.getElementById("hudZScore").textContent = z.toFixed(2);
-
-      // Update Banner
-      const banner = document.getElementById("simResultBanner");
-      const titleText = document.getElementById("bannerTitleText");
-      const subText = document.getElementById("bannerSubText");
-      const zBadge = document.getElementById("bannerZBadge");
-      const legendDot = document.getElementById("legendCurrentDot");
-
-      if (isAnomaly) {
-        banner.className = "sim-result-banner anomaly";
-        legendDot.className = "legend-dot anomaly";
-
-        if (isUserSpike) {
-          titleText.textContent = "User Spike Alert: single user abuse pattern";
-          subText.textContent =
-            "User 'usr_dev_409' generated 100x more events than typical user baseline.";
-          zBadge.textContent = "metric: userSpike";
-        } else if (count > baselineMean) {
-          titleText.textContent = "High Traffic Anomaly: unexpected surge";
-          subText.textContent = `Actual (${count}) exceeds upper threshold of ${
-            Math.round(baselineMean + zThreshold * baselineStdDev)
-          }.`;
-          zBadge.textContent = `z = ${z.toFixed(2)} (> ${zThreshold.toFixed(1)})`;
-        } else {
-          titleText.textContent = "Traffic Drop Anomaly: potential outage";
-          subText.textContent =
-            `Actual (${count}) collapsed below expected threshold of ${
-              Math.round(baselineMean - zThreshold * baselineStdDev)
-            }.`;
-          zBadge.textContent = `z = ${z.toFixed(2)} (> ${zThreshold.toFixed(1)})`;
-        }
-      } else {
-        banner.className = "sim-result-banner normal";
-        legendDot.className = "legend-dot normal";
-        titleText.textContent = "Normal distribution: no alert sent";
-        subText.textContent =
-          "Hourly count falls safely within 2 standard deviations of the running mean.";
-        zBadge.textContent = `z = ${z.toFixed(2)} (threshold: ${
-          zThreshold.toFixed(1)
-        })`;
-      }
-
-      // Render SVG Chart
-      renderChart(count, isAnomaly);
-
-      // Update Drawer Content
-      updateDrawerContent(count, z, isAnomaly, customUserId);
-    };
-
-    // SVG Chart Renderer
-    const renderChart = (currentVal, isAnomaly) => {
-      const svg = document.getElementById("simChartSvg");
-      const maxVal = 260;
-      const chartHeight = 110;
-      const baselineY = 120;
-      const barWidth = 44;
-      const gap = 46;
-      const startX = 40;
-
-      const scaleY = (v) => Math.min(chartHeight, (v / maxVal) * chartHeight);
-
-      // Clear previous SVG
-      svg.innerHTML = "";
-
-      // Threshold line at baselineMean + 2*sigma (~62.6)
-      const upperThresholdVal = baselineMean + zThreshold * baselineStdDev;
-      const upperThreshY = baselineY - scaleY(upperThresholdVal);
-
-      const threshLine = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "line",
-      );
-      threshLine.setAttribute("x1", "20");
-      threshLine.setAttribute("y1", upperThreshY);
-      threshLine.setAttribute("x2", "680");
-      threshLine.setAttribute("y2", upperThreshY);
-      threshLine.setAttribute("stroke", "#f59e0b");
-      threshLine.setAttribute("stroke-width", "1.5");
-      threshLine.setAttribute("stroke-dasharray", "4 4");
-      threshLine.setAttribute("opacity", "0.6");
-      svg.appendChild(threshLine);
-
-      // Baseline bars
-      baselineHours.forEach((val, idx) => {
-        const x = startX + idx * (barWidth + gap);
-        const h = scaleY(val);
-        const y = baselineY - h;
-
-        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        rect.setAttribute("x", x);
-        rect.setAttribute("y", y);
-        rect.setAttribute("width", barWidth);
-        rect.setAttribute("height", h);
-        rect.setAttribute("rx", "4");
-        rect.setAttribute("fill", "#27272a");
-        svg.appendChild(rect);
-
-        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        text.setAttribute("x", x + barWidth / 2);
-        text.setAttribute("y", baselineY + 18);
-        text.setAttribute("text-anchor", "middle");
-        text.setAttribute("fill", "#71717a");
-        text.setAttribute("font-size", "11");
-        text.setAttribute("font-family", "ui-monospace, monospace");
-        text.textContent = `-0${6 - idx}h`;
-        svg.appendChild(text);
-      });
-
-      // 7th Bar: Current Hour
-      const curX = startX + 6 * (barWidth + gap);
-      const curH = scaleY(currentVal);
-      const curY = baselineY - curH;
-
-      const curRect = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "rect",
-      );
-      curRect.setAttribute("x", curX);
-      curRect.setAttribute("y", curY);
-      curRect.setAttribute("width", barWidth);
-      curRect.setAttribute("height", Math.max(3, curH));
-      curRect.setAttribute("rx", "4");
-      curRect.setAttribute("fill", isAnomaly ? "#f43f5e" : "#10b981");
-      svg.appendChild(curRect);
-
-      const curText = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "text",
-      );
-      curText.setAttribute("x", curX + barWidth / 2);
-      curText.setAttribute("y", baselineY + 18);
-      curText.setAttribute("text-anchor", "middle");
-      curText.setAttribute("fill", isAnomaly ? "#fca5a5" : "#6ee7b7");
-      curText.setAttribute("font-size", "11");
-      curText.setAttribute("font-weight", "600");
-      curText.setAttribute("font-family", "ui-monospace, monospace");
-      curText.textContent = "NOW";
-      svg.appendChild(curText);
-    };
-
-    // Drawer Content Updater
-    const updateDrawerContent = (count, z, isAnomaly, customUserId) => {
-      const emailSubject = document.getElementById("emailSubject");
-      const emailBody = document.getElementById("emailBody");
-      const jsonPreview = document.getElementById("jsonPayloadPreview");
-
-      const metricName = currentMode;
-      const nowIso = new Date().toISOString();
-      const hourBucket = nowIso.slice(0, 13);
-
-      if (isAnomaly) {
-        emailSubject.textContent =
-          `[Anomalisa] purchase: ${metricName} anomaly detected`;
-        emailBody.innerHTML = `
-          <div class="email-stat-line"><strong>Alert Triggered:</strong> ${metricName}</div>
-          <div class="email-stat-line"><strong>Event:</strong> purchase</div>
-          <div class="email-stat-line"><strong>Expected Baseline:</strong> ~${baselineMean} / hr</div>
-          <div class="email-stat-line"><strong>Actual Value:</strong> ${count} ${
-          metricName === "userSpike" ? "(from single user)" : "/ hr"
-        }</div>
-          <div class="email-stat-line"><strong>Calculated Z-Score:</strong> ${
-          z.toFixed(2)
-        }</div>
-          <div class="email-stat-line"><strong>Bucket:</strong> ${hourBucket}:00:00Z</div>
-          ${
-          customUserId
-            ? `<div class="email-stat-line"><strong>User ID:</strong> ${customUserId}</div>`
-            : ""
-        }
-          <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid #27272a;font-size:0.75rem;color:#71717a;">
-            Alert generated automatically via Forward Email.
-          </div>
-        `;
-      } else {
-        emailSubject.textContent = `[Anomalisa] System normal`;
-        emailBody.innerHTML = `
-          <div class="email-stat-line"><strong>Status:</strong> Normal (z-score ${
-          z.toFixed(2)
-        } within threshold).</div>
-          <div class="email-stat-line">No action required. No alert sent to your email.</div>
-        `;
-      }
-
-      const jsonObj = isAnomaly
-        ? {
-          projectId: "proj_9f82a1c0",
-          eventName: "purchase",
-          bucket: hourBucket,
-          expected: baselineMean,
-          actual: count,
-          zScore: parseFloat(z.toFixed(2)),
-          metric: metricName,
-          ...(customUserId ? { userId: customUserId } : {}),
-          detectedAt: nowIso,
-        }
-        : {
-          status: "healthy",
-          zScore: parseFloat(z.toFixed(2)),
-          threshold: zThreshold,
-          message: "No anomalies detected in current hourly window.",
-        };
-
-      jsonPreview.textContent = JSON.stringify(jsonObj, null, 2);
-    };
-
-    // Preset Handler
-    const setPreset = (name, btn) => {
-      document.querySelectorAll(".preset-btn").forEach((b) =>
-        b.classList.remove("active")
-      );
-      if (btn) btn.classList.add("active");
-
-      currentPreset = name;
-      const slider = document.getElementById("eventCountSlider");
-      const modeTag = document.getElementById("simModeTag");
-
-      if (name === "normal") {
-        currentMode = "totalCount";
-        modeTag.textContent = "metric: totalCount";
-        slider.value = 51;
-        updateSimulator(51);
-      } else if (name === "spike") {
-        currentMode = "totalCount";
-        modeTag.textContent = "metric: totalCount";
-        slider.value = 215;
-        updateSimulator(215);
-      } else if (name === "drop") {
-        currentMode = "percentageDrop";
-        modeTag.textContent = "metric: percentageDrop";
-        slider.value = 2;
-        updateSimulator(2);
-      } else if (name === "user_spike") {
-        currentMode = "userSpike";
-        modeTag.textContent = "metric: userSpike";
-        slider.value = 110;
-        updateSimulator(110, "usr_dev_409");
-      }
-    };
-
-    const handleSliderChange = (val) => {
-      document.querySelectorAll(".preset-btn").forEach((b) =>
-        b.classList.remove("active")
-      );
-      currentMode = "totalCount";
-      document.getElementById("simModeTag").textContent = "metric: totalCount";
-      updateSimulator(val);
-    };
-
-    // Drawer Tab Switcher
-    const showDrawerTab = (tabName) => {
-      document.getElementById("tabBtnEmail").classList.toggle(
-        "active",
-        tabName === "email",
-      );
-      document.getElementById("tabBtnJson").classList.toggle(
-        "active",
-        tabName === "json",
-      );
-      document.getElementById("drawerContentEmail").style.display =
-        tabName === "email" ? "block" : "none";
-      document.getElementById("drawerContentJson").style.display =
-        tabName === "json" ? "block" : "none";
-    };
-
     // Quickstart Tab Switcher
     let currentLang = "npm";
     const switchInstallTab = (lang, btn) => {
@@ -2112,11 +1687,6 @@ deno run --allow-net --allow-env --allow-read src/server.ts</pre>
         });
       }
     };
-
-    // Initialize on load
-    window.addEventListener("DOMContentLoaded", () => {
-      updateSimulator(51);
-    });
     </script>
   </body>
 </html>

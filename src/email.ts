@@ -37,9 +37,9 @@ const sparkText = (counts: number[], anomalyIndex: number) => {
   ).join("");
 };
 
-const apiKey = Deno.env.get("FORWARD_EMAIL_API_KEY") ?? "";
-const emailDomain = Deno.env.get("EMAIL_DOMAIN") ?? "";
-const authHeader = `Basic ${btoa(apiKey + ":")}`;
+const getApiKey = () => Deno.env.get("FORWARD_EMAIL_API_KEY") ?? "";
+const getEmailDomain = () => Deno.env.get("EMAIL_DOMAIN") ?? "";
+const getAuthHeader = () => `Basic ${btoa(getApiKey() + ":")}`;
 const maxEmailsPerDay = 5;
 
 type Email = {
@@ -101,7 +101,7 @@ const sendEmail = async (email: Email) => {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: authHeader,
+      Authorization: getAuthHeader(),
     },
     body: JSON.stringify({ ...email, encoding: "utf-8" }),
   });
@@ -381,10 +381,34 @@ export const sendAnomalyAlerts = async (
     return;
   }
   return sendEmail({
-    from: `alerts@${emailDomain}`,
+    from: `alerts@${getEmailDomain()}`,
     to: toEmail,
     subject: batchSubject(projectName, anomalies),
     html: anomaliesHtml(projectName, anomalies, counts, maxUserCounts),
     text: anomaliesText(anomalies, counts, maxUserCounts),
+  });
+};
+
+export const sendAdminNotification = async ({
+  subject,
+  html,
+  text,
+}: {
+  subject: string;
+  html: string;
+  text: string;
+}) => {
+  const domain = getEmailDomain();
+  const key = getApiKey();
+  if (!domain || !key) {
+    console.warn("Forward Email not configured, skipping admin notification");
+    return;
+  }
+  return sendEmail({
+    from: `alerts@${domain}`,
+    to: "uri.valevski@gmail.com",
+    subject,
+    html,
+    text,
   });
 };

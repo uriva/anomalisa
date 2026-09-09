@@ -411,7 +411,8 @@ export const shouldSuppress = (
 
 const storeAnomaly = async (anomaly: Anomaly): Promise<boolean> => {
   const result = await getTurso().execute({
-    sql: `INSERT INTO anomalies (project_id, event_name, bucket, metric, user_id, expected, actual, z_score, detected_at, trend, created_at)
+    sql:
+      `INSERT INTO anomalies (project_id, event_name, bucket, metric, user_id, expected, actual, z_score, detected_at, trend, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT (project_id, event_name, bucket, metric, user_id) DO NOTHING;`,
     args: [
@@ -448,13 +449,13 @@ export const checkAndSetCooldown = async (
     ],
   });
   const row = res.rows[0];
-  const lastEntry: CooldownEntry | null =
-    row && Number(row.expires_at) > now
-      ? { direction, actual: Number(row.actual) }
-      : null;
+  const lastEntry: CooldownEntry | null = row && Number(row.expires_at) > now
+    ? { direction, actual: Number(row.actual) }
+    : null;
   if (shouldSuppress(lastEntry, anomaly)) return false;
   await getTurso().execute({
-    sql: `INSERT INTO cooldowns (project_id, event_name, metric, direction, user_id, actual, expires_at)
+    sql:
+      `INSERT INTO cooldowns (project_id, event_name, metric, direction, user_id, actual, expires_at)
           VALUES (?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT (project_id, event_name, metric, direction, user_id)
           DO UPDATE SET actual = excluded.actual, expires_at = excluded.expires_at;`,
@@ -480,7 +481,9 @@ const mapAnomalyRow = (row: Record<string, unknown>): Anomaly => ({
   actual: Number(row.actual),
   zScore: Number(row.z_score),
   detectedAt: String(row.detected_at),
-  ...(row.user_id && row.user_id !== "_" ? { userId: String(row.user_id) } : {}),
+  ...(row.user_id && row.user_id !== "_"
+    ? { userId: String(row.user_id) }
+    : {}),
   ...(row.trend ? { trend: String(row.trend) } : {}),
 });
 
@@ -489,7 +492,8 @@ const getEventAnomalies = async (
   eventName: string,
 ): Promise<Anomaly[]> => {
   const res = await getTurso().execute({
-    sql: `SELECT project_id, event_name, bucket, metric, user_id, expected, actual, z_score, detected_at, trend
+    sql:
+      `SELECT project_id, event_name, bucket, metric, user_id, expected, actual, z_score, detected_at, trend
           FROM anomalies
           WHERE project_id = ? AND event_name = ?;`,
     args: [projectId, eventName],
@@ -566,7 +570,8 @@ const getOrInitStats = async (
   }
   const initial = emptyStats(bucket);
   await getTurso().execute({
-    sql: `INSERT INTO stats (project_id, event_name, type, mean, m2, n, last_bucket)
+    sql:
+      `INSERT INTO stats (project_id, event_name, type, mean, m2, n, last_bucket)
           VALUES (?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT (project_id, event_name, type) DO NOTHING;`,
     args: [
@@ -589,7 +594,8 @@ const saveStats = (
   stats: Stats,
 ) =>
   getTurso().execute({
-    sql: `INSERT INTO stats (project_id, event_name, type, mean, m2, n, last_bucket)
+    sql:
+      `INSERT INTO stats (project_id, event_name, type, mean, m2, n, last_bucket)
           VALUES (?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT (project_id, event_name, type)
           DO UPDATE SET mean = excluded.mean, m2 = excluded.m2, n = excluded.n, last_bucket = excluded.last_bucket;`,
@@ -627,7 +633,8 @@ const incrementUserCount = async (
   userId: string,
 ): Promise<number> => {
   const res = await getTurso().execute({
-    sql: `INSERT INTO user_counts (project_id, event_name, bucket, user_id, count, created_at)
+    sql:
+      `INSERT INTO user_counts (project_id, event_name, bucket, user_id, count, created_at)
           VALUES (?, ?, ?, ?, 1, ?)
           ON CONFLICT (project_id, event_name, bucket, user_id)
           DO UPDATE SET count = count + 1
@@ -644,7 +651,8 @@ const updateMaxUserCount = (
   count: number,
 ) =>
   getTurso().execute({
-    sql: `INSERT INTO max_user_counts (project_id, event_name, bucket, count, created_at)
+    sql:
+      `INSERT INTO max_user_counts (project_id, event_name, bucket, count, created_at)
           VALUES (?, ?, ?, ?, ?)
           ON CONFLICT (project_id, event_name, bucket)
           DO UPDATE SET count = MAX(count, excluded.count);`,
@@ -657,7 +665,8 @@ const getCount = async (
   bucket: string,
 ): Promise<number> => {
   const res = await getTurso().execute({
-    sql: `SELECT count FROM counts WHERE project_id = ? AND event_name = ? AND bucket = ?;`,
+    sql:
+      `SELECT count FROM counts WHERE project_id = ? AND event_name = ? AND bucket = ?;`,
     args: [projectId, eventName, bucket],
   });
   return res.rows[0] ? Number(res.rows[0].count) : 0;
@@ -669,7 +678,8 @@ const getMaxUserCount = async (
   bucket: string,
 ): Promise<number> => {
   const res = await getTurso().execute({
-    sql: `SELECT count FROM max_user_counts WHERE project_id = ? AND event_name = ? AND bucket = ?;`,
+    sql:
+      `SELECT count FROM max_user_counts WHERE project_id = ? AND event_name = ? AND bucket = ?;`,
     args: [projectId, eventName, bucket],
   });
   return res.rows[0] ? Number(res.rows[0].count) : 0;
@@ -838,7 +848,8 @@ export const getEventCounts = async (
   projectId: string,
 ): Promise<Record<string, Array<{ bucket: string; count: number }>>> => {
   const res = await getTurso().execute({
-    sql: `SELECT event_name, bucket, count FROM counts WHERE project_id = ? ORDER BY bucket ASC;`,
+    sql:
+      `SELECT event_name, bucket, count FROM counts WHERE project_id = ? ORDER BY bucket ASC;`,
     args: [projectId],
   });
   const events: Record<string, Array<{ bucket: string; count: number }>> = {};
@@ -855,7 +866,8 @@ export const getMaxUserCounts = async (
   projectId: string,
 ): Promise<Record<string, Array<{ bucket: string; count: number }>>> => {
   const res = await getTurso().execute({
-    sql: `SELECT event_name, bucket, count FROM max_user_counts WHERE project_id = ? ORDER BY bucket ASC;`,
+    sql:
+      `SELECT event_name, bucket, count FROM max_user_counts WHERE project_id = ? ORDER BY bucket ASC;`,
     args: [projectId],
   });
   const events: Record<string, Array<{ bucket: string; count: number }>> = {};
@@ -870,7 +882,8 @@ export const getMaxUserCounts = async (
 
 export const getAnomalies = async (projectId: string): Promise<Anomaly[]> => {
   const res = await getTurso().execute({
-    sql: `SELECT project_id, event_name, bucket, metric, user_id, expected, actual, z_score, detected_at, trend
+    sql:
+      `SELECT project_id, event_name, bucket, metric, user_id, expected, actual, z_score, detected_at, trend
           FROM anomalies
           WHERE project_id = ?
           ORDER BY detected_at DESC;`,
@@ -987,4 +1000,15 @@ export const cleanExpiredData = async () => {
     ],
     "write",
   );
+};
+
+export const recordAdminNotificationOnce = async (
+  key: string,
+): Promise<boolean> => {
+  const res = await getTurso().execute({
+    sql:
+      `INSERT INTO admin_notifications (key, created_at) VALUES (?, ?) ON CONFLICT DO NOTHING;`,
+    args: [key, Date.now()],
+  });
+  return res.rowsAffected > 0;
 };

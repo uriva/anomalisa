@@ -9,10 +9,12 @@ import {
   getAnomalies,
   getEventCounts,
   getMaxUserCounts,
+  recordAdminNotificationOnce,
   recordEvent,
 } from "./anomaly.ts";
 import { lookupProjectById, lookupProjectByToken } from "./db.ts";
-import { sendAnomalyAlerts } from "./email.ts";
+import { sendAdminNotification, sendAnomalyAlerts } from "./email.ts";
+import { captureServerEvent } from "./analytics.ts";
 import { initTursoSchema } from "./turso.ts";
 import { sendWebhook } from "./webhook.ts";
 
@@ -57,6 +59,54 @@ const endpoints: ApiImplementation<null, Api> = {
         userId ?? undefined,
       );
       notifyAnomalies(project.id, anomalies);
+
+      const isFirstEvent = await recordAdminNotificationOnce(
+        `first_event:${project.id}`,
+      ).catch(() => false);
+      if (isFirstEvent) {
+        sendAdminNotification({
+          subject:
+            `[Anomalisa] First event received: ${project.name} (${project.owner.email})`,
+          html:
+            `<p>Project <strong>${project.name}</strong> (${project.owner.email}) received its very first event: <code>${eventName}</code>.</p><p>Token: <code>${project.token}</code><br>User ID: <code>${
+              userId ?? "none"
+            }</code></p>`,
+          text:
+            `Project '${project.name}' (${project.owner.email}) received its very first event: '${eventName}'. Token: ${project.token}, User ID: ${
+              userId ?? "none"
+            }`,
+        }).catch(logError("send first event admin notification"));
+
+        captureServerEvent(project.owner.email, "first_event_received", {
+          projectId: project.id,
+          projectName: project.name,
+          eventName,
+          userId,
+        });
+      }
+
+      const isNewUser = await recordAdminNotificationOnce(
+        `signup:${project.owner.email.toLowerCase()}`,
+      ).catch(() => false);
+      if (isNewUser) {
+        sendAdminNotification({
+          subject: `[Anomalisa] New user signup: ${project.owner.email}`,
+          html:
+            `<p>New user active on Anomalisa: <strong>${project.owner.email}</strong>.</p>`,
+          text: `New user active on Anomalisa: ${project.owner.email}.`,
+        }).catch(logError("send signup admin notification"));
+
+        captureServerEvent(project.owner.email, "user_signup", {
+          email: project.owner.email,
+        });
+      }
+
+      captureServerEvent(project.owner.email, "send_event", {
+        projectId: project.id,
+        projectName: project.name,
+        eventName,
+      });
+
       return {};
     },
     getAnomalies: async ({ token }) => {
@@ -125,8 +175,38 @@ const handleGet = async (url: URL) => {
   );
 };
 
-const handlePost = async (req: Request) => {
+const handlePost = async (req: Request, url: URL) => {
   const bodyText = await req.text();
+
+  if (url.pathname === "/notify-signup") {
+    try {
+      const { email } = JSON.parse(bodyText);
+      if (typeof email === "string" && email.includes("@")) {
+        const isNew = await recordAdminNotificationOnce(
+          `signup:${email.toLowerCase()}`,
+        ).catch(() => false);
+        if (isNew) {
+          sendAdminNotification({
+            subject: `[Anomalisa] New user signup: ${email}`,
+            html:
+              `<p>New user signed up on Anomalisa: <strong>${email}</strong> at ${
+                new Date().toISOString()
+              }.</p>`,
+            text: `New user signed up on Anomalisa: ${email} at ${
+              new Date().toISOString()
+            }.`,
+          }).catch(logError("send signup admin notification"));
+
+          captureServerEvent(email, "user_signup", { email });
+        }
+        return jsonResponse({ ok: true });
+      }
+      return jsonResponse({ error: "Invalid email" }, 400);
+    } catch (_) {
+      return jsonResponse({ error: "Invalid JSON" }, 400);
+    }
+  }
+
   try {
     const json = JSON.parse(bodyText);
     try {
@@ -155,7 +235,7 @@ const httpHandler = async (req: Request) => {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
   if (req.method === "GET") return await handleGet(url);
-  return handlePost(req);
+  return handlePost(req, url);
 };
 
 initTursoSchema().catch(logError("init turso schema"));

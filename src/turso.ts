@@ -88,4 +88,8 @@ export const initTursoSchema = () =>
       expires_at INTEGER NOT NULL,
       PRIMARY KEY (to_email, project_name, event_name, day_bucket)
     );`,
+    `CREATE TABLE IF NOT EXISTS admin_notifications (
+      key TEXT PRIMARY KEY,
+      created_at INTEGER NOT NULL
+    );`,
   ], "write");

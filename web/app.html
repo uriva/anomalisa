@@ -4,6 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>anomalisa</title>
+    <script>
+      !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug getPageViewId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+      posthog.init('phc_rjtFQTqewBSkcMXu7VwMPjzojSSLdxygumxwrxDcZVaU', {
+        api_host: 'https://us.i.posthog.com',
+        person_profiles: 'identified_only',
+        capture_pageview: true,
+        capture_exceptions: true,
+        before_send: function(event) {
+          if (event && event.event === '$exception') {
+            var msg = (event.properties && event.properties.$exception_message) || '';
+            if (msg.includes('ResizeObserver') || msg.includes('Script error.') || msg.includes('chrome-extension://') || msg.includes('moz-extension://') || msg.includes('Object Not Found Matching Id')) {
+              return null;
+            }
+          }
+          return event;
+        }
+      });
+    </script>
     <style>
     * {
       box-sizing: border-box;
@@ -280,13 +298,63 @@
       app.innerHTML = html;
     };
 
+    const isIgnoredClientError = (reason) => {
+      if (!reason) return true;
+      const str = reason instanceof Error
+        ? `${reason.message} ${reason.stack || ""}`
+        : String(reason);
+      return (
+        str.includes("ResizeObserver") ||
+        str.includes("Script error.") ||
+        str.includes("chrome-extension://") ||
+        str.includes("moz-extension://") ||
+        str.includes("safari-extension://") ||
+        str.includes("Object Not Found Matching Id")
+      );
+    };
+
+    const captureClientError = (err, context = {}) => {
+      if (isIgnoredClientError(err)) return;
+      if (window.posthog) {
+        if (err instanceof Error) {
+          window.posthog.captureException(err, context);
+        } else {
+          window.posthog.capture("client_error", {
+            message: String(err),
+            ...context,
+          });
+        }
+      }
+    };
+
+    window.addEventListener("error", (event) => {
+      if (event.error) {
+        captureClientError(event.error, {
+          type: "uncaught_error",
+          filename: event.filename,
+        });
+      }
+    });
+
+    window.addEventListener("unhandledrejection", (event) => {
+      captureClientError(event.reason, { type: "unhandled_rejection" });
+    });
+
     const apiCall = async (endpoint, payload) => {
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ endpoint, payload }),
-      });
-      return res.json();
+      try {
+        const res = await fetch(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint, payload }),
+        });
+        if (!res.ok) {
+          throw new Error(`API error ${res.status}: ${res.statusText}`);
+        }
+        return await res.json();
+      } catch (err) {
+        captureClientError(err, { endpoint });
+        throw err;
+      }
     };
 
     const showAuthModal = () => {
@@ -328,11 +396,15 @@
           if (!email) return;
           sentEmail = email;
           try {
+            if (window.posthog) {
+              window.posthog.capture("magic_code_requested", { email });
+            }
             await db.auth.sendMagicCode({ email });
             document.getElementById("code-section").style.display = "block";
             document.getElementById("login-msg").textContent = "Code sent to " +
               email;
           } catch (e) {
+            captureClientError(e, { action: "send_magic_code" });
             document.getElementById("login-msg").textContent = e.message;
           }
         },
@@ -348,9 +420,14 @@
               email: sentEmail,
               code,
             });
+            if (window.posthog) {
+              window.posthog.identify(sentEmail, { email: sentEmail });
+              window.posthog.capture("signed_in", { email: sentEmail });
+            }
             notifySignup(sentEmail);
             overlay.remove();
           } catch (e) {
+            captureClientError(e, { action: "verify_magic_code" });
             document.getElementById("login-msg").textContent = e.message;
           }
         },
@@ -478,7 +555,10 @@
 
       document.getElementById("logout").addEventListener(
         "click",
-        () => db.auth.signOut(),
+        () => {
+          if (window.posthog) window.posthog.reset();
+          db.auth.signOut();
+        },
       );
 
       document.getElementById("create-project").addEventListener(
@@ -495,12 +575,16 @@
                 owner: currentUser.id,
               }),
             ]);
+            if (window.posthog) {
+              window.posthog.capture("project_created", { projectId, name });
+            }
             document.getElementById("project-name").value = "";
             document.getElementById("create-msg").textContent = "Created!";
             setTimeout(() => {
               document.getElementById("create-msg").textContent = "";
             }, 2000);
           } catch (e) {
+            captureClientError(e, { action: "create_project" });
             document.getElementById("create-msg").textContent = e.message;
           }
         },
@@ -535,6 +619,11 @@
           (card) => {
             card.addEventListener("click", () => {
               selectedProjectId = card.dataset.id;
+              if (window.posthog) {
+                window.posthog.capture("project_opened", {
+                  projectId: selectedProjectId,
+                });
+              }
               renderProjectDetail();
             });
           },
@@ -618,9 +707,19 @@
         "click",
         async () => {
           if (!confirm("Delete " + project.name + "?")) return;
-          await db.transact([db.tx.projects[project.id].delete()]);
-          selectedProjectId = null;
-          renderProjectList();
+          try {
+            await db.transact([db.tx.projects[project.id].delete()]);
+            if (window.posthog) {
+              window.posthog.capture("project_deleted", {
+                projectId: project.id,
+                name: project.name,
+              });
+            }
+            selectedProjectId = null;
+            renderProjectList();
+          } catch (e) {
+            captureClientError(e, { action: "delete_project" });
+          }
         },
       );
 
@@ -635,11 +734,18 @@
               db.tx.projects[project.id].update({ webhookUrl: url }),
             ]);
             project.webhookUrl = url;
+            if (window.posthog) {
+              window.posthog.capture("webhook_saved", {
+                projectId: project.id,
+                hasWebhook: Boolean(url),
+              });
+            }
             msg.textContent = "Saved!";
             setTimeout(() => {
               msg.textContent = "";
             }, 2000);
           } catch (e) {
+            captureClientError(e, { action: "save_webhook" });
             msg.textContent = e.message;
           }
         },
@@ -757,9 +863,11 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
-      }).catch(() => {});
+      }).catch((err) => {
+        captureClientError(err, { action: "notify_signup" });
+      });
       if (window.posthog) {
-        window.posthog.identify(email);
+        window.posthog.identify(email, { email });
         window.posthog.capture("User Signed Up", { email });
       }
     };
@@ -767,9 +875,20 @@
     db.subscribeAuth((auth) => {
       currentUser = auth.user;
       if (auth.user) {
-        if (auth.user.email) notifySignup(auth.user.email);
+        if (auth.user.email) {
+          if (window.posthog) {
+            window.posthog.identify(auth.user.email, {
+              email: auth.user.email,
+              id: auth.user.id,
+            });
+          }
+          notifySignup(auth.user.email);
+        }
         selectedProjectId ? renderProjectDetail() : renderProjectList();
       } else {
+        if (window.posthog) {
+          window.posthog.reset();
+        }
         selectedProjectId = null;
         renderLogin();
       }

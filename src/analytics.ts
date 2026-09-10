@@ -1,7 +1,11 @@
+export const defaultPosthogKey =
+  "phc_rjtFQTqewBSkcMXu7VwMPjzojSSLdxygumxwrxDcZVaU";
+export const defaultPosthogHost = "https://us.i.posthog.com";
+
 const posthogKey = Deno.env.get("POSTHOG_API_KEY") ??
   Deno.env.get("POSTHOG_KEY") ??
-  "";
-const posthogHost = Deno.env.get("POSTHOG_HOST") ?? "https://us.i.posthog.com";
+  defaultPosthogKey;
+const posthogHost = Deno.env.get("POSTHOG_HOST") ?? defaultPosthogHost;
 
 export const captureServerEvent = (
   distinctId: string,

@@ -14,7 +14,11 @@ import {
 } from "./anomaly.ts";
 import { lookupProjectById, lookupProjectByToken } from "./db.ts";
 import { sendAdminNotification, sendAnomalyAlerts } from "./email.ts";
-import { captureServerEvent } from "./analytics.ts";
+import {
+  captureServerEvent,
+  defaultPosthogHost,
+  defaultPosthogKey,
+} from "./analytics.ts";
 import { initTursoSchema } from "./turso.ts";
 import { sendWebhook } from "./webhook.ts";
 
@@ -127,6 +131,10 @@ const corsHeaders = {
 };
 
 const instantdbAppId = Deno.env.get("INSTANTDB_APP_ID") ?? "";
+const posthogKey = Deno.env.get("POSTHOG_API_KEY") ??
+  Deno.env.get("POSTHOG_KEY") ??
+  defaultPosthogKey;
+const posthogHost = Deno.env.get("POSTHOG_HOST") ?? defaultPosthogHost;
 
 const readWebFile = (name: string) =>
   Deno.readTextFile(new URL(`../web/${name}`, import.meta.url));
@@ -167,7 +175,13 @@ const getHtmlByPath = async () => {
 };
 
 const handleGet = async (url: URL) => {
-  if (url.pathname === "/config") return jsonResponse({ instantdbAppId });
+  if (url.pathname === "/config") {
+    return jsonResponse({
+      instantdbAppId,
+      posthogKey,
+      posthogHost,
+    });
+  }
   const htmlByPath = await getHtmlByPath();
   const { landingHtml } = await getHtml();
   return htmlResponse(

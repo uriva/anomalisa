@@ -220,11 +220,16 @@ export const renderFeedbackHtml = (
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Feedback Not Found — Anomalisa</title>
   <style>
+    *, *::before, *::after { box-sizing: border-box; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #e0e0e0; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem; }
     .card { background: #141414; border: 1px solid #222; border-radius: 8px; max-width: 480px; width: 100%; padding: 2rem; text-align: center; }
     h1 { font-size: 1.25rem; color: #fff; margin-bottom: 0.5rem; }
     p { color: #888; font-size: 0.9rem; }
     a { color: #7eb8ff; text-decoration: none; }
+    @media (max-width: 480px) {
+      body { padding: 0.75rem; }
+      .card { padding: 1.25rem 1rem; }
+    }
   </style>
 </head>
 <body>
@@ -255,18 +260,19 @@ export const renderFeedbackHtml = (
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Alert Feedback — Anomalisa</title>
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #e0e0e0; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem; box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #e0e0e0; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem; }
     .card { background: #141414; border: 1px solid #222; border-radius: 12px; max-width: 480px; width: 100%; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-    h1 { font-size: 1.2rem; color: #fff; margin-bottom: 0.25rem; }
+    h1 { font-size: 1.2rem; color: #fff; margin-bottom: 0.25rem; word-break: break-word; }
     .subtitle { font-size: 0.85rem; color: #71717a; margin-bottom: 1.5rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
-    .status-badge { display: inline-block; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; font-size: 0.95rem; margin-bottom: 1.5rem; background: ${statusBg}; color: ${statusColor}; border: 1px solid ${statusBorder}; }
+    .status-badge { display: inline-block; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; font-size: 0.95rem; margin-bottom: 1.5rem; background: ${statusBg}; color: ${statusColor}; border: 1px solid ${statusBorder}; max-width: 100%; }
     .details { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; text-align: left; }
-    .detail-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 0.3rem 0; border-bottom: 1px solid #222; }
+    .detail-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 0.3rem 0; border-bottom: 1px solid #222; gap: 0.5rem; }
     .detail-row:last-child { border-bottom: none; }
-    .label { color: #888; }
-    .val { color: #eee; font-family: monospace; }
+    .label { color: #888; flex-shrink: 0; }
+    .val { color: #eee; font-family: monospace; word-break: break-all; }
     .actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
-    .btn { flex: 1; padding: 0.6rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-align: center; text-decoration: none; cursor: pointer; transition: all 0.15s; }
+    .btn { flex: 1; padding: 0.6rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-align: center; text-decoration: none; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
     .btn-good { background: ${isGood ? "#047857" : "#1a2e22"}; color: ${isGood ? "#ffffff" : "#34d399"}; border: 1px solid ${isGood ? "#059669" : "#065f46"}; }
     .btn-good:hover { background: #047857; color: #fff; }
     .btn-bad { background: ${isBad ? "#b91c1c" : "#2f1b1b"}; color: ${isBad ? "#ffffff" : "#f87171"}; border: 1px solid ${isBad ? "#dc2626" : "#7f1d1d"}; }
@@ -274,6 +280,13 @@ export const renderFeedbackHtml = (
     .note { margin-top: 1.5rem; font-size: 0.8rem; color: #71717a; text-align: center; line-height: 1.4; }
     .home-link { display: inline-block; margin-top: 1.25rem; font-size: 0.85rem; color: #7eb8ff; text-decoration: none; }
     .home-link:hover { text-decoration: underline; }
+    @media (max-width: 480px) {
+      body { padding: 0.75rem; }
+      .card { padding: 1.25rem 1rem; border-radius: 8px; }
+      .actions { gap: 0.5rem; }
+      .btn { padding: 0.65rem 0.5rem; font-size: 0.8rem; }
+      .status-badge { font-size: 0.85rem; padding: 0.4rem 0.75rem; }
+    }
   </style>
 </head>
 <body>

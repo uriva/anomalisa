@@ -112,6 +112,7 @@ Deno.test("getBadAlertsForTesting retrieves false positives with snapshots", asy
 Deno.test("renderFeedbackHtml renders not-found page for missing record", () => {
   const html = renderFeedbackHtml(null, null);
   assertStringIncludes(html, "Feedback Link Not Found");
+  assertStringIncludes(html, "box-sizing: border-box");
 });
 
 Deno.test("renderFeedbackHtml renders action buttons and active status", () => {

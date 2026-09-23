@@ -363,6 +363,21 @@ Deno.test("anomaliesHtml renders feedback buttons when tokens provided", () => {
   assertStringIncludes(html, "/feedback?token=tok-abc&vote=bad");
 });
 
+Deno.test("anomaliesHtml includes mobile-responsive feedback bar styles", () => {
+  const tokens = { "login|2026-04-06T23": "tok-abc" };
+  const html = anomaliesHtml(
+    "myapp",
+    [singleAnomaly],
+    undefined,
+    undefined,
+    tokens,
+  );
+  assertStringIncludes(html, ".feedback-row");
+  assertStringIncludes(html, ".feedback-label");
+  assertStringIncludes(html, ".feedback-actions");
+  assertStringIncludes(html, "class=\"feedback-table\"");
+});
+
 Deno.test("anomaliesText renders feedback links when tokens provided", () => {
   const tokens = { "login|2026-04-06T23": "tok-abc" };
   const text = anomaliesText(

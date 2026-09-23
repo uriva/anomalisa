@@ -199,18 +199,18 @@ const formatFeedbackBar = (token?: string) =>
   token
     ? `
       <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #f1f5f9;">
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr>
-            <td style="padding: 0; vertical-align: middle; font-size: 12px; color: #64748b; font-weight: 500;">
+        <table class="feedback-table" style="width: 100%; border-collapse: collapse;">
+          <tr class="feedback-row">
+            <td class="feedback-label" style="padding: 0; vertical-align: middle; font-size: 12px; color: #64748b; font-weight: 500;">
               Was this alert helpful?
             </td>
-            <td style="padding: 0; vertical-align: middle; text-align: right;">
-              <a href="${
+            <td class="feedback-actions" style="padding: 0; vertical-align: middle; text-align: right; white-space: nowrap;">
+              <a class="feedback-btn feedback-btn-good" href="${
       feedbackUrl(token, "good")
-    }" style="display: inline-block; padding: 5px 12px; font-size: 12px; font-weight: 600; color: #047857; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; text-decoration: none; margin-right: 6px;">Good alert</a>
-              <a href="${
+    }" style="display: inline-block; padding: 5px 12px; font-size: 12px; font-weight: 600; line-height: 1.4; color: #047857; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; text-decoration: none; margin-right: 6px; white-space: nowrap; vertical-align: middle; box-sizing: border-box;">Good alert</a>
+              <a class="feedback-btn feedback-btn-bad" href="${
       feedbackUrl(token, "bad")
-    }" style="display: inline-block; padding: 5px 12px; font-size: 12px; font-weight: 600; color: #b91c1c; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; text-decoration: none;">Bad alert</a>
+    }" style="display: inline-block; padding: 5px 12px; font-size: 12px; font-weight: 600; line-height: 1.4; color: #b91c1c; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; text-decoration: none; white-space: nowrap; vertical-align: middle; box-sizing: border-box;">Bad alert</a>
             </td>
           </tr>
         </table>
@@ -299,6 +299,26 @@ export const anomaliesHtml = (
         }
         .sparkline {
           font-size: 11px !important;
+        }
+        .feedback-row {
+          display: block !important;
+        }
+        .feedback-label {
+          display: block !important;
+          width: 100% !important;
+          padding-bottom: 8px !important;
+          text-align: left !important;
+        }
+        .feedback-actions {
+          display: block !important;
+          width: 100% !important;
+          text-align: left !important;
+          white-space: nowrap !important;
+        }
+        .feedback-btn {
+          display: inline-block !important;
+          text-align: center !important;
+          vertical-align: middle !important;
         }
       }
     </style>

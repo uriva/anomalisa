@@ -21,6 +21,7 @@ import {
 } from "./analytics.ts";
 import { initTursoSchema } from "./turso.ts";
 import { sendWebhook } from "./webhook.ts";
+import { handleFeedback } from "./feedback.ts";
 
 const resolveProject = async (token: string) => {
   const project = await lookupProjectByToken(token);
@@ -181,6 +182,19 @@ const handleGet = async (url: URL) => {
       posthogKey,
       posthogHost,
     });
+  }
+  if (url.pathname === "/feedback") {
+    const { html, status } = await handleFeedback(
+      url,
+      (projectId, eventName, bucket, vote) =>
+        captureServerEvent(projectId, "alert_feedback", {
+          projectId,
+          eventName,
+          bucket,
+          rating: vote,
+        }),
+    );
+    return htmlResponse(html, status);
   }
   const htmlByPath = await getHtmlByPath();
   const { landingHtml } = await getHtml();

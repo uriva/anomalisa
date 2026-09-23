@@ -1,5 +1,10 @@
 import { anomalyDirection } from "./anomaly.ts";
 import type { Anomaly } from "./anomaly.ts";
+import {
+  createAlertFeedbackTokens,
+  feedbackUrl,
+  groupByEventBucket,
+} from "./feedback.ts";
 import { getTurso } from "./turso.ts";
 
 type BucketCount = { bucket: string; count: number };
@@ -190,18 +195,36 @@ const labelsHtml = (a: Anomaly) => {
     </div>`;
 };
 
-const groupByEventBucket = (anomalies: Anomaly[]) => {
-  const map: Record<string, Anomaly[]> = {};
-  for (const a of anomalies) {
-    const key = `${a.eventName}|${a.bucket}`;
-    (map[key] ??= []).push(a);
-  }
-  return Object.values(map);
-};
+const formatFeedbackBar = (token?: string) =>
+  token
+    ? `
+      <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #f1f5f9;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 0; vertical-align: middle; font-size: 12px; color: #64748b; font-weight: 500;">
+              Was this alert helpful?
+            </td>
+            <td style="padding: 0; vertical-align: middle; text-align: right;">
+              <a href="${
+      feedbackUrl(token, "good")
+    }" style="display: inline-block; padding: 5px 12px; font-size: 12px; font-weight: 600; color: #047857; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; text-decoration: none; margin-right: 6px;">Good alert</a>
+              <a href="${
+      feedbackUrl(token, "bad")
+    }" style="display: inline-block; padding: 5px 12px; font-size: 12px; font-weight: 600; color: #b91c1c; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; text-decoration: none;">Bad alert</a>
+            </td>
+          </tr>
+        </table>
+      </div>`
+    : "";
 
 const formatEventCard =
-  (sparklines: Record<string, string>) => (groups: Anomaly[]) => {
+  (
+    sparklines: Record<string, string>,
+    feedbackTokens?: Record<string, string>,
+  ) =>
+  (groups: Anomaly[]) => {
     const a = groups[0];
+    const token = feedbackTokens?.[`${a.eventName}|${a.bucket}`];
     const sparklineMarkup = sparklines[a.eventName]
       ? `
     <div style="margin-top: 6px; word-break: break-all; overflow-wrap: break-word;">
@@ -244,6 +267,7 @@ const formatEventCard =
           ${groups.map(labelsHtml).join("")}
         </div>
       </div>
+      ${formatFeedbackBar(token)}
     </div>`;
   };
 
@@ -252,6 +276,7 @@ export const anomaliesHtml = (
   anomalies: Anomaly[],
   counts?: EventCounts,
   maxUserCounts?: EventCounts,
+  feedbackTokens?: Record<string, string>,
 ) => {
   const sparklines = counts
     ? buildSparklines(anomalies, counts, maxUserCounts, sparkHtml)
@@ -293,7 +318,7 @@ export const anomaliesHtml = (
         
         <!-- Body -->
         <div class="email-body" style="padding: 24px; background-color: #ffffff;">
-          ${groups.map(formatEventCard(sparklines)).join("")}
+          ${groups.map(formatEventCard(sparklines, feedbackTokens)).join("")}
           
           <!-- Footer info -->
           <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #64748b; line-height: 1.5; text-align: left;">
@@ -340,24 +365,36 @@ const buildSparklines = (
 
 const eventText = (
   sparklines: Record<string, string>,
+  feedbackTokens?: Record<string, string>,
 ) =>
-(groups: Anomaly[]) =>
-  `  ${groups[0].eventName}${
-    sparklines[groups[0].eventName] ? ` ${sparklines[groups[0].eventName]}` : ""
-  } in ${formatBucket(groups[0].bucket)} — expected ${
-    groups[0].expected
-  }, got ${groups[0].actual}\n    ${groups.map(labels).join(", ")}`;
+(groups: Anomaly[]) => {
+  const primary = groups[0];
+  const token = feedbackTokens?.[`${primary.eventName}|${primary.bucket}`];
+  const feedbackLine = token
+    ? `\n    Helpful? Good: ${
+      feedbackUrl(token, "good")
+    } | Bad: ${feedbackUrl(token, "bad")}`
+    : "";
+  return `  ${primary.eventName}${
+    sparklines[primary.eventName] ? ` ${sparklines[primary.eventName]}` : ""
+  } in ${formatBucket(primary.bucket)} — expected ${
+    primary.expected
+  }, got ${primary.actual}\n    ${groups.map(labels).join(", ")}${feedbackLine}`;
+};
 
 export const anomaliesText = (
   anomalies: Anomaly[],
   counts?: EventCounts,
   maxUserCounts?: EventCounts,
+  feedbackTokens?: Record<string, string>,
 ) => {
   const sparklines = counts
     ? buildSparklines(anomalies, counts, maxUserCounts, sparkText)
     : {};
   const groups = groupByEventBucket(anomalies);
-  return `Anomalies:\n\n${groups.map(eventText(sparklines)).join("\n\n")}`;
+  return `Anomalies:\n\n${
+    groups.map(eventText(sparklines, feedbackTokens)).join("\n\n")
+  }`;
 };
 
 const subjectLine = (
@@ -388,11 +425,22 @@ export const sendAnomalyAlerts = async (
     );
     return;
   }
+  const feedbackTokens = await createAlertFeedbackTokens(
+    anomalies,
+    counts,
+    maxUserCounts,
+  ).catch(() => ({}));
   return sendEmail({
     to: toEmail,
     subject: batchSubject(projectName, anomalies),
-    html: anomaliesHtml(projectName, anomalies, counts, maxUserCounts),
-    text: anomaliesText(anomalies, counts, maxUserCounts),
+    html: anomaliesHtml(
+      projectName,
+      anomalies,
+      counts,
+      maxUserCounts,
+      feedbackTokens,
+    ),
+    text: anomaliesText(anomalies, counts, maxUserCounts, feedbackTokens),
   });
 };
 

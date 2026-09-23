@@ -92,4 +92,23 @@ export const initTursoSchema = () =>
       key TEXT PRIMARY KEY,
       created_at INTEGER NOT NULL
     );`,
+    `CREATE TABLE IF NOT EXISTS alert_feedback (
+      token TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      event_name TEXT NOT NULL,
+      bucket TEXT NOT NULL,
+      metric TEXT NOT NULL,
+      user_id TEXT NOT NULL DEFAULT "_",
+      expected REAL NOT NULL,
+      actual REAL NOT NULL,
+      z_score REAL NOT NULL,
+      anomalies_json TEXT NOT NULL,
+      history_json TEXT NOT NULL,
+      stats_json TEXT,
+      rating TEXT,
+      feedback_at INTEGER,
+      created_at INTEGER NOT NULL
+    );`,
+    `CREATE INDEX IF NOT EXISTS idx_alert_feedback_rating ON alert_feedback (rating);`,
+    `CREATE INDEX IF NOT EXISTS idx_alert_feedback_project ON alert_feedback (project_id);`,
   ], "write");

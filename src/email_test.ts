@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertStringIncludes } from "@std/assert";
 import type { Anomaly } from "./anomaly.ts";
 import {
   anomaliesHtml,
@@ -307,7 +307,12 @@ Deno.test("sendAdminNotification sends email to uri.valevski@gmail.com", async (
 Deno.test("sendAnomalyAlerts sends email via AgentMail", async () => {
   let capturedUrl = "";
   let capturedAuth = "";
-  const capturedBody: { to?: string[]; subject?: string } = {};
+  const capturedBody: {
+    to?: string[];
+    subject?: string;
+    html?: string;
+    text?: string;
+  } = {};
   const original = globalThis.fetch;
   const originalKey = Deno.env.get("AGENTMAIL_API_KEY");
   Deno.env.set("AGENTMAIL_API_KEY", "test-key");
@@ -331,9 +336,42 @@ Deno.test("sendAnomalyAlerts sends email via AgentMail", async () => {
     assertEquals(capturedAuth, "Bearer test-key");
     assertEquals(capturedBody.to, ["user@example.com"]);
     assertEquals(capturedBody.subject, "[myproject] Total Count: login");
+    assertStringIncludes(capturedBody.html ?? "", "Good alert");
+    assertStringIncludes(capturedBody.html ?? "", "Bad alert");
+    assertStringIncludes(capturedBody.html ?? "", "/feedback?token=");
+    assertStringIncludes(capturedBody.text ?? "", "/feedback?token=");
   } finally {
     globalThis.fetch = original;
     if (originalKey) Deno.env.set("AGENTMAIL_API_KEY", originalKey);
     else Deno.env.delete("AGENTMAIL_API_KEY");
   }
+});
+
+Deno.test("anomaliesHtml renders feedback buttons when tokens provided", () => {
+  const tokens = { "login|2026-04-06T23": "tok-abc" };
+  const html = anomaliesHtml(
+    "myapp",
+    [singleAnomaly],
+    undefined,
+    undefined,
+    tokens,
+  );
+  assertStringIncludes(html, "Was this alert helpful?");
+  assertStringIncludes(html, "Good alert");
+  assertStringIncludes(html, "Bad alert");
+  assertStringIncludes(html, "/feedback?token=tok-abc&vote=good");
+  assertStringIncludes(html, "/feedback?token=tok-abc&vote=bad");
+});
+
+Deno.test("anomaliesText renders feedback links when tokens provided", () => {
+  const tokens = { "login|2026-04-06T23": "tok-abc" };
+  const text = anomaliesText(
+    [singleAnomaly],
+    undefined,
+    undefined,
+    tokens,
+  );
+  assertStringIncludes(text, "Helpful? Good:");
+  assertStringIncludes(text, "/feedback?token=tok-abc&vote=good");
+  assertStringIncludes(text, "/feedback?token=tok-abc&vote=bad");
 });

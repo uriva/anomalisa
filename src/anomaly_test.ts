@@ -14,7 +14,6 @@ import {
   enqueueOutgoingAlerts,
   getTrendIndication,
   hoursBetween,
-  recordEvent,
   shouldSuppress,
   stdDev,
   updateStats,
@@ -1597,4 +1596,114 @@ Deno.test({
       "DELETE FROM cooldowns WHERE project_id = 'test-project-direction';",
     );
   },
+});
+
+Deno.test("detectBucketAnomalies — flags true positive error burst (find-scene Error Occurred: expected ~0.41, actual 5)", () => {
+  const globalStats = {
+    mean: 0.41,
+    m2: 55.16,
+    n: 50,
+    lastBucket: "2026-09-23T13",
+  };
+  const hourStats = emptyStats("2026-09-23T13");
+  const result = detectBucketAnomalies(
+    globalStats,
+    hourStats,
+    5,
+    0,
+    "2a5aeba9-a4a7-4349-80d0-801c9e65abbd",
+    "Error Occurred",
+  );
+  assertEquals(result.some((a) => a.actual === 5), true);
+});
+
+Deno.test("detectBucketAnomalies — suppresses overdispersed count when mean < 10 (History Summarized: expected ~9.5, actual 25)", () => {
+  const globalStats = {
+    mean: 6.49,
+    m2: 3089.64,
+    n: 50,
+    lastBucket: "2026-09-23T16",
+  };
+  const hourStats = {
+    mean: 9.52,
+    m2: 3300.0,
+    n: 24.84,
+    lastBucket: "2026-08-20T16",
+  };
+  const result = detectBucketAnomalies(
+    globalStats,
+    hourStats,
+    25,
+    0,
+    "4a16e04c-4ec3-433a-ac47-33ef613b89df",
+    "History Summarized",
+  );
+  assertEquals(result, []);
+});
+
+Deno.test("detectAnomaly — userSpike suppresses normal active conversation (expected 15.66, actual 58, z~3.0)", () => {
+  const perUserStats = {
+    mean: 15.66,
+    m2: 9740.03,
+    n: 50,
+    lastBucket: "2026-09-23T21",
+  };
+  const result = detectAnomaly(
+    perUserStats,
+    58,
+    "4a16e04c-4ec3-433a-ac47-33ef613b89df",
+    "Incoming Message",
+    "userSpike",
+    perUserStats.lastBucket,
+    "905435482879@c.us",
+  );
+  assertEquals(result, null);
+});
+
+Deno.test("detectBucketAnomalies — suppresses off-peak count that is normal under global daytime traffic (Model Latency: hour expected 98.53, actual 314, global mean 190.47, sd 104.22)", () => {
+  const globalStats = {
+    mean: 190.47,
+    m2: 532166.36,
+    n: 50,
+    lastBucket: "2026-09-23T23",
+  };
+  const hourStats = {
+    mean: 98.53,
+    m2: 95000.0,
+    n: 25.84,
+    lastBucket: "2026-08-20T23",
+  };
+  const result = detectBucketAnomalies(
+    globalStats,
+    hourStats,
+    314,
+    0,
+    "4a16e04c-4ec3-433a-ac47-33ef613b89df",
+    "Model Latency",
+  );
+  assertEquals(result, []);
+});
+
+Deno.test("detectBucketAnomalies — suppresses morning ramp-up that is normal under global daytime traffic (User Bot Received Chat: hour expected 60.88, actual 136, global mean 73.46, sd 47.97)", () => {
+  const globalStats = {
+    mean: 73.46,
+    m2: 112778.23,
+    n: 50,
+    lastBucket: "2026-09-25T09",
+  };
+  const hourStats = {
+    mean: 60.88,
+    m2: 17000.0,
+    n: 26.32,
+    lastBucket: "2026-08-20T09",
+  };
+  const result = detectBucketAnomalies(
+    globalStats,
+    hourStats,
+    136,
+    0,
+    "4a16e04c-4ec3-433a-ac47-33ef613b89df",
+    "User Bot Received Chat",
+  );
+  assertEquals(result, []);
 });

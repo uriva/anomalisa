@@ -49,6 +49,7 @@ const round2 = (x: number) => Math.round(x * 100) / 100;
 const minDataPoints = 3;
 const minColdStartCount = 5;
 const zScoreThreshold = 3;
+const userSpikeZScoreThreshold = 3.5;
 const percentageThreshold = 1.0;
 const minAbsoluteDiff = 3;
 const minPercentageDropMean = 30;
@@ -109,7 +110,8 @@ export const detectAnomaly = (
     : count !== stats.mean
     ? Infinity
     : 0;
-  return z > zScoreThreshold
+  return z >
+      (metric === "userSpike" ? userSpikeZScoreThreshold : zScoreThreshold)
     ? {
       projectId,
       eventName,
@@ -208,7 +210,7 @@ export const detectPoissonAnomaly = (
       metric: "totalCount",
     };
   }
-  if (stats.mean >= 10 && stdDev(stats) > Math.sqrt(stats.mean)) {
+  if (stdDev(stats) > Math.max(1, Math.sqrt(stats.mean))) {
     return detectAnomaly(
       stats,
       count,
@@ -335,6 +337,27 @@ export const detectSkippedHourAnomalies = (
     { stats, anomalies: [] },
   ).anomalies;
 
+const isGloballyElevated = (
+  globalStats: Stats,
+  count: number,
+  projectId: string,
+  eventName: string,
+  bucket: string,
+): boolean =>
+  globalStats.n < minDataPoints ||
+  detectPoissonAnomaly(globalStats, count, projectId, eventName, bucket) !==
+    null ||
+  detectPercentageSpike(globalStats, count, projectId, eventName, bucket) !==
+    null ||
+  detectAnomaly(
+      globalStats,
+      count,
+      projectId,
+      eventName,
+      "totalCount",
+      bucket,
+    ) !== null;
+
 export const detectBucketAnomalies = (
   stats: Stats,
   hourStats: Stats,
@@ -347,6 +370,14 @@ export const detectBucketAnomalies = (
   const statsWithZeros = updateStatsWithZeros(stats, skippedHours, decay);
   const hourHasData = hourStats.n >= minDataPoints;
   const bucket = stats.lastBucket;
+  const allowSpike = !hourHasData ||
+    isGloballyElevated(
+      statsWithZeros,
+      prevTotalCount,
+      projectId,
+      eventName,
+      bucket,
+    );
   return [
     ...detectSkippedHourAnomalies(
       stats,
@@ -355,28 +386,32 @@ export const detectBucketAnomalies = (
       eventName,
       decay,
     ),
-    detectPoissonAnomaly(
-      hourHasData ? hourStats : statsWithZeros,
-      prevTotalCount,
-      projectId,
-      eventName,
-      bucket,
-    ),
-    hourHasData
-      ? detectPercentageSpike(
-        hourStats,
+    allowSpike
+      ? detectPoissonAnomaly(
+        hourHasData ? hourStats : statsWithZeros,
         prevTotalCount,
         projectId,
         eventName,
         bucket,
       )
-      : detectPercentageSpike(
-        statsWithZeros,
-        prevTotalCount,
-        projectId,
-        eventName,
-        bucket,
-      ),
+      : null,
+    allowSpike
+      ? (hourHasData
+        ? detectPercentageSpike(
+          hourStats,
+          prevTotalCount,
+          projectId,
+          eventName,
+          bucket,
+        )
+        : detectPercentageSpike(
+          statsWithZeros,
+          prevTotalCount,
+          projectId,
+          eventName,
+          bucket,
+        ))
+      : null,
     detectPercentageDrop(
       hourStats,
       prevTotalCount,

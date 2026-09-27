@@ -1827,3 +1827,46 @@ Deno.test("detectBucketAnomalies — suppresses evening agent token dip within n
   );
   assertEquals(result, []);
 });
+
+Deno.test("detectBucketAnomalies — flags true positive rare error burst (Error: expected ~0.44, actual 6)", () => {
+  const globalStats = {
+    mean: 0.15,
+    m2: 37.22,
+    n: 50,
+    lastBucket: "2026-09-26T21",
+  };
+  const hourStats = {
+    mean: 0.44,
+    m2: 34.25,
+    n: 17.29,
+    lastBucket: "2026-08-20T21",
+  };
+  const result = detectBucketAnomalies(
+    globalStats,
+    hourStats,
+    6,
+    0,
+    "eda9c6f9-4413-4a85-aa30-c661c2c01759",
+    "Error",
+  );
+  assertEquals(result.some((a) => a.actual === 6), true);
+});
+
+Deno.test("detectAnomaly — flags true positive userSpike on error burst (Error: expected ~0.12, actual 5, z~11.2)", () => {
+  const perUserStats = {
+    mean: 0.12,
+    m2: 9.31,
+    n: 50,
+    lastBucket: "2026-09-26T23",
+  };
+  const result = detectAnomaly(
+    perUserStats,
+    5,
+    "4a16e04c-4ec3-433a-ac47-33ef613b89df",
+    "Error",
+    "userSpike",
+    "2026-09-26T23",
+    "120363411245590545@g.us",
+  );
+  assertEquals(result !== null && result.actual === 5, true);
+});

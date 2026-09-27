@@ -347,8 +347,25 @@ const isGloballyElevated = (
   globalStats.n < minDataPoints ||
   detectPoissonAnomaly(globalStats, count, projectId, eventName, bucket) !==
     null ||
-  detectPercentageSpike(globalStats, count, projectId, eventName, bucket) !==
-    null ||
+  detectAnomaly(
+      globalStats,
+      count,
+      projectId,
+      eventName,
+      "totalCount",
+      bucket,
+    ) !== null;
+
+const isGloballyDepressed = (
+  globalStats: Stats,
+  count: number,
+  projectId: string,
+  eventName: string,
+  bucket: string,
+): boolean =>
+  globalStats.n < minDataPoints ||
+  count === 0 ||
+  count <= globalStats.mean * 0.2 ||
   detectAnomaly(
       globalStats,
       count,
@@ -372,6 +389,14 @@ export const detectBucketAnomalies = (
   const bucket = stats.lastBucket;
   const allowSpike = !hourHasData ||
     isGloballyElevated(
+      statsWithZeros,
+      prevTotalCount,
+      projectId,
+      eventName,
+      bucket,
+    );
+  const allowDrop = !hourHasData ||
+    isGloballyDepressed(
       statsWithZeros,
       prevTotalCount,
       projectId,
@@ -412,13 +437,15 @@ export const detectBucketAnomalies = (
           bucket,
         ))
       : null,
-    detectPercentageDrop(
-      hourStats,
-      prevTotalCount,
-      projectId,
-      eventName,
-      bucket,
-    ),
+    allowDrop
+      ? detectPercentageDrop(
+        hourHasData ? hourStats : statsWithZeros,
+        prevTotalCount,
+        projectId,
+        eventName,
+        bucket,
+      )
+      : null,
   ].filter((a): a is Anomaly => a !== null);
 };
 

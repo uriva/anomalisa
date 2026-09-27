@@ -1707,3 +1707,123 @@ Deno.test("detectBucketAnomalies — suppresses morning ramp-up that is normal u
   );
   assertEquals(result, []);
 });
+
+Deno.test("detectBucketAnomalies — suppresses daytime chat surge consistent with global traffic (User Bot Received Chat: hour expected 73.89, actual 177, global mean 52.69, sd 47.57)", () => {
+  const globalStats = {
+    mean: 52.69,
+    m2: 110878.7,
+    n: 50,
+    lastBucket: "2026-09-27T10",
+  };
+  const hourStats = {
+    mean: 73.89,
+    m2: 31682.0,
+    n: 26.71,
+    lastBucket: "2026-08-20T10",
+  };
+  const result = detectBucketAnomalies(
+    globalStats,
+    hourStats,
+    177,
+    0,
+    "4a16e04c-4ec3-433a-ac47-33ef613b89df",
+    "User Bot Received Chat",
+  );
+  assertEquals(result, []);
+});
+
+Deno.test("detectBucketAnomalies — suppresses daytime incoming messages consistent with global traffic (Incoming Message: hour expected 73.58, actual 177, global mean 52.16, sd 47.19)", () => {
+  const globalStats = {
+    mean: 52.16,
+    m2: 109129.81,
+    n: 50,
+    lastBucket: "2026-09-27T10",
+  };
+  const hourStats = {
+    mean: 73.58,
+    m2: 32000.0,
+    n: 26.71,
+    lastBucket: "2026-08-20T10",
+  };
+  const result = detectBucketAnomalies(
+    globalStats,
+    hourStats,
+    177,
+    0,
+    "4a16e04c-4ec3-433a-ac47-33ef613b89df",
+    "Incoming Message",
+  );
+  assertEquals(result, []);
+});
+
+Deno.test("detectBucketAnomalies — suppresses daytime bot replies consistent with global traffic (Bot Reply: hour expected 52.34, actual 106, global mean 35.02, sd 28.16)", () => {
+  const globalStats = {
+    mean: 35.02,
+    m2: 38869.79,
+    n: 50,
+    lastBucket: "2026-09-27T10",
+  };
+  const hourStats = {
+    mean: 52.34,
+    m2: 11000.0,
+    n: 25.84,
+    lastBucket: "2026-08-20T10",
+  };
+  const result = detectBucketAnomalies(
+    globalStats,
+    hourStats,
+    106,
+    0,
+    "4a16e04c-4ec3-433a-ac47-33ef613b89df",
+    "Bot Reply",
+  );
+  assertEquals(result, []);
+});
+
+Deno.test("detectBucketAnomalies — suppresses evening agent run dip within normal noise (Agent Run: hour expected 81.69, actual 34, global mean 70.19, sd 33.80)", () => {
+  const globalStats = {
+    mean: 70.19,
+    m2: 55989.38,
+    n: 50,
+    lastBucket: "2026-09-25T18",
+  };
+  const hourStats = {
+    mean: 81.69,
+    m2: 45000.0,
+    n: 24.84,
+    lastBucket: "2026-08-20T18",
+  };
+  const result = detectBucketAnomalies(
+    globalStats,
+    hourStats,
+    34,
+    0,
+    "4a16e04c-4ec3-433a-ac47-33ef613b89df",
+    "Agent Run",
+  );
+  assertEquals(result, []);
+});
+
+Deno.test("detectBucketAnomalies — suppresses evening agent token dip within normal noise (Agent Token Usage: hour expected 80.02, actual 32, global mean 67.41, sd 32.51)", () => {
+  const globalStats = {
+    mean: 67.41,
+    m2: 51784.38,
+    n: 50,
+    lastBucket: "2026-09-25T18",
+  };
+  const hourStats = {
+    mean: 80.02,
+    m2: 43000.0,
+    n: 24.84,
+    lastBucket: "2026-08-20T18",
+  };
+  const result = detectBucketAnomalies(
+    globalStats,
+    hourStats,
+    32,
+    0,
+    "4a16e04c-4ec3-433a-ac47-33ef613b89df",
+    "Agent Token Usage",
+  );
+  assertEquals(result, []);
+});

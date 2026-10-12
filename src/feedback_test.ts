@@ -137,11 +137,17 @@ Deno.test("renderFeedbackHtml renders action buttons and active status", () => {
   const htmlGood = renderFeedbackHtml(fakeRecord, "good");
   assertStringIncludes(htmlGood, "Marked as Good alert");
   assertStringIncludes(htmlGood, "checkout_error");
-  assertStringIncludes(htmlGood, "Good alert");
-  assertStringIncludes(htmlGood, "Bad alert");
+  assertStringIncludes(htmlGood, "Switch to Bad alert");
+  assertEquals(htmlGood.includes('<a class="btn btn-good"'), false);
 
   const htmlBad = renderFeedbackHtml(fakeRecord, "bad");
   assertStringIncludes(htmlBad, "Marked as Bad alert");
+  assertStringIncludes(htmlBad, "Switch to Good alert");
+  assertEquals(htmlBad.includes('<a class="btn btn-bad"'), false);
+
+  const htmlUnrated = renderFeedbackHtml(fakeRecord, null);
+  assertStringIncludes(htmlUnrated, "Good alert");
+  assertStringIncludes(htmlUnrated, "Bad alert");
 });
 
 Deno.test("handleFeedback updates vote and returns confirmation page", async () => {

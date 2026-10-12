@@ -208,12 +208,108 @@ const appBaseUrl = () =>
 export const feedbackUrl = (token: string, rating: FeedbackRating) =>
   `${appBaseUrl()}/feedback?token=${encodeURIComponent(token)}&vote=${rating}`;
 
+const feedbackHeaderContent = (
+  rating: FeedbackRating | null,
+  eventName: string,
+) =>
+  rating === "good"
+    ? {
+      icon: "✓",
+      iconClass: "icon-good",
+      title: "Marked as Good alert",
+      desc: `Recorded as a helpful alert for <code>${eventName}</code>.`,
+    }
+    : rating === "bad"
+    ? {
+      icon: "✕",
+      iconClass: "icon-bad",
+      title: "Marked as Bad alert",
+      desc: `Recorded as a false alarm for <code>${eventName}</code>.`,
+    }
+    : {
+      icon: "⚡",
+      iconClass: "icon-neutral",
+      title: `Rate alert: ${eventName}`,
+      desc: "Was this anomaly alert helpful or a false alarm?",
+    };
+
+const renderFeedbackHeader = (
+  rating: FeedbackRating | null,
+  eventName: string,
+) => {
+  const { icon, iconClass, title, desc } = feedbackHeaderContent(
+    rating,
+    eventName,
+  );
+  return `
+    <div class="status-hero">
+      <div class="status-icon ${iconClass}">${icon}</div>
+      <h1>${title}</h1>
+      <p class="status-desc">${desc}</p>
+    </div>`;
+};
+
+const renderFeedbackActions = (
+  token: string,
+  rating: FeedbackRating | null,
+) =>
+  rating === "good"
+    ? `
+    <div class="confirmed-actions">
+      <a class="btn-primary" href="/app">Go to Dashboard</a>
+      <p class="switch-hint">Marked by mistake? <a class="switch-link" href="/feedback?token=${encodeURIComponent(token)}&vote=bad">Switch to Bad alert</a></p>
+    </div>`
+    : rating === "bad"
+    ? `
+    <div class="confirmed-actions">
+      <a class="btn-primary" href="/app">Go to Dashboard</a>
+      <p class="switch-hint">Marked by mistake? <a class="switch-link" href="/feedback?token=${encodeURIComponent(token)}&vote=good">Switch to Good alert</a></p>
+    </div>`
+    : `
+    <div class="actions">
+      <a class="btn btn-good" href="/feedback?token=${encodeURIComponent(token)}&vote=good">Good alert</a>
+      <a class="btn btn-bad" href="/feedback?token=${encodeURIComponent(token)}&vote=bad">Bad alert</a>
+    </div>
+    <div style="text-align: center; margin-top: 1rem;">
+      <a class="home-link" href="/app">Go to Dashboard</a>
+    </div>`;
+
+const renderDetailRow = (label: string, val: string | number) => `
+      <div class="detail-row">
+        <span class="label">${label}</span>
+        <span class="val">${val}</span>
+      </div>`;
+
+const renderDetails = ({
+  eventName,
+  bucket,
+  expected,
+  actual,
+  zScore,
+  metric,
+}: AlertFeedbackRecord) => `
+    <div class="details">
+      ${renderDetailRow("Event", eventName)}
+      ${renderDetailRow("Bucket (UTC)", bucket)}
+      ${renderDetailRow("Expected", expected)}
+      ${renderDetailRow("Actual", actual)}
+      ${renderDetailRow("Score (Z)", zScore)}
+      ${renderDetailRow("Metric", metric)}
+    </div>`;
+
+const feedbackPageTitle = (rating: FeedbackRating | null) =>
+  rating === "good"
+    ? "Marked as Good alert — Anomalisa"
+    : rating === "bad"
+    ? "Marked as Bad alert — Anomalisa"
+    : "Alert Feedback — Anomalisa";
+
 export const renderFeedbackHtml = (
   record: AlertFeedbackRecord | null,
   currentRating: FeedbackRating | null,
-): string => {
-  if (!record) {
-    return `<!DOCTYPE html>
+): string =>
+  !record
+    ? `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -239,108 +335,66 @@ export const renderFeedbackHtml = (
     <p style="margin-top: 1.5rem;"><a href="/app">Go to Anomalisa Dashboard</a></p>
   </div>
 </body>
-</html>`;
-  }
-
-  const isGood = currentRating === "good";
-  const isBad = currentRating === "bad";
-  const statusColor = isGood ? "#047857" : isBad ? "#b91c1c" : "#64748b";
-  const statusBg = isGood ? "#ecfdf5" : isBad ? "#fef2f2" : "#1a1a1a";
-  const statusBorder = isGood ? "#a7f3d0" : isBad ? "#fecaca" : "#333333";
-  const statusText = isGood
-    ? "Marked as Good alert (helpful)"
-    : isBad
-    ? "Marked as Bad alert (false alarm)"
-    : "No feedback recorded yet";
-
-  return `<!DOCTYPE html>
+</html>`
+    : `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Alert Feedback — Anomalisa</title>
+  <title>${feedbackPageTitle(currentRating)}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #e0e0e0; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem; }
-    .card { background: #141414; border: 1px solid #222; border-radius: 12px; max-width: 480px; width: 100%; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-    h1 { font-size: 1.2rem; color: #fff; margin-bottom: 0.25rem; word-break: break-word; }
-    .subtitle { font-size: 0.85rem; color: #71717a; margin-bottom: 1.5rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
-    .status-badge { display: inline-block; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; font-size: 0.95rem; margin-bottom: 1.5rem; background: ${statusBg}; color: ${statusColor}; border: 1px solid ${statusBorder}; max-width: 100%; }
-    .details { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; text-align: left; }
-    .detail-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 0.3rem 0; border-bottom: 1px solid #222; gap: 0.5rem; }
+    .card { background: #141414; border: 1px solid #222; border-radius: 12px; max-width: 480px; width: 100%; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.5); text-align: center; }
+    .brand { font-size: 0.75rem; color: #71717a; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; margin-bottom: 1.25rem; }
+    .status-hero { display: flex; flex-direction: column; align-items: center; margin-bottom: 1.5rem; }
+    .status-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.35rem; margin-bottom: 0.75rem; }
+    .icon-good { background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.35); }
+    .icon-bad { background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.35); }
+    .icon-neutral { background: rgba(113, 113, 122, 0.15); color: #a1a1aa; border: 1px solid rgba(113, 113, 122, 0.35); }
+    h1 { font-size: 1.25rem; color: #fff; margin: 0 0 0.35rem 0; font-weight: 600; word-break: break-word; }
+    .status-desc { font-size: 0.88rem; color: #a1a1aa; margin: 0; line-height: 1.4; }
+    code { font-family: monospace; background: #1f1f1f; color: #e4e4e7; padding: 0.15rem 0.35rem; border-radius: 4px; font-size: 0.85em; }
+    .details { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.5rem; text-align: left; }
+    .detail-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 0.35rem 0; border-bottom: 1px solid #222; gap: 0.5rem; }
     .detail-row:last-child { border-bottom: none; }
     .label { color: #888; flex-shrink: 0; }
     .val { color: #eee; font-family: monospace; word-break: break-all; }
+    .confirmed-actions { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem; }
+    .btn-primary { display: block; width: 100%; padding: 0.7rem 1rem; border-radius: 6px; font-size: 0.9rem; font-weight: 600; text-align: center; text-decoration: none; background: #27272a; color: #ffffff; border: 1px solid #3f3f46; transition: background 0.15s, border-color 0.15s; }
+    .btn-primary:hover { background: #3f3f46; border-color: #52525b; text-decoration: none; }
+    .switch-hint { margin: 0; font-size: 0.82rem; color: #71717a; }
+    .switch-link { color: #7eb8ff; text-decoration: none; font-weight: 500; }
+    .switch-link:hover { text-decoration: underline; }
     .actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
-    .btn { flex: 1; padding: 0.6rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-align: center; text-decoration: none; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
-    .btn-good { background: ${isGood ? "#047857" : "#1a2e22"}; color: ${isGood ? "#ffffff" : "#34d399"}; border: 1px solid ${isGood ? "#059669" : "#065f46"}; }
-    .btn-good:hover { background: #047857; color: #fff; }
-    .btn-bad { background: ${isBad ? "#b91c1c" : "#2f1b1b"}; color: ${isBad ? "#ffffff" : "#f87171"}; border: 1px solid ${isBad ? "#dc2626" : "#7f1d1d"}; }
-    .btn-bad:hover { background: #b91c1c; color: #fff; }
+    .btn { flex: 1; padding: 0.65rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; text-align: center; text-decoration: none; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+    .btn-good { background: #047857; color: #ffffff; border: 1px solid #059669; }
+    .btn-good:hover { background: #059669; }
+    .btn-bad { background: #b91c1c; color: #ffffff; border: 1px solid #dc2626; }
+    .btn-bad:hover { background: #dc2626; }
     .note { margin-top: 1.5rem; font-size: 0.8rem; color: #71717a; text-align: center; line-height: 1.4; }
-    .home-link { display: inline-block; margin-top: 1.25rem; font-size: 0.85rem; color: #7eb8ff; text-decoration: none; }
+    .home-link { display: inline-block; font-size: 0.85rem; color: #7eb8ff; text-decoration: none; }
     .home-link:hover { text-decoration: underline; }
     @media (max-width: 480px) {
       body { padding: 0.75rem; }
       .card { padding: 1.25rem 1rem; border-radius: 8px; }
       .actions { gap: 0.5rem; }
       .btn { padding: 0.65rem 0.5rem; font-size: 0.8rem; }
-      .status-badge { font-size: 0.85rem; padding: 0.4rem 0.75rem; }
     }
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="subtitle">Anomalisa Alert Feedback</div>
-    <h1>${record.eventName}</h1>
-    
-    <div style="margin: 1.25rem 0 0.5rem 0;">
-      <div class="status-badge">${statusText}</div>
-    </div>
-
-    <div class="details">
-      <div class="detail-row">
-        <span class="label">Event</span>
-        <span class="val">${record.eventName}</span>
-      </div>
-      <div class="detail-row">
-        <span class="label">Bucket (UTC)</span>
-        <span class="val">${record.bucket}</span>
-      </div>
-      <div class="detail-row">
-        <span class="label">Expected</span>
-        <span class="val">${record.expected}</span>
-      </div>
-      <div class="detail-row">
-        <span class="label">Actual</span>
-        <span class="val">${record.actual}</span>
-      </div>
-      <div class="detail-row">
-        <span class="label">Score (Z)</span>
-        <span class="val">${record.zScore}</span>
-      </div>
-      <div class="detail-row">
-        <span class="label">Metric</span>
-        <span class="val">${record.metric}</span>
-      </div>
-    </div>
-
-    <div class="actions">
-      <a class="btn btn-good" href="/feedback?token=${encodeURIComponent(record.token)}&vote=good">Good alert</a>
-      <a class="btn btn-bad" href="/feedback?token=${encodeURIComponent(record.token)}&vote=bad">Bad alert</a>
-    </div>
-
+    <div class="brand">Anomalisa Alert Feedback</div>
+    ${renderFeedbackHeader(currentRating, record.eventName)}
+    ${renderDetails(record)}
+    ${renderFeedbackActions(record.token, currentRating)}
     <div class="note">
       Your rating is permanently saved and used to tune detection models and build regression test suites.
-    </div>
-
-    <div style="text-align: center;">
-      <a class="home-link" href="/app">Go to Dashboard</a>
     </div>
   </div>
 </body>
 </html>`;
-};
 
 export const handleFeedback = async (
   url: URL,

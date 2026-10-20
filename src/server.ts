@@ -23,6 +23,7 @@ import { initTursoSchema } from "./turso.ts";
 import { sendWebhook } from "./webhook.ts";
 import { handleFeedback } from "./feedback.ts";
 import { handleInvestigate } from "./investigate.ts";
+import { ogImageResponse } from "./og.ts";
 
 const resolveProject = async (token: string) => {
   const project = await lookupProjectByToken(token);
@@ -182,6 +183,7 @@ const getHtmlByPath = async () => {
 };
 
 const handleGet = async (url: URL) => {
+  if (url.pathname === "/og.png") return await ogImageResponse();
   if (url.pathname === "/config") {
     return jsonResponse({
       instantdbAppId,

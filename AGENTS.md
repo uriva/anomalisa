@@ -103,7 +103,13 @@ in InstantDB.
 
 ## Email
 
-AgentMail from `anomalisa@theagentmail.net`. API key is env var `AGENTMAIL_API_KEY` in `.env`.
+AgentMail from `anomalisa@theagentmail.net`. API key is env var
+`AGENTMAIL_API_KEY` in `.env`.
+
+Each alert includes feedback links and an agent handoff link. Email clients
+cannot run copy-to-clipboard JavaScript, so the handoff link opens
+`/investigate`, which shows a one-click copy button for a ready-to-paste
+investigation prompt.
 
 ## Web
 
@@ -112,6 +118,8 @@ Three static HTML pages served by `src/server.ts`:
 - `/` — landing page (`web/index.html`)
 - `/app` — dashboard with auth, project CRUD, anomaly viewer (`web/app.html`)
 - `/docs` — SDK documentation (`web/docs.html`)
+- `/feedback` — alert feedback page (`src/feedback.ts`)
+- `/investigate` — copy-for-agent alert details page (`src/investigate.ts`)
 - `/config` — returns `{ instantdbAppId }` as JSON
 
 The app uses InstantDB client SDK from CDN for auth (magic codes) and project
@@ -119,19 +127,21 @@ management.
 
 ## Key Files
 
-| File                | Purpose                                   |
-| ------------------- | ----------------------------------------- |
-| `mod.ts`            | Client SDK (sendEvent, getAnomalies)      |
-| `src/api.ts`        | Zod-validated API definition              |
-| `src/server.ts`     | HTTP server, auth, routing, web serving   |
-| `src/turso.ts`      | Turso database client and schema setup    |
-| `src/anomaly.ts`    | Anomaly detection engine and stats storage|
-| `src/db.ts`         | InstantDB admin client, token lookup      |
-| `src/email.ts`      | AgentMail client for anomaly alerts       |
-| `instant.schema.ts` | InstantDB schema (projects, users, links) |
-| `web/index.html`    | Landing page                              |
-| `web/app.html`      | Dashboard app (auth, projects, anomalies) |
-| `web/docs.html`     | SDK documentation                         |
+| File                 | Purpose                                    |
+| -------------------- | ------------------------------------------ |
+| `mod.ts`             | Client SDK (sendEvent, getAnomalies)       |
+| `src/api.ts`         | Zod-validated API definition               |
+| `src/server.ts`      | HTTP server, auth, routing, web serving    |
+| `src/turso.ts`       | Turso database client and schema setup     |
+| `src/anomaly.ts`     | Anomaly detection engine and stats storage |
+| `src/db.ts`          | InstantDB admin client, token lookup       |
+| `src/email.ts`       | AgentMail client for anomaly alerts        |
+| `src/investigate.ts` | Copy-for-agent prompt page                 |
+| `src/page.ts`        | Shared HTML page shell and escaping        |
+| `instant.schema.ts`  | InstantDB schema (projects, users, links)  |
+| `web/index.html`     | Landing page                               |
+| `web/app.html`       | Dashboard app (auth, projects, anomalies)  |
+| `web/docs.html`      | SDK documentation                          |
 
 ## Env Vars (in .env, gitignored)
 

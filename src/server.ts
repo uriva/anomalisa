@@ -22,12 +22,18 @@ import {
 import { initTursoSchema } from "./turso.ts";
 import { sendWebhook } from "./webhook.ts";
 import { handleFeedback } from "./feedback.ts";
+import { handleInvestigate } from "./investigate.ts";
 
 const resolveProject = async (token: string) => {
   const project = await lookupProjectByToken(token);
   if (!project) throw new Error("Invalid token");
   return project;
 };
+
+const lookupProjectName = (projectId: string) =>
+  lookupProjectById(projectId)
+    .then((project) => project?.name ?? "")
+    .catch(() => "");
 
 const logError = (label: string) => (err: unknown) =>
   console.error(`Failed to ${label}:`, err);
@@ -194,6 +200,10 @@ const handleGet = async (url: URL) => {
           rating: vote,
         }),
     );
+    return htmlResponse(html, status);
+  }
+  if (url.pathname === "/investigate") {
+    const { html, status } = await handleInvestigate(url, lookupProjectName);
     return htmlResponse(html, status);
   }
   const htmlByPath = await getHtmlByPath();

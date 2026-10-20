@@ -339,7 +339,10 @@ Deno.test("sendAnomalyAlerts sends email via AgentMail", async () => {
     assertStringIncludes(capturedBody.html ?? "", "Good alert");
     assertStringIncludes(capturedBody.html ?? "", "Bad alert");
     assertStringIncludes(capturedBody.html ?? "", "/feedback?token=");
+    assertStringIncludes(capturedBody.html ?? "", "Copy text for agent");
+    assertStringIncludes(capturedBody.html ?? "", "/investigate?token=");
     assertStringIncludes(capturedBody.text ?? "", "/feedback?token=");
+    assertStringIncludes(capturedBody.text ?? "", "/investigate?token=");
   } finally {
     globalThis.fetch = original;
     if (originalKey) Deno.env.set("AGENTMAIL_API_KEY", originalKey);
@@ -361,6 +364,20 @@ Deno.test("anomaliesHtml renders feedback buttons when tokens provided", () => {
   assertStringIncludes(html, "Bad alert");
   assertStringIncludes(html, "/feedback?token=tok-abc&vote=good");
   assertStringIncludes(html, "/feedback?token=tok-abc&vote=bad");
+});
+
+Deno.test("anomaliesHtml renders copy-for-agent link when tokens provided", () => {
+  const tokens = { "login|2026-04-06T23": "tok-abc" };
+  const html = anomaliesHtml(
+    "myapp",
+    [singleAnomaly],
+    undefined,
+    undefined,
+    tokens,
+  );
+  assertStringIncludes(html, "Investigate with your agent");
+  assertStringIncludes(html, "Copy text for agent");
+  assertStringIncludes(html, "/investigate?token=tok-abc");
 });
 
 Deno.test("anomaliesHtml includes mobile-responsive feedback bar styles", () => {
@@ -389,4 +406,16 @@ Deno.test("anomaliesText renders feedback links when tokens provided", () => {
   assertStringIncludes(text, "Helpful? Good:");
   assertStringIncludes(text, "/feedback?token=tok-abc&vote=good");
   assertStringIncludes(text, "/feedback?token=tok-abc&vote=bad");
+});
+
+Deno.test("anomaliesText renders copy-for-agent link when tokens provided", () => {
+  const tokens = { "login|2026-04-06T23": "tok-abc" };
+  const text = anomaliesText(
+    [singleAnomaly],
+    undefined,
+    undefined,
+    tokens,
+  );
+  assertStringIncludes(text, "Copy text for agent:");
+  assertStringIncludes(text, "/investigate?token=tok-abc");
 });

@@ -4,6 +4,7 @@ import {
   createAlertFeedbackTokens,
   feedbackUrl,
   groupByEventBucket,
+  investigateUrl,
 } from "./feedback.ts";
 import { getTurso } from "./turso.ts";
 
@@ -154,7 +155,7 @@ export const formatBucket = (bucket: string) => {
   } ${d.getUTCDate()}, ${hourLabel(h)}–${hourLabel((h + 1) % 24)} UTC`;
 };
 
-const metricLabel = (metric: Anomaly["metric"]) =>
+export const metricLabel = (metric: Anomaly["metric"]) =>
   metric === "userSpike"
     ? "User Spike"
     : metric === "percentageSpike"
@@ -195,26 +196,51 @@ const labelsHtml = (a: Anomaly) => {
     </div>`;
 };
 
-const formatFeedbackBar = (token?: string) =>
-  token
-    ? `
+const feedbackBtnStyle =
+  "display: inline-block; padding: 5px 12px; font-size: 12px; font-weight: 600; line-height: 1.4; border-radius: 6px; text-decoration: none; white-space: nowrap; vertical-align: middle; box-sizing: border-box;";
+
+const feedbackActionButton = (
+  token: string,
+  rating: "good" | "bad",
+  label: string,
+) => `<a class="feedback-btn feedback-btn-${rating}" href="${
+  feedbackUrl(token, rating)
+}" style="${feedbackBtnStyle} ${
+  rating === "good"
+    ? "color: #047857; background-color: #ecfdf5; border: 1px solid #a7f3d0; margin-right: 6px;"
+    : "color: #b91c1c; background-color: #fef2f2; border: 1px solid #fecaca;"
+}">${label}</a>`;
+
+const agentActionButton = (token: string) =>
+  `<a class="feedback-btn feedback-btn-agent" href="${
+    investigateUrl(token)
+  }" style="${feedbackBtnStyle} color: #1d4ed8; background-color: #eff6ff; border: 1px solid #bfdbfe;">Copy text for agent</a>`;
+
+const formatActionBar = (label: string, actions: string) => `
       <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #f1f5f9;">
         <table class="feedback-table" style="width: 100%; border-collapse: collapse;">
           <tr class="feedback-row">
-            <td class="feedback-label" style="padding: 0; vertical-align: middle; font-size: 12px; color: #64748b; font-weight: 500;">
-              Was this alert helpful?
-            </td>
-            <td class="feedback-actions" style="padding: 0; vertical-align: middle; text-align: right; white-space: nowrap;">
-              <a class="feedback-btn feedback-btn-good" href="${
-      feedbackUrl(token, "good")
-    }" style="display: inline-block; padding: 5px 12px; font-size: 12px; font-weight: 600; line-height: 1.4; color: #047857; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; text-decoration: none; margin-right: 6px; white-space: nowrap; vertical-align: middle; box-sizing: border-box;">Good alert</a>
-              <a class="feedback-btn feedback-btn-bad" href="${
-      feedbackUrl(token, "bad")
-    }" style="display: inline-block; padding: 5px 12px; font-size: 12px; font-weight: 600; line-height: 1.4; color: #b91c1c; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; text-decoration: none; white-space: nowrap; vertical-align: middle; box-sizing: border-box;">Bad alert</a>
-            </td>
+            <td class="feedback-label" style="padding: 0; vertical-align: middle; font-size: 12px; color: #64748b; font-weight: 500;">${label}</td>
+            <td class="feedback-actions" style="padding: 0; vertical-align: middle; text-align: right; white-space: nowrap;">${actions}</td>
           </tr>
         </table>
-      </div>`
+      </div>`;
+
+const formatFeedbackBar = (token?: string) =>
+  token
+    ? formatActionBar(
+      "Was this alert helpful?",
+      feedbackActionButton(token, "good", "Good alert") +
+        feedbackActionButton(token, "bad", "Bad alert"),
+    )
+    : "";
+
+const formatAgentBar = (token?: string) =>
+  token
+    ? formatActionBar(
+      "Investigate with your agent",
+      agentActionButton(token),
+    )
     : "";
 
 const formatEventCard =
@@ -268,6 +294,7 @@ const formatEventCard =
         </div>
       </div>
       ${formatFeedbackBar(token)}
+      ${formatAgentBar(token)}
     </div>`;
   };
 
@@ -395,11 +422,14 @@ const eventText = (
       feedbackUrl(token, "good")
     } | Bad: ${feedbackUrl(token, "bad")}`
     : "";
+  const agentLine = token
+    ? `\n    Copy text for agent: ${investigateUrl(token)}`
+    : "";
   return `  ${primary.eventName}${
     sparklines[primary.eventName] ? ` ${sparklines[primary.eventName]}` : ""
   } in ${formatBucket(primary.bucket)} — expected ${
     primary.expected
-  }, got ${primary.actual}\n    ${groups.map(labels).join(", ")}${feedbackLine}`;
+  }, got ${primary.actual}\n    ${groups.map(labels).join(", ")}${feedbackLine}${agentLine}`;
 };
 
 export const anomaliesText = (

@@ -1,152 +1,48 @@
 # Anomalisa
 
-## Code Style
+## Code Style & Testing
 
-Avoid commenting unless necessary. No jsdoc. Typings and variable names should
-do the documenting.
+- Minimal comments and no JSDoc; rely on types and variable names.
+- Functional style with `gamla` (`pipe`, `map`, `filter`, `reduce`, `each`,
+  `empty`, `nonempty`). Avoid `for`/`while` loops, classes, and `let`.
+- Avoid `as`, `any`, `unknown`, non-null assertions (`!`), `@ts-ignore`, and
+  `@ts-expect-error`. Trust strict types; no defensive programming.
+- Use arrow functions (without braces when possible), destructure in signatures,
+  prefer ternaries over `if/else` returns, and inline single-use variables.
+- Keep functions at the module level (use currying instead of default parameter
+  values or nested functions). Do not enlarge existing functions when adding
+  logic.
+- Static imports at top of file; `export const` instead of `export default`
+  (except `instant.schema.ts`).
+- Avoid `try`/`catch` unless necessary, and never duplicate constants or string
+  literals.
+- **Always write a failing test before fixing a quality issue.**
+- **Threshold tuning:** Compute actual stats (mean, stdDev, z-score) from real
+  production data before choosing detection thresholds — never eyeball numbers.
 
-Prefer functional programming, use gamla functions when applicable. Prefer point
-free pipelines using gamla `pipe` if applicable over chaining dot notation or
-reassigning.
+## Deno & Deployment
 
-Constant naming should be in normal case, e.g. `const myConstant = 1;`
+- Dependencies live in `deno.json` (no `package.json`).
+- Deployed to Deno Deploy (`https://anomalisa.uriva.deno.net`) and published to
+  JSR (`@uri/anomalisa`) automatically on push to `main` (bump `version` in
+  `deno.json` to publish a new JSR version).
 
-Avoid `let`, prefer `const`.
+## Architecture
 
-Avoid `as`, `any`, `unknown`, null asserting operator (`!`) and @ts-ignore or
-@ts-expect-error.
-
-Use arrow functions instead of the `function` keyword. Prefer arrow functions
-without braces if possible.
-
-Avoid nesting functions, prefer putting in the module level, possible with
-currying.
-
-Factor out logic, preferrable to module level functions. When adding logic,
-function bodies typically should not enlarge. New logic can be encapsulated in a
-new function.
-
-Avoid dynamic imports, use static imports instead.
-
-Place imports at the top of the file.
-
-Don't use `export default`, prefer `export const` (exception: instant.schema.ts
-which requires default export for the CLI).
-
-Avoid default values for parameters. If something is recurring use currying or a
-constant instead.
-
-Avoid using `try`/`catch` unless necessary.
-
-Avoid for loops, while loops, and classes. Use gamla's `map`, `filter`, `reduce`
-and so on, or `each` if you need just to cause side effects per item.
-
-Avoid duplication when adding new logic, or copying existing patterns.
-Especially avoid duplicating constants or string literals.
-
-Prefer destructuring in function signature, especially over one letter
-variables.
-
-Prefer ternary over `if (x) { return y; } else { return z; };`.
-
-Prefer `empty` and `nonempty` from gamla over `array.length === 0` or similar.
-
-If a type is inferrable from the function, prefer not to annotate it.
-
-Variables that are used only once should be inlined. If their RHS is too large
-to inline, make them a function.
-
-No defensive programming, assume inputs are correct unless there is a good
-reason not to. Prefer typing inputs strictly.
-
-Never fix a quality issue without a failing test first.
-
-When tuning detection thresholds, compute the actual stats (mean, stdDev,
-z-score) from real production data before picking a number. Eyeballing leads to
-thresholds that don't suppress the case you set out to fix.
-
-# Deno stuff
-
-This is a deno project. Deps are in deno.json, there is no package.json.
-
-Deployed to Deno Deploy at `https://anomalisa.uriva.deno.net`. Published to JSR
-as `@uri/anomalisa`.
-
-To deploy a new version, update the version in deno.json and push to main.
-
-# Architecture
-
-## Overview
-
-Anomalisa is an event-tracking service with anomaly detection. Users send events
-via the client SDK, the server detects anomalies using hourly bucketing and
-Welford's online algorithm (z-score > 2), and sends email alerts via Forward
-Email.
-
-## API
-
-Uses `@uri/typed-api` (JSON-RPC style). Request body is `{ endpoint, payload }`.
-Two endpoints:
-
-- `sendEvent` — records an event, returns anomaly if detected
-- `getAnomalies` — returns all recorded anomalies for a project
-
-Both take `token` (not `projectId`) — the server looks up the project by token
-in InstantDB.
-
-## Database
-
-- **Turso (libSQL)** — event counts (hourly buckets), running stats
-  (mean/variance via Welford's), detected anomalies, cooldowns, rate limits
-- **InstantDB** — user accounts (magic code auth), projects (name + token),
-  project-owner links. Schema in `instant.schema.ts`.
-
-## Email
-
-AgentMail from `anomalisa@theagentmail.net`. API key is env var
-`AGENTMAIL_API_KEY` in `.env`.
-
-Each alert includes feedback links and an agent handoff link. Email clients
-cannot run copy-to-clipboard JavaScript, so the handoff link opens
-`/investigate`, which shows a one-click copy button for a ready-to-paste
-investigation prompt.
-
-## Web
-
-Three static HTML pages served by `src/server.ts`:
-
-- `/` — landing page (`web/index.html`)
-- `/app` — dashboard with auth, project CRUD, anomaly viewer (`web/app.html`)
-- `/docs` — SDK documentation (`web/docs.html`)
-- `/feedback` — alert feedback page (`src/feedback.ts`)
-- `/investigate` — copy-for-agent alert details page (`src/investigate.ts`)
-- `/config` — returns `{ instantdbAppId }` as JSON
-
-The app uses InstantDB client SDK from CDN for auth (magic codes) and project
-management.
-
-## Key Files
-
-| File                 | Purpose                                    |
-| -------------------- | ------------------------------------------ |
-| `mod.ts`             | Client SDK (sendEvent, getAnomalies)       |
-| `src/api.ts`         | Zod-validated API definition               |
-| `src/server.ts`      | HTTP server, auth, routing, web serving    |
-| `src/turso.ts`       | Turso database client and schema setup     |
-| `src/anomaly.ts`     | Anomaly detection engine and stats storage |
-| `src/db.ts`          | InstantDB admin client, token lookup       |
-| `src/email.ts`       | AgentMail client for anomaly alerts        |
-| `src/investigate.ts` | Copy-for-agent prompt page                 |
-| `src/page.ts`        | Shared HTML page shell and escaping        |
-| `instant.schema.ts`  | InstantDB schema (projects, users, links)  |
-| `web/index.html`     | Landing page                               |
-| `web/app.html`       | Dashboard app (auth, projects, anomalies)  |
-| `web/docs.html`      | SDK documentation                          |
-
-## Env Vars (in .env, gitignored)
-
-- `INSTANTDB_APP_ID` — InstantDB app identifier
-- `INSTANTDB_ADMIN_TOKEN` — InstantDB admin token
-- `AGENTMAIL_API_KEY` — AgentMail API key
-- `TURSO_DATABASE_URL` — Turso / libSQL database URL
-- `TURSO_AUTH_TOKEN` — Turso authentication token
+- **API (`src/api.ts`, `mod.ts`):** Uses `@uri/typed-api`
+  (`{ endpoint, payload }`) with `sendEvent` and `getAnomalies`, authenticated
+  via project `token`.
+- **Storage:**
+  - **Turso (`src/turso.ts`, `src/anomaly.ts`):** Hourly event count buckets,
+    Welford's online running stats (z-score > 2), detected anomalies, cooldowns,
+    rate limits.
+  - **InstantDB (`src/db.ts`, `instant.schema.ts`):** Users (magic code auth)
+    and projects (`name`, `token`).
+- **Email (`src/email.ts`):** Sends alerts via AgentMail
+  (`anomalisa@theagentmail.net`, `AGENTMAIL_API_KEY`) with `/feedback` and
+  `/investigate` links (`src/feedback.ts`, `src/investigate.ts`).
+- **Web (`src/server.ts`, `web/`):** Serves `/` (`web/index.html`), `/app`
+  (`web/app.html`), `/docs` (`web/docs.html`), `/feedback`, `/investigate`, and
+  `/config`.
+- **Required `.env` vars:** `INSTANTDB_APP_ID`, `INSTANTDB_ADMIN_TOKEN`,
+  `AGENTMAIL_API_KEY`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`.

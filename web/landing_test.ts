@@ -65,7 +65,7 @@ Deno.test("web/index.html contains developer quickstarts and SDK methods", async
   assertStringIncludes(html, "deno add jsr:@uri/anomalisa");
   assertStringIncludes(html, "pnpm dlx jsr add @uri/anomalisa");
   assertStringIncludes(html, "bunx jsr add @uri/anomalisa");
-  assertStringIncludes(html, "curl -X POST https://anomalisa.uriva.deno.net");
+  assertStringIncludes(html, "curl -X POST https://anomalisa.uriv.me");
 
   // SDK functions
   assertStringIncludes(html, "sendEvent");

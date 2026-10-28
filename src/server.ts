@@ -41,7 +41,7 @@ const logError = (label: string) => (err: unknown) =>
 
 const maxAlertAgeMs = 24 * 60 * 60 * 1000;
 
-const notifyAnomalies = (
+const notifyAnomalies = async (
   projectId: string,
   anomalies: Anomaly[],
 ) => {
@@ -55,7 +55,7 @@ const notifyAnomalies = (
     }
   });
   if (freshAnomalies.length === 0) return;
-  enqueueOutgoingAlerts(projectId, freshAnomalies).catch(
+  await enqueueOutgoingAlerts(projectId, freshAnomalies).catch(
     logError("enqueue outgoing alerts"),
   );
 };
@@ -70,50 +70,52 @@ const endpoints: ApiImplementation<null, Api> = {
         eventName,
         userId ?? undefined,
       );
-      notifyAnomalies(project.id, anomalies);
+      await notifyAnomalies(project.id, anomalies);
 
       const isFirstEvent = await recordAdminNotificationOnce(
         `first_event:${project.id}`,
       ).catch(() => false);
       if (isFirstEvent) {
-        sendAdminNotification({
-          subject:
-            `[Anomalisa] First event received: ${project.name} (${project.owner.email})`,
-          html:
-            `<p>Project <strong>${project.name}</strong> (${project.owner.email}) received its very first event: <code>${eventName}</code>.</p><p>Token: <code>${project.token}</code><br>User ID: <code>${
-              userId ?? "none"
-            }</code></p>`,
-          text:
-            `Project '${project.name}' (${project.owner.email}) received its very first event: '${eventName}'. Token: ${project.token}, User ID: ${
-              userId ?? "none"
-            }`,
-        }).catch(logError("send first event admin notification"));
-
-        captureServerEvent(project.owner.email, "first_event_received", {
-          projectId: project.id,
-          projectName: project.name,
-          eventName,
-          userId,
-        });
+        await Promise.all([
+          sendAdminNotification({
+            subject:
+              `[Anomalisa] First event received: ${project.name} (${project.owner.email})`,
+            html:
+              `<p>Project <strong>${project.name}</strong> (${project.owner.email}) received its very first event: <code>${eventName}</code>.</p><p>Token: <code>${project.token}</code><br>User ID: <code>${
+                userId ?? "none"
+              }</code></p>`,
+            text:
+              `Project '${project.name}' (${project.owner.email}) received its very first event: '${eventName}'. Token: ${project.token}, User ID: ${
+                userId ?? "none"
+              }`,
+          }).catch(logError("send first event admin notification")),
+          captureServerEvent(project.owner.email, "first_event_received", {
+            projectId: project.id,
+            projectName: project.name,
+            eventName,
+            userId,
+          }),
+        ]);
       }
 
       const isNewUser = await recordAdminNotificationOnce(
         `signup:${project.owner.email.toLowerCase()}`,
       ).catch(() => false);
       if (isNewUser) {
-        sendAdminNotification({
-          subject: `[Anomalisa] New user signup: ${project.owner.email}`,
-          html:
-            `<p>New user active on Anomalisa: <strong>${project.owner.email}</strong>.</p>`,
-          text: `New user active on Anomalisa: ${project.owner.email}.`,
-        }).catch(logError("send signup admin notification"));
-
-        captureServerEvent(project.owner.email, "user_signup", {
-          email: project.owner.email,
-        });
+        await Promise.all([
+          sendAdminNotification({
+            subject: `[Anomalisa] New user signup: ${project.owner.email}`,
+            html:
+              `<p>New user active on Anomalisa: <strong>${project.owner.email}</strong>.</p>`,
+            text: `New user active on Anomalisa: ${project.owner.email}.`,
+          }).catch(logError("send signup admin notification")),
+          captureServerEvent(project.owner.email, "user_signup", {
+            email: project.owner.email,
+          }),
+        ]);
       }
 
-      captureServerEvent(project.owner.email, "send_event", {
+      await captureServerEvent(project.owner.email, "send_event", {
         projectId: project.id,
         projectName: project.name,
         eventName,
@@ -138,14 +140,12 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
 };
 
-const instantdbAppId = Deno.env.get("INSTANTDB_APP_ID") ?? "";
-const posthogKey = Deno.env.get("POSTHOG_API_KEY") ??
-  Deno.env.get("POSTHOG_KEY") ??
-  defaultPosthogKey;
-const posthogHost = Deno.env.get("POSTHOG_HOST") ?? defaultPosthogHost;
-
 const readWebFile = (name: string) =>
-  Deno.readTextFile(new URL(`../web/${name}`, import.meta.url));
+  Deno.readTextFile(
+    import.meta.url
+      ? new URL(`../web/${name}`, import.meta.url)
+      : `../web/${name}`,
+  );
 
 let _htmlCachePromise:
   | Promise<
@@ -186,21 +186,24 @@ const handleGet = async (url: URL) => {
   if (url.pathname === "/og.png") return await ogImageResponse();
   if (url.pathname === "/config") {
     return jsonResponse({
-      instantdbAppId,
-      posthogKey,
-      posthogHost,
+      instantdbAppId: Deno.env.get("INSTANTDB_APP_ID") ?? "",
+      posthogKey: Deno.env.get("POSTHOG_API_KEY") ??
+        Deno.env.get("POSTHOG_KEY") ??
+        defaultPosthogKey,
+      posthogHost: Deno.env.get("POSTHOG_HOST") ?? defaultPosthogHost,
     });
   }
   if (url.pathname === "/feedback") {
     const { html, status } = await handleFeedback(
       url,
-      (projectId, eventName, bucket, vote) =>
+      (projectId, eventName, bucket, vote) => {
         captureServerEvent(projectId, "alert_feedback", {
           projectId,
           eventName,
           bucket,
           rating: vote,
-        }),
+        });
+      },
     );
     return htmlResponse(html, status);
   }
@@ -226,18 +229,19 @@ const handlePost = async (req: Request, url: URL) => {
           `signup:${email.toLowerCase()}`,
         ).catch(() => false);
         if (isNew) {
-          sendAdminNotification({
-            subject: `[Anomalisa] New user signup: ${email}`,
-            html:
-              `<p>New user signed up on Anomalisa: <strong>${email}</strong> at ${
+          await Promise.all([
+            sendAdminNotification({
+              subject: `[Anomalisa] New user signup: ${email}`,
+              html:
+                `<p>New user signed up on Anomalisa: <strong>${email}</strong> at ${
+                  new Date().toISOString()
+                }.</p>`,
+              text: `New user signed up on Anomalisa: ${email} at ${
                 new Date().toISOString()
-              }.</p>`,
-            text: `New user signed up on Anomalisa: ${email} at ${
-              new Date().toISOString()
-            }.`,
-          }).catch(logError("send signup admin notification"));
-
-          captureServerEvent(email, "user_signup", { email });
+              }.`,
+            }).catch(logError("send signup admin notification")),
+            captureServerEvent(email, "user_signup", { email }),
+          ]);
         }
         return jsonResponse({ ok: true });
       }
@@ -269,7 +273,7 @@ const handlePost = async (req: Request, url: URL) => {
   }
 };
 
-const httpHandler = async (req: Request) => {
+export const httpHandler = async (req: Request) => {
   const url = new URL(req.url);
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -278,19 +282,14 @@ const httpHandler = async (req: Request) => {
   return handlePost(req, url);
 };
 
-initTursoSchema().catch(logError("init turso schema"));
-
-Deno.serve(httpHandler);
-console.log("server.ts executing...");
-
-Deno.cron("Check empty buckets", "5 * * * *", async () => {
+export const checkEmptyBucketsCron = async () => {
   const anomaliesByProject = await checkAllEmptyBuckets();
   for (const [projectId, anomalies] of Object.entries(anomaliesByProject)) {
-    notifyAnomalies(projectId, anomalies);
+    await notifyAnomalies(projectId, anomalies);
   }
-});
+};
 
-Deno.cron("Drain outgoing alerts", "*/5 * * * *", async () => {
+export const drainOutgoingAlertsCron = async () => {
   const byProject = await drainOutgoingAlerts();
   for (const [projectId, anomalies] of Object.entries(byProject)) {
     try {
@@ -300,7 +299,7 @@ Deno.cron("Drain outgoing alerts", "*/5 * * * *", async () => {
         const maxUserCounts = await getMaxUserCounts(projectId).catch(() =>
           undefined
         );
-        sendAnomalyAlerts(
+        await sendAnomalyAlerts(
           project.owner.email,
           project.name,
           anomalies,
@@ -309,8 +308,10 @@ Deno.cron("Drain outgoing alerts", "*/5 * * * *", async () => {
         ).catch(logError("send anomaly email"));
         if (project.webhookUrl) {
           const webhookUrl = project.webhookUrl;
-          anomalies.forEach((a) =>
-            sendWebhook(webhookUrl, a).catch(logError("send webhook"))
+          await Promise.all(
+            anomalies.map((a) =>
+              sendWebhook(webhookUrl, a).catch(logError("send webhook"))
+            ),
           );
         }
       }
@@ -318,8 +319,13 @@ Deno.cron("Drain outgoing alerts", "*/5 * * * *", async () => {
       console.error(`Failed to drain alerts for ${projectId}:`, e);
     }
   }
-});
+};
 
-Deno.cron("Clean expired data", "0 3 * * *", () => {
+export const cleanExpiredDataCron = () =>
   cleanExpiredData().catch(logError("clean expired data"));
-});
+
+if (import.meta.main) {
+  initTursoSchema().catch(logError("init turso schema"));
+  Deno.serve(httpHandler);
+  console.log("server.ts executing...");
+}

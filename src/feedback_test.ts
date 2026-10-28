@@ -180,7 +180,9 @@ Deno.test("handleFeedback updates vote and returns confirmation page", async () 
 });
 
 Deno.test("handleFeedback returns 404 for invalid token", async () => {
-  const url = new URL("https://example.com/feedback?token=non_existent&vote=good");
+  const url = new URL(
+    "https://example.com/feedback?token=non_existent&vote=good",
+  );
   const { html, status } = await handleFeedback(url);
   assertEquals(status, 404);
   assertStringIncludes(html, "Feedback Link Not Found");

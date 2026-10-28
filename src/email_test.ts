@@ -392,7 +392,7 @@ Deno.test("anomaliesHtml includes mobile-responsive feedback bar styles", () => 
   assertStringIncludes(html, ".feedback-row");
   assertStringIncludes(html, ".feedback-label");
   assertStringIncludes(html, ".feedback-actions");
-  assertStringIncludes(html, "class=\"feedback-table\"");
+  assertStringIncludes(html, 'class="feedback-table"');
 });
 
 Deno.test("anomaliesText renders feedback links when tokens provided", () => {

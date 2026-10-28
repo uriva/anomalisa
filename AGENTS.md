@@ -23,9 +23,9 @@
 ## Deno & Deployment
 
 - Dependencies live in `deno.json` (no `package.json`).
-- Deployed to Deno Deploy (`https://anomalisa.uriva.deno.net`) and published to
-  JSR (`@uri/anomalisa`) automatically on push to `main` (bump `version` in
-  `deno.json` to publish a new JSR version).
+- Deployed to Cloudflare Workers (`https://anomalisa.uriv.me`) via
+  `npx wrangler deploy` and published to JSR (`@uri/anomalisa`) automatically on
+  push to `main` (bump `version` in `deno.json` to publish a new JSR version).
 
 ## Architecture
 

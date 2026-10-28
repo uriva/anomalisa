@@ -2,22 +2,24 @@ export const defaultPosthogKey =
   "phc_rjtFQTqewBSkcMXu7VwMPjzojSSLdxygumxwrxDcZVaU";
 export const defaultPosthogHost = "https://us.i.posthog.com";
 
-const posthogKey = Deno.env.get("POSTHOG_API_KEY") ??
-  Deno.env.get("POSTHOG_KEY") ??
-  defaultPosthogKey;
-const posthogHost = Deno.env.get("POSTHOG_HOST") ?? defaultPosthogHost;
+const getPosthogKey = () =>
+  Deno.env.get("POSTHOG_API_KEY") ??
+    Deno.env.get("POSTHOG_KEY") ??
+    defaultPosthogKey;
+const getPosthogHost = () => Deno.env.get("POSTHOG_HOST") ?? defaultPosthogHost;
 
 export const captureServerEvent = (
   distinctId: string,
   event: string,
   properties: Record<string, unknown> = {},
 ) => {
-  if (!posthogKey) return;
-  fetch(`${posthogHost}/capture/`, {
+  const key = getPosthogKey();
+  if (!key) return Promise.resolve();
+  return fetch(`${getPosthogHost()}/capture/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      api_key: posthogKey,
+      api_key: key,
       event,
       distinct_id: distinctId,
       properties: {
@@ -26,7 +28,7 @@ export const captureServerEvent = (
       },
       timestamp: new Date().toISOString(),
     }),
-  }).catch((err) => {
+  }).then(() => {}).catch((err) => {
     console.warn("PostHog capture failed:", err);
   });
 };

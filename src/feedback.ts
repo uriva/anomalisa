@@ -72,17 +72,15 @@ const fetchStatsSnapshot = async (
       `SELECT type, mean, m2, n, last_bucket FROM stats WHERE project_id = ? AND event_name = ?;`,
     args: [projectId, eventName],
   });
-  return empty(res.rows)
-    ? null
-    : JSON.stringify(
-      res.rows.map((row) => ({
-        type: String(row.type),
-        mean: Number(row.mean),
-        m2: Number(row.m2),
-        n: Number(row.n),
-        lastBucket: String(row.last_bucket),
-      })),
-    );
+  return empty(res.rows) ? null : JSON.stringify(
+    res.rows.map((row) => ({
+      type: String(row.type),
+      mean: Number(row.mean),
+      m2: Number(row.m2),
+      n: Number(row.n),
+      lastBucket: String(row.last_bucket),
+    })),
+  );
 };
 
 export const createAlertFeedbackTokens = async (
@@ -203,8 +201,8 @@ export const getBadAlertsForTesting = async (): Promise<
 
 const appBaseUrl = () =>
   Deno.env.get("APP_BASE_URL") ??
-  Deno.env.get("BASE_URL") ??
-  "https://anomalisa.uriva.deno.net";
+    Deno.env.get("BASE_URL") ??
+    "https://anomalisa.uriv.me";
 
 export const feedbackUrl = (token: string, rating: FeedbackRating) =>
   `${appBaseUrl()}/feedback?token=${encodeURIComponent(token)}&vote=${rating}`;
@@ -261,18 +259,26 @@ const renderFeedbackActions = (
     ? `
     <div class="confirmed-actions">
       <a class="btn-primary" href="/app">Go to Dashboard</a>
-      <p class="switch-hint">Marked by mistake? <a class="switch-link" href="/feedback?token=${encodeURIComponent(token)}&vote=bad">Switch to Bad alert</a></p>
+      <p class="switch-hint">Marked by mistake? <a class="switch-link" href="/feedback?token=${
+      encodeURIComponent(token)
+    }&vote=bad">Switch to Bad alert</a></p>
     </div>`
     : rating === "bad"
     ? `
     <div class="confirmed-actions">
       <a class="btn-primary" href="/app">Go to Dashboard</a>
-      <p class="switch-hint">Marked by mistake? <a class="switch-link" href="/feedback?token=${encodeURIComponent(token)}&vote=good">Switch to Good alert</a></p>
+      <p class="switch-hint">Marked by mistake? <a class="switch-link" href="/feedback?token=${
+      encodeURIComponent(token)
+    }&vote=good">Switch to Good alert</a></p>
     </div>`
     : `
     <div class="actions">
-      <a class="btn btn-good" href="/feedback?token=${encodeURIComponent(token)}&vote=good">Good alert</a>
-      <a class="btn btn-bad" href="/feedback?token=${encodeURIComponent(token)}&vote=bad">Bad alert</a>
+      <a class="btn btn-good" href="/feedback?token=${
+      encodeURIComponent(token)
+    }&vote=good">Good alert</a>
+      <a class="btn btn-bad" href="/feedback?token=${
+      encodeURIComponent(token)
+    }&vote=bad">Bad alert</a>
     </div>
     <div style="text-align: center; margin-top: 1rem;">
       <a class="home-link" href="/app">Go to Dashboard</a>

@@ -1,16 +1,14 @@
 {
   "name": "@uri/anomalisa",
-  "version": "0.0.41",
+  "version": "0.0.42",
   "license": "MIT",
   "exports": "./mod.ts",
   "tasks": {
+    "build:worker": "deno run -A scripts/buildWorker.ts",
+    "deploy": "npx wrangler deploy",
     "check": "deno check",
     "precommit": "deno task check",
     "test": "deno test --env --allow-env --allow-net --allow-read"
-  },
-  "deploy": {
-    "org": "uriva",
-    "app": "anomalisa"
   },
   "imports": {
     "gamla": "npm:gamla@124.0.0",
@@ -23,6 +21,3 @@
   "main": "main.ts",
   "minimumDependencyAge": 0
 }
-
-
-

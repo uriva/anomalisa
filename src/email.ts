@@ -46,7 +46,8 @@ const sparkText = (counts: number[], anomalyIndex: number) => {
 const agentmailBaseUrl = "https://api.theagentmail.net/v1";
 const getApiKey = () => Deno.env.get("AGENTMAIL_API_KEY") ?? "";
 const getAccountId = () =>
-  Deno.env.get("AGENTMAIL_ACCOUNT_ID") ?? "12dece4a-771d-4bbf-b374-8bc2d8870c7b";
+  Deno.env.get("AGENTMAIL_ACCOUNT_ID") ??
+    "12dece4a-771d-4bbf-b374-8bc2d8870c7b";
 const maxEmailsPerDay = 5;
 
 type Email = {
@@ -203,13 +204,14 @@ const feedbackActionButton = (
   token: string,
   rating: "good" | "bad",
   label: string,
-) => `<a class="feedback-btn feedback-btn-${rating}" href="${
-  feedbackUrl(token, rating)
-}" style="${feedbackBtnStyle} ${
-  rating === "good"
-    ? "color: #047857; background-color: #ecfdf5; border: 1px solid #a7f3d0; margin-right: 6px;"
-    : "color: #b91c1c; background-color: #fef2f2; border: 1px solid #fecaca;"
-}">${label}</a>`;
+) =>
+  `<a class="feedback-btn feedback-btn-${rating}" href="${
+    feedbackUrl(token, rating)
+  }" style="${feedbackBtnStyle} ${
+    rating === "good"
+      ? "color: #047857; background-color: #ecfdf5; border: 1px solid #a7f3d0; margin-right: 6px;"
+      : "color: #b91c1c; background-color: #fef2f2; border: 1px solid #fecaca;"
+  }">${label}</a>`;
 
 const agentActionButton = (token: string) =>
   `<a class="feedback-btn feedback-btn-agent" href="${
@@ -243,22 +245,21 @@ const formatAgentBar = (token?: string) =>
     )
     : "";
 
-const formatEventCard =
-  (
-    sparklines: Record<string, string>,
-    feedbackTokens?: Record<string, string>,
-  ) =>
-  (groups: Anomaly[]) => {
-    const a = groups[0];
-    const token = feedbackTokens?.[`${a.eventName}|${a.bucket}`];
-    const sparklineMarkup = sparklines[a.eventName]
-      ? `
+const formatEventCard = (
+  sparklines: Record<string, string>,
+  feedbackTokens?: Record<string, string>,
+) =>
+(groups: Anomaly[]) => {
+  const a = groups[0];
+  const token = feedbackTokens?.[`${a.eventName}|${a.bucket}`];
+  const sparklineMarkup = sparklines[a.eventName]
+    ? `
     <div style="margin-top: 6px; word-break: break-all; overflow-wrap: break-word;">
       <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; color: #64748b; margin-bottom: 4px;">History (30h)</div>
       ${sparklines[a.eventName]}
     </div>`
-      : "";
-    return `
+    : "";
+  return `
     <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 16px; background-color: #ffffff; text-align: left;">
       <div style="margin-bottom: 12px;">
         <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; color: #64748b; margin-bottom: 2px;">Event</div>
@@ -272,8 +273,8 @@ const formatEventCard =
             <td style="padding: 0; vertical-align: top;">
               <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; color: #64748b; margin-bottom: 2px;">Bucket (UTC)</div>
               <div style="font-size: 13px; color: #334155; word-break: break-all; overflow-wrap: break-word;">${
-      formatBucket(a.bucket)
-    }</div>
+    formatBucket(a.bucket)
+  }</div>
             </td>
             <td style="padding: 0 8px; vertical-align: top; text-align: right; width: 70px;">
               <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; color: #64748b; margin-bottom: 2px;">Expected</div>
@@ -296,7 +297,7 @@ const formatEventCard =
       ${formatFeedbackBar(token)}
       ${formatAgentBar(token)}
     </div>`;
-  };
+};
 
 export const anomaliesHtml = (
   projectName: string,
@@ -418,18 +419,20 @@ const eventText = (
   const primary = groups[0];
   const token = feedbackTokens?.[`${primary.eventName}|${primary.bucket}`];
   const feedbackLine = token
-    ? `\n    Helpful? Good: ${
-      feedbackUrl(token, "good")
-    } | Bad: ${feedbackUrl(token, "bad")}`
+    ? `\n    Helpful? Good: ${feedbackUrl(token, "good")} | Bad: ${
+      feedbackUrl(token, "bad")
+    }`
     : "";
   const agentLine = token
     ? `\n    Copy text for agent: ${investigateUrl(token)}`
     : "";
   return `  ${primary.eventName}${
     sparklines[primary.eventName] ? ` ${sparklines[primary.eventName]}` : ""
-  } in ${formatBucket(primary.bucket)} — expected ${
-    primary.expected
-  }, got ${primary.actual}\n    ${groups.map(labels).join(", ")}${feedbackLine}${agentLine}`;
+  } in ${
+    formatBucket(primary.bucket)
+  } — expected ${primary.expected}, got ${primary.actual}\n    ${
+    groups.map(labels).join(", ")
+  }${feedbackLine}${agentLine}`;
 };
 
 export const anomaliesText = (

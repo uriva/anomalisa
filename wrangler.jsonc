@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "anomalisa",
+  "main": "dist/worker.js",
+  "compatibility_date": "2026-04-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "no_bundle": true,
+  "rules": [
+    {
+      "type": "ESModule",
+      "globs": ["**/*.js"]
+    }
+  ],
+  "build": {
+    "command": "deno run -A scripts/buildWorker.ts"
+  },
+  "routes": [
+    {
+      "pattern": "anomalisa.uriv.me",
+      "custom_domain": true
+    }
+  ],
+  "triggers": {
+    "crons": ["5 * * * *", "*/5 * * * *", "0 3 * * *"]
+  },
+  "observability": {
+    "enabled": true
+  }
+}

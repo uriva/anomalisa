@@ -1,6 +1,7 @@
-const ogImageUrl = new URL("../web/og.png", import.meta.url);
+const ogImageUrl = () =>
+  import.meta.url ? new URL("../web/og.png", import.meta.url) : "../web/og.png";
 
-const readOgImage = () => Deno.readFile(ogImageUrl);
+const readOgImage = () => Deno.readFile(ogImageUrl());
 
 let ogImagePromise: Promise<Uint8Array<ArrayBuffer>> | null = null;
 

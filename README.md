@@ -11,7 +11,7 @@ tells you when things aren't.
 No dashboards to check. No thresholds to configure. Just email alerts when the
 math says something is off.
 
-**Try it now at [anomalisa.uriva.deno.net](https://anomalisa.uriva.deno.net)**
+**Try it now at [anomalisa.uriv.me](https://anomalisa.uriv.me)**
 
 This is also fully open source. Run it yourself, fork it, rip it apart.
 
@@ -61,9 +61,8 @@ await sendEvent({
 });
 ```
 
-Get your token by signing up at
-[anomalisa.uriva.deno.net](https://anomalisa.uriva.deno.net), creating a
-project, and copying the token.
+Get your token by signing up at [anomalisa.uriv.me](https://anomalisa.uriv.me),
+creating a project, and copying the token.
 
 Check detected anomalies:
 
@@ -104,7 +103,8 @@ TURSO_AUTH_TOKEN=your-turso-auth-token
 ```
 
 You'll need an [InstantDB](https://instantdb.com) app for user/project
-management, a [Turso](https://turso.tech) database for event counts/anomalies, and an [AgentMail](https://theagentmail.net) account for alerts.
+management, a [Turso](https://turso.tech) database for event counts/anomalies,
+and an [AgentMail](https://theagentmail.net) account for alerts.
 
 Push the schema and permissions:
 

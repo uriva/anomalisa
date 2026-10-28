@@ -26,14 +26,14 @@ const pageMetaCases = [
     title: "anomalisa: anomaly detection for your events",
     description:
       "Send events, get emailed when something weird happens. No dashboards to stare at. No thresholds to configure. Just math and email.",
-    url: "https://anomalisa.uriva.deno.net/",
+    url: "https://anomalisa.uriv.me/",
   },
   {
     file: "docs.html",
     title: "anomalisa - docs",
     description:
       "Install the anomalisa SDK, send events from your app, and get emailed when something looks wrong. API reference for sendEvent and getAnomalies, plus how detection works.",
-    url: "https://anomalisa.uriva.deno.net/docs",
+    url: "https://anomalisa.uriv.me/docs",
   },
 ];
 
@@ -52,13 +52,16 @@ for (const { file, title, description, url } of pageMetaCases) {
     assertEquals(metaContent(html, "twitter:description"), description);
 
     const imageUrl = metaContent(html, "og:image");
-    assertEquals(imageUrl, "https://anomalisa.uriva.deno.net/og.png");
+    assertEquals(imageUrl, "https://anomalisa.uriv.me/og.png");
     assertEquals(metaContent(html, "og:image:type"), "image/png");
     assertEquals(metaContent(html, "og:image:width"), "1200");
     assertEquals(metaContent(html, "og:image:height"), "630");
     assert(metaContent(html, "og:image:alt").length > 0);
     assertEquals(metaContent(html, "twitter:image"), imageUrl);
-    assertEquals(metaContent(html, "twitter:image:alt"), metaContent(html, "og:image:alt"));
+    assertEquals(
+      metaContent(html, "twitter:image:alt"),
+      metaContent(html, "og:image:alt"),
+    );
 
     assertStringIncludes(html, `<link rel="canonical" href="${url}" />`);
   });

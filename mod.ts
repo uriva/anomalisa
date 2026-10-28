@@ -3,7 +3,7 @@ import { apiDefinition } from "./src/api.ts";
 import type { Anomaly } from "./src/anomaly.ts";
 import { withRetry } from "./src/retry.ts";
 
-const communication = httpCommunication("https://anomalisa.uriva.deno.net");
+const communication = httpCommunication("https://anomalisa.uriv.me");
 
 const client = apiClient(
   <input, output>(params: input) =>

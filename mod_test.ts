@@ -152,7 +152,60 @@ Deno.test("captureClientErrors — unhandledrejection ignores browser extensions
     await fireRejection(new Event("error"));
     assertEquals(reportedCount, 0, "Event rejection should be ignored");
 
-    // 8. Real application rejection
+    // 8. Browser translation UTF-16 URIError rejection
+    const translationErr = new URIError(
+      "String contained an illegal UTF-16 sequence.",
+    );
+    translationErr.stack =
+      "?@https://aliceandbot.com/chat:843:22039\ntranslate@https://aliceandbot.com/chat:843:40210";
+    await fireRejection(translationErr);
+    assertEquals(
+      reportedCount,
+      0,
+      "Browser translation URIError should be ignored",
+    );
+
+    // 9. Lit-html DOM mutation null error (e.g. setting 'data' or nextSibling)
+    await fireRejection(
+      new TypeError("Cannot set properties of null (setting 'data')"),
+    );
+    assertEquals(
+      reportedCount,
+      0,
+      "Lit-html setting 'data' on null should be ignored",
+    );
+    await fireRejection(
+      new TypeError("Cannot read properties of null (reading 'nextSibling')"),
+    );
+    assertEquals(
+      reportedCount,
+      0,
+      "Lit-html reading 'nextSibling' on null should be ignored",
+    );
+
+    // 10. Media / network abort errors
+    await fireRejection(
+      new Error("The play() request was interrupted by a call to pause()."),
+    );
+    await fireRejection(new TypeError("Failed to fetch"));
+    await fireRejection(new TypeError("Load failed"));
+    assertEquals(
+      reportedCount,
+      0,
+      "Media and network abort rejections should be ignored",
+    );
+
+    // 11. Web3 / extension disconnect error
+    await fireRejection(
+      new Error("The provider is disconnected from all chains."),
+    );
+    assertEquals(
+      reportedCount,
+      0,
+      "Web3 provider disconnect rejection should be ignored",
+    );
+
+    // 12. Real application rejection
     await fireRejection(new Error("real app crash"));
     assertEquals(
       reportedCount,

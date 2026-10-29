@@ -10,6 +10,7 @@
     "jsr:@std/internal@^1.0.14": "1.0.14",
     "jsr:@std/path@^1.1.6": "1.1.6",
     "jsr:@uri/typed-api@0.0.11": "0.0.11",
+    "npm:@instantdb/admin@*": "1.0.65",
     "npm:@instantdb/admin@1.0.65": "1.0.65",
     "npm:@libsql/client@*": "0.14.0",
     "npm:@libsql/client@0.14": "0.14.0",

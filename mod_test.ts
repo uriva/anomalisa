@@ -32,31 +32,63 @@ Deno.test("captureClientErrors — filters out opaque cross-origin Script error 
     assertEquals(typeof errorListener, "function");
 
     // 1. Cross-origin "Script error." without error object
+    let scriptPrevented = false;
+    let scriptStopped = false;
     const scriptErrorEvent = new ErrorEvent("error", {
       message: "Script error.",
       error: null,
     });
+    scriptErrorEvent.preventDefault = () => {
+      scriptPrevented = true;
+    };
+    scriptErrorEvent.stopImmediatePropagation = () => {
+      scriptStopped = true;
+    };
     errorListener(scriptErrorEvent);
     await new Promise((r) => setTimeout(r, 20));
     assertEquals(reportedCount, 0, "Script error. should be ignored");
+    assertEquals(scriptPrevented, true, "Script error. should preventDefault");
+    assertEquals(
+      scriptStopped,
+      true,
+      "Script error. should stopImmediatePropagation",
+    );
 
     // 2. Resource load error (e.g. <img> or <script> 404)
+    let resourceStopped = false;
     const resourceErrorEvent = new Event("error");
     Object.defineProperty(resourceErrorEvent, "target", {
       value: { tagName: "IMG" },
     });
+    resourceErrorEvent.stopImmediatePropagation = () => {
+      resourceStopped = true;
+    };
     errorListener(resourceErrorEvent);
     await new Promise((r) => setTimeout(r, 20));
     assertEquals(reportedCount, 0, "Resource load error should be ignored");
+    assertEquals(
+      resourceStopped,
+      false,
+      "Resource load error should not stopImmediatePropagation",
+    );
 
     // 3. Real runtime error
+    let realStopped = false;
     const realErrorEvent = new ErrorEvent("error", {
       message: "Uncaught TypeError: cannot read property of null",
       error: new TypeError("cannot read property of null"),
     });
+    realErrorEvent.stopImmediatePropagation = () => {
+      realStopped = true;
+    };
     errorListener(realErrorEvent);
     await new Promise((r) => setTimeout(r, 20));
     assertEquals(reportedCount, 1, "Real error should be captured");
+    assertEquals(
+      realStopped,
+      false,
+      "Real error should not stopImmediatePropagation",
+    );
   } finally {
     globalThis.addEventListener = origAddEventListener;
     globalThis.fetch = origFetch;
@@ -94,8 +126,19 @@ Deno.test("captureClientErrors — unhandledrejection ignores browser extensions
     assertEquals(typeof rejectionListener, "function");
 
     const fireRejection = async (reason: unknown) => {
-      rejectionListener({ reason });
+      let prevented = false;
+      let stopped = false;
+      rejectionListener({
+        reason,
+        preventDefault: () => {
+          prevented = true;
+        },
+        stopImmediatePropagation: () => {
+          stopped = true;
+        },
+      });
       await new Promise((r) => setTimeout(r, 20));
+      return { prevented, stopped };
     };
 
     // 1. Chrome extension stack trace
@@ -104,12 +147,14 @@ Deno.test("captureClientErrors — unhandledrejection ignores browser extensions
     );
     chromeExtErr.stack =
       "TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Z (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)";
-    await fireRejection(chromeExtErr);
+    const extRes = await fireRejection(chromeExtErr);
     assertEquals(
       reportedCount,
       0,
       "Chrome extension rejection should be ignored",
     );
+    assertEquals(extRes.prevented, true);
+    assertEquals(extRes.stopped, true);
 
     // 2. Moz extension error
     const mozExtErr = new Error("moz failure");

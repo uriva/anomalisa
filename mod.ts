@@ -38,6 +38,23 @@ export const getEventCounts: (
 const uncaughtErrorEvent = "client_error";
 const unhandledRejectionEvent = "unhandled_rejection";
 
+type SuppressibleEventLike = {
+  reason?: unknown;
+  message?: unknown;
+  error?: unknown;
+  filename?: unknown;
+  preventDefault?: unknown;
+  stopImmediatePropagation?: unknown;
+};
+
+type EventTargetLike = {
+  addEventListener: (
+    type: string,
+    listener: (event: Event) => void,
+    options?: boolean | AddEventListenerOptions,
+  ) => void;
+};
+
 const extensionPrefixes = [
   "chrome-extension://",
   "moz-extension://",
@@ -136,6 +153,9 @@ export const isBrowserExtensionError = (reason: unknown): boolean =>
       extensionMessages.some((msg) => str.includes(msg)),
   );
 
+export const isExtensionHostObjectRejection = (reason: unknown): boolean =>
+  isBrowserExtensionError(reason);
+
 export const isMediaOrNetworkAbortError = (reason: unknown): boolean =>
   extractStrings(reason).some((str) =>
     abortMessages.some((msg) => str.includes(msg))
@@ -204,7 +224,31 @@ export const isEventRejection = (reason: unknown): boolean => {
   return false;
 };
 
-const isIgnoredRejection = (reason: unknown): boolean =>
+export const isScriptError = (event: unknown): boolean =>
+  isRecord(event) && event.message === "Script error." && !event.error;
+
+export const isNextSiblingNullErrorEvent = (event: unknown): boolean =>
+  isNextSiblingNullError(event);
+
+export const isBrowserExtensionErrorEvent = (event: unknown): boolean =>
+  isRecord(event) &&
+  (isBrowserExtensionError(event.error) ||
+    isBrowserExtensionError(event.filename) ||
+    isBrowserExtensionError(event.message));
+
+export const isResizeObserverErrorEvent = (event: unknown): boolean =>
+  isRecord(event) &&
+  (isResizeObserverError(event.error) || isResizeObserverError(event.message));
+
+export const isMediaOrNetworkAbortErrorEvent = (event: unknown): boolean =>
+  isRecord(event) &&
+  (isMediaOrNetworkAbortError(event.error) ||
+    isMediaOrNetworkAbortError(event.message));
+
+export const isBrowserTranslationErrorEvent = (event: unknown): boolean =>
+  isBrowserTranslationError(event);
+
+export const isIgnoredRejection = (reason: unknown): boolean =>
   isNullRejection(reason) ||
   isEventRejection(reason) ||
   isBrowserExtensionError(reason) ||
@@ -213,24 +257,56 @@ const isIgnoredRejection = (reason: unknown): boolean =>
   isMediaOrNetworkAbortError(reason) ||
   isBrowserTranslationError(reason);
 
-const isIgnoredErrorEvent = (event: Event): boolean => {
-  if (!(event instanceof ErrorEvent)) return true;
-  if (event.message === "Script error." && !event.error) return true;
-  if (
-    isBrowserExtensionError(event.error) ||
-    isBrowserExtensionError(event.filename) ||
-    isBrowserExtensionError(event.message) ||
-    isResizeObserverError(event.error) ||
-    isResizeObserverError(event.message) ||
-    isNextSiblingNullError(event) ||
-    isMediaOrNetworkAbortError(event.error) ||
-    isMediaOrNetworkAbortError(event.message) ||
-    isBrowserTranslationError(event)
-  ) {
-    return true;
+export const isIgnoredErrorEvent = (event: unknown): boolean =>
+  isScriptError(event) ||
+  isBrowserExtensionErrorEvent(event) ||
+  isResizeObserverErrorEvent(event) ||
+  isNextSiblingNullErrorEvent(event) ||
+  isMediaOrNetworkAbortErrorEvent(event) ||
+  isBrowserTranslationErrorEvent(event);
+
+const stopEvent = (event: SuppressibleEventLike): void => {
+  if (typeof event.preventDefault === "function") event.preventDefault();
+  if (typeof event.stopImmediatePropagation === "function") {
+    event.stopImmediatePropagation();
   }
-  return false;
 };
+
+export const suppressClientErrorEvent = (event: unknown): boolean => {
+  if (!isRecord(event) || !isIgnoredErrorEvent(event)) return false;
+  stopEvent(event);
+  return true;
+};
+
+export const suppressClientRejectionEvent = (event: unknown): boolean => {
+  if (!isRecord(event) || !isIgnoredRejection(event.reason)) return false;
+  stopEvent(event);
+  return true;
+};
+
+export const suppressEventRejection = suppressClientRejectionEvent;
+export const suppressScriptError = suppressClientErrorEvent;
+
+export const installClientErrorSuppression = (
+  target: EventTargetLike,
+): void => {
+  target.addEventListener(
+    "error",
+    (event) => {
+      suppressClientErrorEvent(event);
+    },
+    true,
+  );
+  target.addEventListener(
+    "unhandledrejection",
+    (event) => {
+      suppressClientRejectionEvent(event);
+    },
+    true,
+  );
+};
+
+export const installEventRejectionSuppression = installClientErrorSuppression;
 
 const report = (token: string, userId: string | undefined) => {
   const state = { reporting: false };
@@ -250,17 +326,22 @@ export const captureClientErrors = (
 ): (eventName: string) => void => {
   const capture = report(token, userId);
   if (typeof globalThis.addEventListener === "function") {
-    globalThis.addEventListener("error", (event: Event) => {
-      if (isIgnoredErrorEvent(event)) return;
-      capture(uncaughtErrorEvent);
-    });
+    globalThis.addEventListener(
+      "error",
+      (event: Event) => {
+        if (suppressClientErrorEvent(event)) return;
+        if (!(event instanceof ErrorEvent)) return;
+        capture(uncaughtErrorEvent);
+      },
+      true,
+    );
     globalThis.addEventListener(
       "unhandledrejection",
       (event: Event) => {
-        const reason = isRecord(event) ? event.reason : undefined;
-        if (isIgnoredRejection(reason)) return;
+        if (suppressClientRejectionEvent(event)) return;
         capture(unhandledRejectionEvent);
       },
+      true,
     );
   }
   return capture;

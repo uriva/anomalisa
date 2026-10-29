@@ -35,8 +35,9 @@ export const getEventCounts: (
   events: Record<string, { bucket: string; count: number }[]>;
 }> = (payload) => client({ endpoint: "getEventCounts", payload });
 
-const uncaughtErrorEvent = "client_error";
-const unhandledRejectionEvent = "unhandled_rejection";
+export const renderErrorEvent = "client_render_error";
+export const uncaughtErrorEvent = "client_error";
+export const unhandledRejectionEvent = "unhandled_rejection";
 
 type SuppressibleEventLike = {
   reason?: unknown;
@@ -78,6 +79,15 @@ const extensionMessages = [
   'Policy with name "default" already exists',
   "The provider is disconnected from all chains",
   "Failed to connect to MetaMask",
+  "MetaMask",
+  "Cannot redefine property: web3",
+  "xbrowser",
+  "reading 'M_ID'",
+  "window.webkit.messageHandlers",
+  "sendDataToNative",
+  "Java object is gone",
+  "Java exception was raised",
+  "Cannot read properties of undefined (reading 'buffer')",
 ];
 
 const abortMessages = [
@@ -89,7 +99,76 @@ const abortMessages = [
   "AbortError",
   "Failed to fetch",
   "Load failed",
-  "NetworkError when attempting to fetch resource",
+  "NetworkError",
+  "Network error",
+  "signal is aborted",
+  "aborted without reason",
+  "Operation timed out",
+  "transaction timed out",
+  "Transaction timed out due to inactivity",
+  "Query timed out",
+  "The transaction was aborted",
+  "Database deleted by request of the user",
+  "Connection is closing because of",
+  "without an in-progress transaction",
+  "createObjectStore",
+  "Failed to read the 'localStorage' property",
+  "reading 'getItem'",
+  "reading 'setItem'",
+  "reading 'removeItem'",
+  "reading 'clear'",
+  "Access is denied for this document",
+  "SecurityError",
+  "Record not found: app-user-magic-code",
+];
+
+const ignoredMessageFragments = [
+  "window.webkit.messageHandlers",
+  "sendDataToNative",
+  "Script error.",
+  "ResizeObserver loop",
+  "Database deleted by request of the user",
+  "Connection is closing because of",
+  "IO error",
+  "Unknown rejection",
+  "Unknown error",
+  "Not found",
+  "AbortError",
+  "The operation was aborted",
+  "Fetch is aborted",
+  "Java object is gone",
+  "Object Not Found Matching Id",
+  "Failed to read the 'localStorage' property",
+  "reading 'getItem'",
+  "reading 'setItem'",
+  "reading 'removeItem'",
+  "reading 'clear'",
+  "localStorage",
+  "Access is denied for this document",
+  "SecurityError",
+  "without an in-progress transaction",
+  "Failed to fetch",
+  "Load failed",
+  "NetworkError",
+  "Network error",
+  "Failed to connect to MetaMask",
+  "MetaMask",
+  "web3",
+  "The provider is disconnected from all chains",
+  "xbrowser",
+  "reading 'M_ID'",
+  "M_ID",
+  "Java exception was raised",
+  "The transaction was aborted",
+  "Transaction timed out due to inactivity",
+  "Operation timed out",
+  "transaction timed out",
+  "Query timed out",
+  "Cannot read properties of undefined (reading 'buffer')",
+  "Record not found: app-user-magic-code",
+  "createObjectStore",
+  "signal is aborted",
+  "aborted without reason",
 ];
 
 const translationMessages = [
@@ -116,6 +195,33 @@ const litDomMethods = [
   "setting 'data'",
 ];
 
+const errorKeys = [
+  "message",
+  "error",
+  "reason",
+  "description",
+  "detail",
+  "details",
+  "title",
+  "code",
+  "type",
+  "name",
+] as const;
+
+const nonActionableExactMessages = new Set([
+  "",
+  "null",
+  "undefined",
+  "error",
+  "{}",
+  "[object object]",
+  "unhandledrejection",
+  "empty error",
+  "empty error string",
+  "unknown rejection",
+  "unknown error",
+]);
+
 const hasExtensionPrefix = (text: string): boolean =>
   extensionPrefixes.some((prefix) => text.includes(prefix));
 
@@ -124,6 +230,49 @@ const hasScriptExtension = (text: string): boolean =>
 
 const isRecord = (val: unknown): val is Record<string, unknown> =>
   typeof val === "object" && val !== null;
+
+const safeJsonStringify = (obj: unknown): string => {
+  try {
+    return JSON.stringify(obj);
+  } catch {
+    return String(obj);
+  }
+};
+
+const extractPropertyMessage = (obj: Record<string, unknown>): string => {
+  if (isRecord(obj.body) && typeof obj.body.message === "string") {
+    return obj.body.message;
+  }
+  const matchingKey = errorKeys.find((key) => key in obj && Boolean(obj[key]));
+  if (!matchingKey) {
+    if ("status" in obj && typeof obj.status === "number") {
+      const statusText = typeof obj.statusText === "string"
+        ? obj.statusText
+        : "";
+      return statusText ? `${obj.status}: ${statusText}` : String(obj.status);
+    }
+    return safeJsonStringify(obj);
+  }
+  const val = obj[matchingKey];
+  if (typeof val === "string") return val;
+  if (typeof val === "number" || typeof val === "boolean") return String(val);
+  return messageOf(val);
+};
+
+export const messageOf = (reason: unknown): string =>
+  reason instanceof Error
+    ? reason.message || reason.name
+    : typeof reason === "string"
+    ? reason || "Empty error string"
+    : typeof reason === "number" || typeof reason === "boolean"
+    ? String(reason)
+    : reason === null
+    ? "null"
+    : reason === undefined
+    ? "undefined"
+    : isRecord(reason)
+    ? extractPropertyMessage(reason)
+    : String(reason) || "Empty error";
 
 const extractStrings = (input: unknown): string[] => {
   if (typeof input === "string") return [input];
@@ -248,14 +397,33 @@ export const isMediaOrNetworkAbortErrorEvent = (event: unknown): boolean =>
 export const isBrowserTranslationErrorEvent = (event: unknown): boolean =>
   isBrowserTranslationError(event);
 
-export const isIgnoredRejection = (reason: unknown): boolean =>
-  isNullRejection(reason) ||
-  isEventRejection(reason) ||
-  isBrowserExtensionError(reason) ||
-  isResizeObserverError(reason) ||
-  isNextSiblingNullError(reason) ||
-  isMediaOrNetworkAbortError(reason) ||
-  isBrowserTranslationError(reason);
+export const isIgnorable = (reason: unknown): boolean => {
+  if (
+    isNullRejection(reason) ||
+    isEventRejection(reason) ||
+    isBrowserExtensionError(reason) ||
+    isResizeObserverError(reason) ||
+    isNextSiblingNullError(reason) ||
+    isMediaOrNetworkAbortError(reason) ||
+    isBrowserTranslationError(reason)
+  ) {
+    return true;
+  }
+  const message = messageOf(reason);
+  const lowerMsg = message.toLowerCase().trim();
+  if (nonActionableExactMessages.has(lowerMsg)) return true;
+  return ignoredMessageFragments.some((fragment) =>
+    lowerMsg.includes(fragment.toLowerCase())
+  );
+};
+
+export const errorEventNames =
+  (baseEvent: string) => (reason: unknown): string[] =>
+    isIgnorable(reason)
+      ? []
+      : [baseEvent, `${baseEvent}: ${messageOf(reason)}`.slice(0, 120)];
+
+export const isIgnoredRejection = isIgnorable;
 
 export const isIgnoredErrorEvent = (event: unknown): boolean =>
   isScriptError(event) ||
@@ -263,7 +431,10 @@ export const isIgnoredErrorEvent = (event: unknown): boolean =>
   isResizeObserverErrorEvent(event) ||
   isNextSiblingNullErrorEvent(event) ||
   isMediaOrNetworkAbortErrorEvent(event) ||
-  isBrowserTranslationErrorEvent(event);
+  isBrowserTranslationErrorEvent(event) ||
+  (isRecord(event) &&
+    (event.error !== undefined || event.message !== undefined) &&
+    isIgnorable(event.error ?? event.message));
 
 const stopEvent = (event: SuppressibleEventLike): void => {
   if (typeof event.preventDefault === "function") event.preventDefault();

@@ -1,5 +1,10 @@
 import { assertEquals } from "@std/assert";
-import { captureClientErrors } from "./mod.ts";
+import {
+  captureClientErrors,
+  errorEventNames,
+  isIgnorable,
+  messageOf,
+} from "./mod.ts";
 
 Deno.test("captureClientErrors — filters out opaque cross-origin Script error and resource load errors", async () => {
   let reportedCount = 0;
@@ -342,4 +347,173 @@ Deno.test("captureClientErrors — error listener ignores browser extensions and
     globalThis.addEventListener = origAddEventListener;
     globalThis.fetch = origFetch;
   }
+});
+
+Deno.test("messageOf extracts detailed error messages from various structures", () => {
+  assertEquals(messageOf(new Error("Network failed")), "Network failed");
+  assertEquals(messageOf(new Error("")), "Error");
+  assertEquals(messageOf("Direct error string"), "Direct error string");
+  assertEquals(messageOf({ error: "API key invalid" }), "API key invalid");
+  assertEquals(
+    messageOf({ error: new Error("Nested error") }),
+    "Nested error",
+  );
+  assertEquals(messageOf({ reason: "Session expired" }), "Session expired");
+  assertEquals(
+    messageOf({ status: 500, statusText: "Internal Server Error" }),
+    "500: Internal Server Error",
+  );
+  assertEquals(messageOf({ status: 404 }), "404");
+  assertEquals(
+    messageOf({ details: "Quota limit exceeded" }),
+    "Quota limit exceeded",
+  );
+  assertEquals(
+    messageOf({ body: { message: "Record not found: app-user-magic-code" } }),
+    "Record not found: app-user-magic-code",
+  );
+  assertEquals(messageOf(null), "null");
+  assertEquals(messageOf(undefined), "undefined");
+  assertEquals(messageOf(404), "404");
+  assertEquals(messageOf(false), "false");
+  assertEquals(messageOf({ customField: 123 }), '{"customField":123}');
+  assertEquals(messageOf({}), "{}");
+
+  const circular: Record<string, unknown> = { name: "Circular" };
+  circular.self = circular;
+  assertEquals(messageOf(circular).includes("Circular"), true);
+});
+
+Deno.test("isIgnorable identifies browser-level, storage, WebView, and expected auth noise", () => {
+  assertEquals(
+    isIgnorable(
+      new Error(
+        "ResizeObserver loop completed with undelivered notifications.",
+      ),
+    ),
+    true,
+  );
+  assertEquals(isIgnorable("Script error."), true);
+  assertEquals(isIgnorable(null), true);
+  assertEquals(isIgnorable(undefined), true);
+  assertEquals(isIgnorable("Not found"), true);
+  assertEquals(
+    isIgnorable("AbortError: signal is aborted without reason"),
+    true,
+  );
+  assertEquals(isIgnorable("Unknown rejection"), true);
+  assertEquals(isIgnorable("unknown rejection"), true);
+  assertEquals(isIgnorable("error"), true);
+  assertEquals(isIgnorable("ERROR"), true);
+  assertEquals(isIgnorable({}), true);
+  assertEquals(isIgnorable("{}"), true);
+  assertEquals(isIgnorable("[object Object]"), true);
+  assertEquals(isIgnorable("unhandledrejection"), true);
+  assertEquals(isIgnorable("Unknown error"), true);
+  assertEquals(
+    isIgnorable("Error invoking postMessage: Java object is gone"),
+    true,
+  );
+  assertEquals(isIgnorable("Object Not Found Matching Id: 1"), true);
+  assertEquals(
+    isIgnorable(
+      new Error(
+        "Failed to read the 'localStorage' property from 'Window': Access is denied for this document.",
+      ),
+    ),
+    true,
+  );
+  assertEquals(
+    isIgnorable(
+      new TypeError("Cannot read properties of null (reading 'getItem')"),
+    ),
+    true,
+  );
+  assertEquals(
+    isIgnorable(
+      "UnknownError: Attempt to get records from database without an in-progress transaction",
+    ),
+    true,
+  );
+  assertEquals(isIgnorable(new TypeError("Failed to fetch")), true);
+  assertEquals(isIgnorable("Load failed"), true);
+  assertEquals(
+    isIgnorable("NetworkError when attempting to fetch resource"),
+    true,
+  );
+  assertEquals(isIgnorable(new Error("Failed to connect to MetaMask")), true);
+  assertEquals(
+    isIgnorable(
+      new TypeError("Cannot read properties of undefined (reading 'M_ID')"),
+    ),
+    true,
+  );
+  assertEquals(isIgnorable("Cannot redefine property: web3"), true);
+  assertEquals(
+    isIgnorable("The provider is disconnected from all chains."),
+    true,
+  );
+  assertEquals(isIgnorable("xbrowser is not defined"), true);
+  assertEquals(
+    isIgnorable(
+      "Error invoking postMessage: Java exception was raised during method invocation",
+    ),
+    true,
+  );
+  assertEquals(
+    isIgnorable(
+      "The transaction was aborted, so the request cannot be fulfilled.",
+    ),
+    true,
+  );
+  assertEquals(isIgnorable("Transaction timed out due to inactivity."), true);
+  assertEquals(
+    isIgnorable(new Error("Operation timed out: handle-receive")),
+    true,
+  );
+  assertEquals(isIgnorable(new Error("Query timed out")), true);
+  assertEquals(
+    isIgnorable(
+      new Error("Cannot read properties of undefined (reading 'buffer')"),
+    ),
+    true,
+  );
+  assertEquals(
+    isIgnorable(new Error("Record not found: app-user-magic-code")),
+    true,
+  );
+  assertEquals(
+    isIgnorable(
+      "Failed to execute 'createObjectStore' on 'IDBDatabase': The database is not running a version change trans",
+    ),
+    true,
+  );
+  assertEquals(isIgnorable({ isTrusted: true, type: "error" }), true);
+  assertEquals(isIgnorable({ error: "API failure" }), false);
+  assertEquals(
+    isIgnorable(new Error("Cannot read properties of null (reading 'map')")),
+    false,
+  );
+});
+
+Deno.test("errorEventNames returns base + detail for actionable errors and empty array for noise", () => {
+  assertEquals(
+    errorEventNames("client_render_error")(
+      new Error("Object.hasOwn is not a function"),
+    ),
+    [
+      "client_render_error",
+      "client_render_error: Object.hasOwn is not a function",
+    ],
+  );
+  assertEquals(errorEventNames("client_render_error")(null), []);
+  assertEquals(
+    errorEventNames("client_render_error")(new TypeError("Failed to fetch")),
+    [],
+  );
+  const events = errorEventNames("client_render_error")(
+    new Error("x".repeat(200)),
+  );
+  assertEquals(events[1].length, 120);
+  assertEquals(events[1].startsWith("client_render_error: "), true);
 });

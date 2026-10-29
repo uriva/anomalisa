@@ -111,6 +111,23 @@ Deno.test("web/index.html includes all key outbound and navigation links", async
   );
 });
 
+Deno.test("web/index.html keeps green dot on logo and omits it on hero chip", async () => {
+  const html = await Deno.readTextFile(
+    new URL("./index.html", import.meta.url),
+  );
+  assertStringIncludes(html, 'class="brand-dot"');
+  assertEquals(html.includes("badge-status"), false);
+  const chipMatch = html.match(
+    /<div class="badge-pill">([\s\S]*?)<\/div>/,
+  );
+  assert(chipMatch, "Expected .badge-pill element");
+  assertStringIncludes(
+    chipMatch[1],
+    "Zero-config statistical anomaly alerts via email",
+  );
+  assertEquals(chipMatch[1].includes("<div"), false);
+});
+
 Deno.test("web/index.html does not mention internal third-party services", async () => {
   const html = await Deno.readTextFile(
     new URL("./index.html", import.meta.url),

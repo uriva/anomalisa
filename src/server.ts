@@ -1,4 +1,5 @@
 import { apiHandler, type ApiImplementation } from "@uri/typed-api";
+import { isBotUserAgent } from "../mod.ts";
 import { type Api, apiDefinition } from "./api.ts";
 import {
   type Anomaly,
@@ -253,6 +254,12 @@ const handlePost = async (req: Request, url: URL) => {
 
   try {
     const json = JSON.parse(bodyText);
+    if (
+      json?.endpoint === "sendEvent" &&
+      isBotUserAgent(req.headers.get("user-agent") ?? "")
+    ) {
+      return new Response(JSON.stringify({}), { headers: corsHeaders });
+    }
     try {
       return new Response(
         JSON.stringify(await apiHandler(apiDefinition, endpoints, json)),

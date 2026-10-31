@@ -2,6 +2,7 @@ import { assertEquals } from "@std/assert";
 import {
   captureClientErrors,
   errorEventNames,
+  isBotUserAgent,
   isIgnorable,
   messageOf,
 } from "./mod.ts";
@@ -488,12 +489,55 @@ Deno.test("isIgnorable identifies browser-level, storage, WebView, and expected 
     ),
     true,
   );
+  assertEquals(isIgnorable(new Error("Rejected")), true);
+  const swErr = new Error("Custom SW error");
+  swErr.stack =
+    "Error: Custom SW error\n    at ServiceWorkerContainer.register (<anonymous>:453:195)";
+  assertEquals(isIgnorable(swErr), true);
+  assertEquals(
+    isIgnorable("Script https://topicmatch.xyz/service-worker.js load failed"),
+    true,
+  );
+  assertEquals(
+    isIgnorable(
+      new TypeError(
+        "Failed to construct 'WebSocket': Please use the 'new' operator, this DOM object constructor cannot be called as a function.",
+      ),
+    ),
+    true,
+  );
   assertEquals(isIgnorable({ isTrusted: true, type: "error" }), true);
   assertEquals(isIgnorable({ error: "API failure" }), false);
   assertEquals(
     isIgnorable(new Error("Cannot read properties of null (reading 'map')")),
     false,
   );
+});
+
+Deno.test("isBotUserAgent identifies search and ad crawlers and isIgnorable ignores errors from crawler user-agents", () => {
+  assertEquals(
+    isBotUserAgent("AdsBot-Google (+http://www.google.com/adsbot.html)"),
+    true,
+  );
+  assertEquals(
+    isBotUserAgent(
+      "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.8010.52 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+    ),
+    true,
+  );
+  assertEquals(
+    isBotUserAgent(
+      "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36 (compatible; Google-Read-Aloud; +https://support.google.com/webmasters/answer/1061943)",
+    ),
+    true,
+  );
+  assertEquals(
+    isBotUserAgent(
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Mobile/15E148 Safari/604.1",
+    ),
+    false,
+  );
+  assertEquals(isBotUserAgent("Deno/2.7.9"), false);
 });
 
 Deno.test("errorEventNames returns base + detail for actionable errors and empty array for noise", () => {

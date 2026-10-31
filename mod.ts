@@ -120,6 +120,10 @@ const abortMessages = [
   "Access is denied for this document",
   "SecurityError",
   "Record not found: app-user-magic-code",
+  "ServiceWorkerContainer",
+  "Failed to register a ServiceWorker",
+  "service-worker.js",
+  "Please use the 'new' operator, this DOM object constructor cannot be called as a function",
 ];
 
 const ignoredMessageFragments = [
@@ -169,6 +173,10 @@ const ignoredMessageFragments = [
   "createObjectStore",
   "signal is aborted",
   "aborted without reason",
+  "ServiceWorkerContainer",
+  "Failed to register a ServiceWorker",
+  "service-worker.js",
+  "Please use the 'new' operator, this DOM object constructor cannot be called as a function",
 ];
 
 const translationMessages = [
@@ -213,6 +221,7 @@ const nonActionableExactMessages = new Set([
   "null",
   "undefined",
   "error",
+  "rejected",
   "{}",
   "[object object]",
   "unhandledrejection",
@@ -221,6 +230,54 @@ const nonActionableExactMessages = new Set([
   "unknown rejection",
   "unknown error",
 ]);
+
+const botUserAgentFragments = [
+  "googlebot",
+  "adsbot-google",
+  "google-read-aloud",
+  "mediapartners-google",
+  "apis-google",
+  "feedfetcher-google",
+  "googleother",
+  "bingbot",
+  "adidxbot",
+  "msnbot",
+  "slurp",
+  "duckduckbot",
+  "baiduspider",
+  "yandexbot",
+  "sogou",
+  "exabot",
+  "facebot",
+  "facebookexternalhit",
+  "ia_archiver",
+  "applebot",
+  "twitterbot",
+  "linkedinbot",
+  "slackbot",
+  "discordbot",
+  "whatsapp",
+  "telegrambot",
+  "petalbot",
+  "bytespider",
+  "ahrefsbot",
+  "semrushbot",
+  "mj12bot",
+  "dotbot",
+  "headlesschrome",
+];
+
+export const isBotUserAgent = (userAgent: string): boolean => {
+  const lower = userAgent.toLowerCase();
+  return botUserAgentFragments.some((fragment) => lower.includes(fragment));
+};
+
+const currentUserAgent = (): string =>
+  typeof globalThis.navigator === "object" &&
+    globalThis.navigator !== null &&
+    typeof globalThis.navigator.userAgent === "string"
+    ? globalThis.navigator.userAgent
+    : "";
 
 const hasExtensionPrefix = (text: string): boolean =>
   extensionPrefixes.some((prefix) => text.includes(prefix));
@@ -399,6 +456,7 @@ export const isBrowserTranslationErrorEvent = (event: unknown): boolean =>
 
 export const isIgnorable = (reason: unknown): boolean => {
   if (
+    isBotUserAgent(currentUserAgent()) ||
     isNullRejection(reason) ||
     isEventRejection(reason) ||
     isBrowserExtensionError(reason) ||

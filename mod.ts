@@ -88,6 +88,9 @@ const extensionMessages = [
   "Java object is gone",
   "Java exception was raised",
   "Cannot read properties of undefined (reading 'buffer')",
+  "_META.IABInnerFrame",
+  "window.ethereum",
+  "User rejected the request",
 ];
 
 const abortMessages = [
@@ -112,6 +115,14 @@ const abortMessages = [
   "Connection is closing because of",
   "without an in-progress transaction",
   "createObjectStore",
+  "objectStoreNames",
+  "Can't find variable: indexedDB",
+  "QuotaExceededError",
+  "JSON Parse error: Unterminated string",
+  "Unterminated string in JSON",
+  "Unexpected end of JSON input",
+  "JSON.parse: unterminated string",
+  "JSON.parse: end of data",
   "Failed to read the 'localStorage' property",
   "reading 'getItem'",
   "reading 'setItem'",
@@ -171,6 +182,17 @@ const ignoredMessageFragments = [
   "Cannot read properties of undefined (reading 'buffer')",
   "Record not found: app-user-magic-code",
   "createObjectStore",
+  "objectStoreNames",
+  "Can't find variable: indexedDB",
+  "QuotaExceededError",
+  "JSON Parse error: Unterminated string",
+  "Unterminated string in JSON",
+  "Unexpected end of JSON input",
+  "JSON.parse: unterminated string",
+  "JSON.parse: end of data",
+  "_META.IABInnerFrame",
+  "window.ethereum",
+  "User rejected the request",
   "signal is aborted",
   "aborted without reason",
   "ServiceWorkerContainer",
@@ -384,13 +406,27 @@ const matchesNextSiblingNullStrings = (strings: string[]): boolean => {
 export const isNextSiblingNullError = (reason: unknown): boolean =>
   matchesNextSiblingNullStrings(extractEventStrings(reason));
 
-const matchesTranslationStrings = (strings: string[]): boolean => {
+const matchesTranslationStrings = (
+  reason: unknown,
+  strings: string[],
+): boolean => {
   const combined = strings.join("\n");
+  const filename = isRecord(reason) && typeof reason.filename === "string"
+    ? reason.filename
+    : "";
+  const hasDocumentFilename =
+    (filename.startsWith("http://") || filename.startsWith("https://")) &&
+    !hasScriptExtension(filename);
+  const hasInlineStackFrame =
+    (combined.includes("@http://") || combined.includes("@https://")) &&
+    !hasScriptExtension(combined);
   const isInlineInjectedCallStackOverflow =
     combined.includes("Maximum call stack size exceeded") &&
     (combined.includes("http://") || combined.includes("https://")) &&
     !hasScriptExtension(combined);
   return (
+    hasDocumentFilename ||
+    hasInlineStackFrame ||
     isInlineInjectedCallStackOverflow ||
     strings.some(
       (str) =>
@@ -404,7 +440,7 @@ const matchesTranslationStrings = (strings: string[]): boolean => {
 };
 
 export const isBrowserTranslationError = (reason: unknown): boolean =>
-  matchesTranslationStrings(extractEventStrings(reason));
+  matchesTranslationStrings(reason, extractEventStrings(reason));
 
 const constructorName = (obj: Record<string, unknown>): string =>
   typeof obj.constructor === "function" ? obj.constructor.name : "";

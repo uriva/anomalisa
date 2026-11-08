@@ -331,7 +331,43 @@ Deno.test("captureClientErrors — error listener ignores browser extensions and
       "ResizeObserver ErrorEvent should be ignored",
     );
 
-    // 3. Real runtime error
+    // 3. Truncated WebSocket frame JSON.parse SyntaxError in @instantdb/core conn.onmessage
+    const wsJsonErr = new SyntaxError("JSON Parse error: Unterminated string");
+    wsJsonErr.stack =
+      "parse@[native code]\n@https://find-scene.com/assets/prerender-DnBpGIPG.js:46:89159";
+    await fireError(
+      new ErrorEvent("error", {
+        message: "SyntaxError: JSON Parse error: Unterminated string",
+        filename: "https://find-scene.com/assets/prerender-DnBpGIPG.js",
+        error: wsJsonErr,
+      }),
+    );
+    assertEquals(
+      reportedCount,
+      0,
+      "Truncated WebSocket JSON parse ErrorEvent should be ignored",
+    );
+
+    // 4. Inline WKWebView user-script ErrorEvent (document URL with no .js script extension)
+    const wkUserScriptErr = new TypeError(
+      "undefined is not an object (evaluating 's[e]')",
+    );
+    wkUserScriptErr.stack =
+      "insertBefore@[native code]\nglobal code@https://find-scene.com/app:1:4515\nOr@https://find-scene.com/app:1:1498";
+    await fireError(
+      new ErrorEvent("error", {
+        message: "TypeError: undefined is not an object (evaluating 's[e]')",
+        filename: "https://find-scene.com/app",
+        error: wkUserScriptErr,
+      }),
+    );
+    assertEquals(
+      reportedCount,
+      0,
+      "Inline WKWebView user-script ErrorEvent without script extension should be ignored",
+    );
+
+    // 5. Real runtime error
     await fireError(
       new ErrorEvent("error", {
         message: "Uncaught ReferenceError: foo is not defined",
@@ -506,6 +542,35 @@ Deno.test("isIgnorable identifies browser-level, storage, WebView, and expected 
     ),
     true,
   );
+  assertEquals(
+    isIgnorable(new SyntaxError("JSON Parse error: Unterminated string")),
+    true,
+  );
+  assertEquals(
+    isIgnorable(new SyntaxError("Unexpected end of JSON input")),
+    true,
+  );
+  assertEquals(
+    isIgnorable(
+      new TypeError(
+        "undefined is not an object (evaluating 'i.objectStoreNames')",
+      ),
+    ),
+    true,
+  );
+  assertEquals(
+    isIgnorable(new ReferenceError("Can't find variable: indexedDB")),
+    true,
+  );
+  assertEquals(
+    isIgnorable(
+      new TypeError(
+        "undefined is not an object (evaluating 'window._META.IABInnerFrame')",
+      ),
+    ),
+    true,
+  );
+  assertEquals(isIgnorable(new Error("QuotaExceededError")), true);
   assertEquals(isIgnorable({ isTrusted: true, type: "error" }), true);
   assertEquals(isIgnorable({ error: "API failure" }), false);
   assertEquals(

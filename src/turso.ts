@@ -111,4 +111,16 @@ export const initTursoSchema = () =>
     );`,
     `CREATE INDEX IF NOT EXISTS idx_alert_feedback_rating ON alert_feedback (rating);`,
     `CREATE INDEX IF NOT EXISTS idx_alert_feedback_project ON alert_feedback (project_id);`,
+    `CREATE TABLE IF NOT EXISTS project_github (
+      project_id TEXT PRIMARY KEY,
+      github_token TEXT NOT NULL,
+      github_repo TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    );`,
+    `CREATE TABLE IF NOT EXISTS alert_github_issues (
+      token TEXT PRIMARY KEY,
+      issue_url TEXT NOT NULL,
+      issue_number INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
+    );`,
   ], "write");

@@ -213,10 +213,12 @@ const feedbackActionButton = (
       : "color: #b91c1c; background-color: #fef2f2; border: 1px solid #fecaca;"
   }">${label}</a>`;
 
-const agentActionButton = (token: string) =>
+const createGithubIssueLabel = "Create GitHub issue";
+
+const githubIssueActionButton = (token: string) =>
   `<a class="feedback-btn feedback-btn-agent" href="${
     investigateUrl(token)
-  }" style="${feedbackBtnStyle} color: #1d4ed8; background-color: #eff6ff; border: 1px solid #bfdbfe;">Copy text for agent</a>`;
+  }" style="${feedbackBtnStyle} color: #1d4ed8; background-color: #eff6ff; border: 1px solid #bfdbfe;">${createGithubIssueLabel}</a>`;
 
 const formatActionBar = (label: string, actions: string) => `
       <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #f1f5f9;">
@@ -237,11 +239,11 @@ const formatFeedbackBar = (token?: string) =>
     )
     : "";
 
-const formatAgentBar = (token?: string) =>
+const formatGithubIssueBar = (token?: string) =>
   token
     ? formatActionBar(
-      "Investigate with your agent",
-      agentActionButton(token),
+      "Track on GitHub",
+      githubIssueActionButton(token),
     )
     : "";
 
@@ -295,7 +297,7 @@ const formatEventCard = (
         </div>
       </div>
       ${formatFeedbackBar(token)}
-      ${formatAgentBar(token)}
+      ${formatGithubIssueBar(token)}
     </div>`;
 };
 
@@ -423,8 +425,8 @@ const eventText = (
       feedbackUrl(token, "bad")
     }`
     : "";
-  const agentLine = token
-    ? `\n    Copy text for agent: ${investigateUrl(token)}`
+  const githubIssueLine = token
+    ? `\n    ${createGithubIssueLabel}: ${investigateUrl(token)}`
     : "";
   return `  ${primary.eventName}${
     sparklines[primary.eventName] ? ` ${sparklines[primary.eventName]}` : ""
@@ -432,7 +434,7 @@ const eventText = (
     formatBucket(primary.bucket)
   } — expected ${primary.expected}, got ${primary.actual}\n    ${
     groups.map(labels).join(", ")
-  }${feedbackLine}${agentLine}`;
+  }${feedbackLine}${githubIssueLine}`;
 };
 
 export const anomaliesText = (

@@ -23,7 +23,12 @@ import {
 import { initTursoSchema } from "./turso.ts";
 import { sendWebhook } from "./webhook.ts";
 import { handleFeedback } from "./feedback.ts";
-import { handleInvestigate } from "./investigate.ts";
+import { handleProjectGithubRequest } from "./github.ts";
+import {
+  handleInvestigate,
+  handleInvestigatePost,
+  type InvestigateResponse,
+} from "./investigate.ts";
 import { ogImageResponse } from "./og.ts";
 
 const resolveProject = async (token: string) => {
@@ -174,6 +179,14 @@ const htmlResponse = (html: string, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "text/html" },
   });
 
+const investigateHttpResponse = (res: InvestigateResponse) =>
+  res.kind === "redirect"
+    ? new Response(null, {
+      status: 303,
+      headers: { ...corsHeaders, Location: res.location },
+    })
+    : htmlResponse(res.html, res.status);
+
 const getHtmlByPath = async () => {
   const { landingHtml, appHtml, docsHtml } = await getHtml();
   return {
@@ -209,8 +222,9 @@ const handleGet = async (url: URL) => {
     return htmlResponse(html, status);
   }
   if (url.pathname === "/investigate") {
-    const { html, status } = await handleInvestigate(url, lookupProjectName);
-    return htmlResponse(html, status);
+    return investigateHttpResponse(
+      await handleInvestigate(url, lookupProjectName),
+    );
   }
   const htmlByPath = await getHtmlByPath();
   const { landingHtml } = await getHtml();
@@ -221,6 +235,20 @@ const handleGet = async (url: URL) => {
 
 const handlePost = async (req: Request, url: URL) => {
   const bodyText = await req.text();
+
+  if (url.pathname === "/investigate") {
+    return investigateHttpResponse(
+      await handleInvestigatePost(bodyText, lookupProjectName),
+    );
+  }
+
+  if (url.pathname === "/project-github") {
+    const { status, body } = await handleProjectGithubRequest(
+      bodyText,
+      resolveProject,
+    );
+    return jsonResponse(body, status);
+  }
 
   if (url.pathname === "/notify-signup") {
     try {

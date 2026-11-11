@@ -727,6 +727,19 @@
           <p class="muted" id="webhook-msg"></p>
         </div>
 
+        <div class="section">
+          <h2>GitHub <span id="github-status" style="font-weight:400;font-size:0.8rem;color:#555"></span></h2>
+          <div class="row">
+            <input id="github-token-input" type="password" placeholder="GitHub token (github_pat_...)" autocomplete="off" />
+          </div>
+          <div class="row">
+            <input id="github-repo-input" placeholder="owner/repo (optional for single-repo token)" autocomplete="off" />
+            <button class="btn-app" id="save-github">Save</button>
+            <button class="btn-secondary" id="clear-github" style="display:none">Clear</button>
+          </div>
+          <p class="muted" id="github-msg"></p>
+        </div>
+
         <div class="section" id="charts-section">
           <h2>Activity <span style="font-weight:400;font-size:0.8rem;color:#555">events per hour, last 7 days</span></h2>
           <div id="charts"><p class="muted">Loading...</p></div>
@@ -893,6 +906,97 @@
       `;
       };
 
+      const syncGithubUi = (configured, githubRepo) => {
+        const statusEl = document.getElementById("github-status");
+        const tokenInput = document.getElementById("github-token-input");
+        const repoInput = document.getElementById("github-repo-input");
+        const clearBtn = document.getElementById("clear-github");
+        if (!statusEl) return;
+        statusEl.textContent = configured ? `connected to ${githubRepo}` : "";
+        tokenInput.value = "";
+        tokenInput.placeholder = configured
+          ? "•••••••• (configured — enter to replace)"
+          : "GitHub token (github_pat_...)";
+        repoInput.value = githubRepo || "";
+        clearBtn.style.display = configured ? "inline-block" : "none";
+      };
+
+      const loadGithubConfig = async () => {
+        try {
+          const res = await fetch("/project-github", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: project.token, action: "get" }),
+          });
+          if (!res.ok) return;
+          const data = await res.json();
+          syncGithubUi(Boolean(data.configured), data.githubRepo || "");
+        } catch (e) {
+          captureClientError(e, { action: "load_github_config" });
+        }
+      };
+
+      document.getElementById("save-github").addEventListener(
+        "click",
+        async () => {
+          const githubToken = document.getElementById("github-token-input")
+            .value.trim();
+          const githubRepo = document.getElementById("github-repo-input").value
+            .trim();
+          const msg = document.getElementById("github-msg");
+          msg.textContent = "Saving...";
+          try {
+            const res = await fetch("/project-github", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                token: project.token,
+                action: "set",
+                githubToken,
+                githubRepo,
+              }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              msg.textContent = data.error || "Failed to save";
+              return;
+            }
+            syncGithubUi(true, data.githubRepo);
+            msg.textContent = "Saved!";
+            setTimeout(() => {
+              msg.textContent = "";
+            }, 2000);
+          } catch (e) {
+            captureClientError(e, { action: "save_github_config" });
+            msg.textContent = e.message;
+          }
+        },
+      );
+
+      document.getElementById("clear-github").addEventListener(
+        "click",
+        async () => {
+          const msg = document.getElementById("github-msg");
+          try {
+            const res = await fetch("/project-github", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token: project.token, action: "delete" }),
+            });
+            if (!res.ok) return;
+            syncGithubUi(false, "");
+            msg.textContent = "Cleared!";
+            setTimeout(() => {
+              msg.textContent = "";
+            }, 2000);
+          } catch (e) {
+            captureClientError(e, { action: "clear_github_config" });
+            msg.textContent = e.message;
+          }
+        },
+      );
+
+      loadGithubConfig();
       loadCharts();
       loadAnomalies();
     };

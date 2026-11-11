@@ -40,7 +40,8 @@
     and projects (`name`, `token`).
 - **Email (`src/email.ts`):** Sends alerts via AgentMail
   (`anomalisa@theagentmail.net`, `AGENTMAIL_API_KEY`) with `/feedback` and
-  `/investigate` links (`src/feedback.ts`, `src/investigate.ts`).
+  `/investigate` ("Create GitHub issue") links (`src/feedback.ts`,
+  `src/investigate.ts`, `src/github.ts`).
 - **Web (`src/server.ts`, `web/`):** Serves `/` (`web/index.html`), `/app`
   (`web/app.html`), `/docs` (`web/docs.html`), `/feedback`, `/investigate`, and
   `/config`.

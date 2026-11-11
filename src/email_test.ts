@@ -339,7 +339,7 @@ Deno.test("sendAnomalyAlerts sends email via AgentMail", async () => {
     assertStringIncludes(capturedBody.html ?? "", "Good alert");
     assertStringIncludes(capturedBody.html ?? "", "Bad alert");
     assertStringIncludes(capturedBody.html ?? "", "/feedback?token=");
-    assertStringIncludes(capturedBody.html ?? "", "Copy text for agent");
+    assertStringIncludes(capturedBody.html ?? "", "Create GitHub issue");
     assertStringIncludes(capturedBody.html ?? "", "/investigate?token=");
     assertStringIncludes(capturedBody.text ?? "", "/feedback?token=");
     assertStringIncludes(capturedBody.text ?? "", "/investigate?token=");
@@ -366,7 +366,7 @@ Deno.test("anomaliesHtml renders feedback buttons when tokens provided", () => {
   assertStringIncludes(html, "/feedback?token=tok-abc&vote=bad");
 });
 
-Deno.test("anomaliesHtml renders copy-for-agent link when tokens provided", () => {
+Deno.test("anomaliesHtml renders create-github-issue link when tokens provided", () => {
   const tokens = { "login|2026-04-06T23": "tok-abc" };
   const html = anomaliesHtml(
     "myapp",
@@ -375,9 +375,10 @@ Deno.test("anomaliesHtml renders copy-for-agent link when tokens provided", () =
     undefined,
     tokens,
   );
-  assertStringIncludes(html, "Investigate with your agent");
-  assertStringIncludes(html, "Copy text for agent");
+  assertStringIncludes(html, "Track on GitHub");
+  assertStringIncludes(html, "Create GitHub issue");
   assertStringIncludes(html, "/investigate?token=tok-abc");
+  assertEquals(html.includes("Copy text for agent"), false);
 });
 
 Deno.test("anomaliesHtml includes mobile-responsive feedback bar styles", () => {
@@ -408,7 +409,7 @@ Deno.test("anomaliesText renders feedback links when tokens provided", () => {
   assertStringIncludes(text, "/feedback?token=tok-abc&vote=bad");
 });
 
-Deno.test("anomaliesText renders copy-for-agent link when tokens provided", () => {
+Deno.test("anomaliesText renders create-github-issue link when tokens provided", () => {
   const tokens = { "login|2026-04-06T23": "tok-abc" };
   const text = anomaliesText(
     [singleAnomaly],
@@ -416,6 +417,7 @@ Deno.test("anomaliesText renders copy-for-agent link when tokens provided", () =
     undefined,
     tokens,
   );
-  assertStringIncludes(text, "Copy text for agent:");
+  assertStringIncludes(text, "Create GitHub issue:");
   assertStringIncludes(text, "/investigate?token=tok-abc");
+  assertEquals(text.includes("Copy text for agent"), false);
 });

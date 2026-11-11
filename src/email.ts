@@ -1,3 +1,4 @@
+import { empty } from "gamla";
 import { anomalyDirection } from "./anomaly.ts";
 import type { Anomaly } from "./anomaly.ts";
 import {
@@ -12,36 +13,39 @@ type BucketCount = { bucket: string; count: number };
 export type EventCounts = Record<string, BucketCount[]>;
 
 const sparkLevels = "▁▂▃▄▅▆▇█";
+const sparkWindowHours = 30;
+const hourMs = 60 * 60 * 1000;
 
-const sparkHtml = (counts: number[], anomalyIndex: number) => {
+const bucketToMs = (bucket: string) => new Date(`${bucket}:00:00Z`).getTime();
+
+const msToBucket = (ms: number) => new Date(ms).toISOString().slice(0, 13);
+
+const sparkChars = (counts: number[]) => {
   const max = Math.max(...counts);
   const min = Math.min(...counts);
   const range = max - min || 1;
-  const chars = counts.map((c) =>
+  return counts.map((c) =>
     sparkLevels[Math.round(((c - min) / range) * (sparkLevels.length - 1))]
   );
-  const before = chars.slice(0, anomalyIndex).join("");
-  const at = chars[anomalyIndex] || "";
-  const after = chars.slice(anomalyIndex + 1).join("");
+};
+
+const sparkHtml = (counts: number[], anomalyIndex: number) => {
+  const chars = sparkChars(counts);
   return `<span class="sparkline" style="font-family:monospace;font-size:11px;white-space:nowrap;display:inline-block;">` +
-    `<span style="color:#cbd5e0;">${before}</span>` +
-    `<span style="color:#e53e3e;">${at}</span>` +
-    `<span style="color:#cbd5e0;">${after}</span>` +
+    `<span style="color:#cbd5e0;">${
+      chars.slice(0, anomalyIndex).join("")
+    }</span>` +
+    `<span style="color:#e53e3e;">${chars[anomalyIndex] || ""}</span>` +
+    `<span style="color:#cbd5e0;">${
+      chars.slice(anomalyIndex + 1).join("")
+    }</span>` +
     `</span>`;
 };
 
-const sparkText = (counts: number[], anomalyIndex: number) => {
-  const max = Math.max(...counts);
-  const min = Math.min(...counts);
-  const range = max - min || 1;
-  return counts.map((c, i) =>
-    i === anomalyIndex
-      ? `[${
-        sparkLevels[Math.round(((c - min) / range) * (sparkLevels.length - 1))]
-      }]`
-      : sparkLevels[Math.round(((c - min) / range) * (sparkLevels.length - 1))]
-  ).join("");
-};
+const sparkText = (counts: number[], anomalyIndex: number) =>
+  sparkChars(counts)
+    .map((ch, i) => (i === anomalyIndex ? `[${ch}]` : ch))
+    .join("");
 
 const agentmailBaseUrl = "https://api.theagentmail.net/v1";
 const getApiKey = () => Deno.env.get("AGENTMAIL_API_KEY") ?? "";
@@ -381,37 +385,64 @@ export const anomaliesHtml = (
     </div>`;
 };
 
+const sparkEndMs = (anomalyMs: number, buckets: BucketCount[]) => {
+  const latestMs = Math.max(...buckets.map(({ bucket }) => bucketToMs(bucket)));
+  return latestMs > anomalyMs &&
+      latestMs - anomalyMs < sparkWindowHours * hourMs
+    ? latestMs
+    : anomalyMs;
+};
+
+const hourlySparkWindow = (anomalyBucket: string, buckets: BucketCount[]) => {
+  const countByBucket = new Map(
+    buckets.map(({ bucket, count }) => [bucket, count]),
+  );
+  const endMs = sparkEndMs(bucketToMs(anomalyBucket), buckets);
+  const startMs = endMs - (sparkWindowHours - 1) * hourMs;
+  const windowBuckets = Array.from(
+    { length: sparkWindowHours },
+    (_, i) => msToBucket(startMs + i * hourMs),
+  );
+  return {
+    counts: windowBuckets.map((b) => countByBucket.get(b) ?? 0),
+    anomalyIndex: windowBuckets.indexOf(anomalyBucket),
+  };
+};
+
+const sparklineEntry = (
+  anomalies: Anomaly[],
+  counts: EventCounts,
+  maxUserCounts: EventCounts | undefined,
+  render: (counts: number[], anomalyIndex: number) => string,
+) =>
+(eventName: string): [string, string][] => {
+  const anomaly = anomalies.find((a) => a.eventName === eventName);
+  const buckets = anomaly
+    ? (anomaly.metric === "userSpike" && maxUserCounts
+      ? maxUserCounts[eventName]
+      : counts[eventName])
+    : undefined;
+  if (!anomaly || !buckets || empty(buckets)) return [];
+  const { counts: windowCounts, anomalyIndex } = hourlySparkWindow(
+    anomaly.bucket,
+    buckets,
+  );
+  return anomalyIndex < 0
+    ? []
+    : [[eventName, render(windowCounts, anomalyIndex)]];
+};
+
 const buildSparklines = (
   anomalies: Anomaly[],
   counts: EventCounts,
   maxUserCounts: EventCounts | undefined,
   render: (counts: number[], anomalyIndex: number) => string,
-): Record<string, string> => {
-  const eventNames = [...new Set(anomalies.map(({ eventName }) => eventName))];
-  const result: Record<string, string> = {};
-  for (const eventName of eventNames) {
-    const anomaly = anomalies.find((a) => a.eventName === eventName);
-    if (!anomaly) continue;
-    const isUserSpike = anomaly.metric === "userSpike";
-    const buckets = (isUserSpike && maxUserCounts)
-      ? maxUserCounts[eventName]
-      : counts[eventName];
-    if (!buckets || buckets.length < 2) continue;
-    const sorted = [...buckets].sort((a, b) =>
-      a.bucket.localeCompare(b.bucket)
-    );
-    const recent = sorted.slice(-30);
-    const anomalyIndex = recent.findIndex(({ bucket }) =>
-      bucket === anomaly.bucket
-    );
-    if (anomalyIndex < 0) continue;
-    result[eventName] = render(
-      recent.map(({ count }) => count),
-      anomalyIndex,
-    );
-  }
-  return result;
-};
+): Record<string, string> =>
+  Object.fromEntries(
+    [...new Set(anomalies.map(({ eventName }) => eventName))].flatMap(
+      sparklineEntry(anomalies, counts, maxUserCounts, render),
+    ),
+  );
 
 const eventText = (
   sparklines: Record<string, string>,

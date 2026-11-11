@@ -421,3 +421,39 @@ Deno.test("anomaliesText renders create-github-issue link when tokens provided",
   assertStringIncludes(text, "/investigate?token=tok-abc");
   assertEquals(text.includes("Copy text for agent"), false);
 });
+
+Deno.test("History (30h) sparkline zero-fills contiguous 30h window instead of stitching stale multi-day buckets", () => {
+  const emailSendFailedAnomaly: Anomaly = {
+    projectId: "proj1",
+    eventName: "Email Send Failed",
+    bucket: "2026-11-11T16",
+    expected: 0.03,
+    actual: 5,
+    zScore: 9.28,
+    metric: "totalCount",
+    detectedAt: "2026-11-11T17:03:11Z",
+  };
+  const counts = {
+    "Email Send Failed": [
+      { bucket: "2026-11-04T08", count: 1 },
+      { bucket: "2026-11-04T09", count: 4 },
+      { bucket: "2026-11-04T11", count: 3 },
+      { bucket: "2026-11-04T13", count: 3 },
+      { bucket: "2026-11-11T16", count: 5 },
+      { bucket: "2026-11-11T17", count: 1 },
+    ],
+  };
+  const text = anomaliesText([emailSendFailedAnomaly], counts);
+  assertStringIncludes(text, `${"▁".repeat(28)}[█]▂`);
+});
+
+Deno.test("History (30h) sparkline renders zero-count percentageDrop bucket at end of 30h window", () => {
+  const counts = {
+    "Chat Message": [
+      { bucket: "2026-04-17T07", count: 60 },
+      { bucket: "2026-04-17T08", count: 66 },
+    ],
+  };
+  const text = anomaliesText([dropAnomaly], counts);
+  assertStringIncludes(text, `${"▁".repeat(27)}▇█[▁]`);
+});

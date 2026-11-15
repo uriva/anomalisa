@@ -8,6 +8,7 @@ import {
   detectPercentageDrop,
   detectPercentageSpike,
   detectPoissonAnomaly,
+  detectRollingDrop,
   detectSkippedHourAnomalies,
   drainOutgoingAlerts,
   emptyStats,
@@ -1869,4 +1870,237 @@ Deno.test("detectAnomaly — flags true positive userSpike on error burst (Error
     "120363411245590545@g.us",
   );
   assertEquals(result !== null && result.actual === 5, true);
+});
+
+const buildHourlyHistory = (startIso: string, counts: number[]) => {
+  const startMs = new Date(`${startIso}:00:00Z`).getTime();
+  return counts
+    .map((count, i) => ({
+      bucket: new Date(startMs + i * 3600_000).toISOString().slice(0, 13),
+      count,
+    }))
+    .filter(({ count }) => count > 0);
+};
+
+Deno.test("detectRollingDrop — flags find-scene 6h same-time-of-day Chat Message blackout (expected ~8.8/hr, actual 0.83/hr)", () => {
+  const normalDay = [
+    12,
+    8,
+    10,
+    7,
+    9,
+    11,
+    8,
+    6,
+    9,
+    10,
+    11,
+    9,
+    14,
+    13,
+    12,
+    10,
+    9,
+    11,
+    12,
+    15,
+    11,
+    8,
+    9,
+    10,
+  ];
+  const dayVariation = [0, 2, -2, 1, -1];
+  const priorDays = dayVariation.flatMap((delta) =>
+    normalDay.map((c) => Math.max(0, c + delta))
+  );
+  const outageHours = [14, 12, 7, 1, 16, 12, 20, 11, 5, 0, 0, 0, 0, 0];
+  const history = buildHourlyHistory("2026-11-08T13", [
+    ...priorDays,
+    ...outageHours,
+  ]);
+  const result = detectRollingDrop(
+    history,
+    "2a5aeba9-a4a7-4349-80d0-801c9e65abbd",
+    "Chat Message",
+    "2026-11-14T02",
+  );
+  assertEquals(result !== null, true);
+  assertEquals(result?.metric, "percentageDrop");
+  assertEquals(result?.bucket, "2026-11-14T02");
+  assertEquals((result?.actual ?? 99) < 2, true);
+  assertEquals((result?.expected ?? 0) > 8, true);
+});
+
+Deno.test("detectRollingDrop — flags find-scene 24h Performed Search signup-block collapse even with returning-user trickle", () => {
+  const d1 = [
+    12,
+    16,
+    8,
+    10,
+    6,
+    14,
+    18,
+    12,
+    10,
+    16,
+    22,
+    18,
+    24,
+    20,
+    16,
+    14,
+    18,
+    22,
+    26,
+    20,
+    14,
+    12,
+    10,
+    8,
+  ];
+  const d2 = d1.map((x, i) => x + (i % 3 === 0 ? 4 : -2));
+  const d3 = d1.map((x, i) => x + (i % 2 === 0 ? -2 : 2));
+  const d4 = d1.map((x, i) => x + (i % 4 === 0 ? 6 : 0));
+  const depressedDay = [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    6,
+    12,
+    0,
+    0,
+    0,
+    0,
+    2,
+    2,
+    8,
+    2,
+    4,
+    0,
+    0,
+    2,
+    4,
+    2,
+    0,
+    2,
+  ];
+  const history = buildHourlyHistory("2026-11-10T15", [
+    ...d1,
+    ...d2,
+    ...d3,
+    ...d4,
+    ...depressedDay,
+  ]);
+  const result = detectRollingDrop(
+    history,
+    "2a5aeba9-a4a7-4349-80d0-801c9e65abbd",
+    "Performed Search",
+    "2026-11-15T14",
+  );
+  assertEquals(result !== null, true);
+  assertEquals(result?.metric, "percentageDrop");
+  assertEquals((result?.expected ?? 0) > 12, true);
+  assertEquals((result?.actual ?? 99) < 3, true);
+});
+
+Deno.test("detectRollingDrop — suppresses recurring diurnal nighttime lull", () => {
+  const regionalDay = [
+    0,
+    0,
+    1,
+    0,
+    0,
+    1,
+    8,
+    15,
+    22,
+    25,
+    20,
+    18,
+    24,
+    22,
+    19,
+    21,
+    16,
+    14,
+    10,
+    6,
+    3,
+    1,
+    0,
+    0,
+  ];
+  const history = buildHourlyHistory("2026-11-10T00", [
+    ...regionalDay,
+    ...regionalDay,
+    ...regionalDay,
+    ...regionalDay,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+  ]);
+  assertEquals(
+    detectRollingDrop(
+      history,
+      "8c0a6c49-proj",
+      "Incoming text",
+      "2026-11-14T05",
+    ),
+    null,
+  );
+});
+
+Deno.test("detectRollingDrop — ignores drops on error and failure events", () => {
+  const highDay = Array.from({ length: 24 }, () => 20);
+  const zeroDay = Array.from({ length: 24 }, () => 0);
+  const history = buildHourlyHistory("2026-11-10T00", [
+    ...highDay,
+    ...highDay,
+    ...highDay,
+    ...highDay,
+    ...zeroDay,
+  ]);
+  assertEquals(
+    detectRollingDrop(
+      history,
+      "8c0a6c49-proj",
+      "API submit failure",
+      "2026-11-14T23",
+    ),
+    null,
+  );
+  assertEquals(
+    detectRollingDrop(
+      history,
+      "2a5aeba9-proj",
+      "Error Occurred",
+      "2026-11-14T23",
+    ),
+    null,
+  );
+});
+
+Deno.test("detectRollingDrop — returns null on cold start with fewer than 3 prior days", () => {
+  const normalDay = Array.from({ length: 24 }, () => 15);
+  const zeroSixHours = [0, 0, 0, 0, 0, 0];
+  const history = buildHourlyHistory("2026-11-12T00", [
+    ...normalDay,
+    ...normalDay,
+    ...zeroSixHours,
+  ]);
+  assertEquals(
+    detectRollingDrop(
+      history,
+      "2a5aeba9-proj",
+      "Performed Search",
+      "2026-11-14T05",
+    ),
+    null,
+  );
 });

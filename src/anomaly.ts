@@ -1,3 +1,4 @@
+import { empty } from "gamla";
 import { getTurso } from "./turso.ts";
 
 export type Stats = {
@@ -72,6 +73,9 @@ export const emptyStats = (lastBucket: string): Stats => ({
 
 const bucketToMs = (bucket: string): number =>
   new Date(bucket + ":00:00Z").getTime();
+
+const msToBucket = (ms: number): string =>
+  new Date(ms).toISOString().slice(0, 13);
 
 const msPerHour = 60 * 60 * 1000;
 
@@ -271,6 +275,128 @@ export const detectPercentageSpike = (
       metric: "percentageSpike",
     }
     : null;
+};
+
+export type BucketCount = { bucket: string; count: number };
+
+type RollingWindowSpec = {
+  windowHours: number;
+  minWindowMean: number;
+  minDropFraction: number;
+  minAbsDiff: number;
+};
+
+const rollingDropSpecs: RollingWindowSpec[] = [
+  { windowHours: 6, minWindowMean: 25, minDropFraction: 0.75, minAbsDiff: 20 },
+  { windowHours: 24, minWindowMean: 50, minDropFraction: 0.7, minAbsDiff: 30 },
+];
+const minRollingPriorDays = 3;
+const maxRollingPriorDays = 6;
+const rollingDropZScoreThreshold = 2.5;
+const minRollingDropHourlyMean = 0.8;
+const errorEventKeywords = ["error", "fail", "rejection", "exception"];
+
+const isErrorEventName = (eventName: string): boolean => {
+  const lower = eventName.toLowerCase();
+  return errorEventKeywords.some((kw) => lower.includes(kw));
+};
+
+const sumWindowCounts = (
+  countByBucket: Map<string, number>,
+  endMs: number,
+  windowHours: number,
+): number =>
+  Array.from({ length: windowHours }).reduce<number>(
+    (acc, _, offset) =>
+      acc + (countByBucket.get(msToBucket(endMs - offset * msPerHour)) ?? 0),
+    0,
+  );
+
+const collectPriorWindowSums = (
+  countByBucket: Map<string, number>,
+  endMs: number,
+  firstMs: number,
+  windowHours: number,
+): number[] =>
+  Array.from({ length: maxRollingPriorDays }, (_, idx) => idx + 1)
+    .map((day) => endMs - day * 24 * msPerHour)
+    .filter((priorEndMs) =>
+      priorEndMs - (windowHours - 1) * msPerHour >= firstMs
+    )
+    .map((priorEndMs) =>
+      sumWindowCounts(countByBucket, priorEndMs, windowHours)
+    );
+
+const sampleMean = (xs: number[]): number =>
+  xs.reduce((a, b) => a + b, 0) / xs.length;
+
+const sampleStdDev = (xs: number[], mean: number): number =>
+  xs.length < 2 ? 0 : Math.sqrt(
+    xs.reduce((acc, v) => acc + (v - mean) ** 2, 0) / (xs.length - 1),
+  );
+
+const evaluateRollingWindow = (
+  countByBucket: Map<string, number>,
+  firstMs: number,
+  endMs: number,
+  projectId: string,
+  eventName: string,
+  bucket: string,
+) =>
+({
+  windowHours,
+  minWindowMean,
+  minDropFraction,
+  minAbsDiff,
+}: RollingWindowSpec): Anomaly | null => {
+  const priors = collectPriorWindowSums(
+    countByBucket,
+    endMs,
+    firstMs,
+    windowHours,
+  );
+  if (priors.length < minRollingPriorDays) return null;
+  const mean = sampleMean(priors);
+  if (mean < minWindowMean) return null;
+  const actual = sumWindowCounts(countByBucket, endMs, windowHours);
+  const sd = sampleStdDev(priors, mean);
+  const z = sd > 0 ? (mean - actual) / sd : actual < mean ? Infinity : 0;
+  const dropFraction = (mean - actual) / mean;
+  return dropFraction >= minDropFraction &&
+      mean - actual >= minAbsDiff &&
+      z >= rollingDropZScoreThreshold
+    ? {
+      projectId,
+      eventName,
+      bucket,
+      expected: round2(mean / windowHours),
+      actual: round2(actual / windowHours),
+      zScore: round2(dropFraction),
+      detectedAt: new Date().toISOString(),
+      metric: "percentageDrop",
+    }
+    : null;
+};
+
+export const detectRollingDrop = (
+  history: BucketCount[],
+  projectId: string,
+  eventName: string,
+  bucket: string,
+): Anomaly | null => {
+  if (empty(history) || isErrorEventName(eventName)) return null;
+  const countByBucket = new Map(history.map((h) => [h.bucket, h.count]));
+  const firstMs = Math.min(...history.map((h) => bucketToMs(h.bucket)));
+  const endMs = bucketToMs(bucket);
+  const evaluator = evaluateRollingWindow(
+    countByBucket,
+    firstMs,
+    endMs,
+    projectId,
+    eventName,
+    bucket,
+  );
+  return rollingDropSpecs.map(evaluator).find((a) => a !== null) ?? null;
 };
 
 export const detectPercentageDrop = (
@@ -771,6 +897,47 @@ const checkUserSpike = async (
   );
 };
 
+const getEventHistoryUpTo = async (
+  projectId: string,
+  eventName: string,
+  maxBucket: string,
+): Promise<BucketCount[]> => {
+  const res = await getTurso().execute({
+    sql:
+      `SELECT bucket, count FROM counts WHERE project_id = ? AND event_name = ? AND bucket <= ? ORDER BY bucket ASC;`,
+    args: [projectId, eventName, maxBucket],
+  });
+  return res.rows.map((row) => ({
+    bucket: String(row.bucket),
+    count: Number(row.count),
+  }));
+};
+
+const checkRollingDropForTransition = async (
+  stats: Stats,
+  existingAnomalies: Anomaly[],
+  projectId: string,
+  eventName: string,
+  nextBucket: string,
+): Promise<Anomaly[]> => {
+  if (
+    stats.mean < minRollingDropHourlyMean ||
+    isErrorEventName(eventName) ||
+    existingAnomalies.some((a) => a.metric === "percentageDrop")
+  ) {
+    return [];
+  }
+  const closedBucket = msToBucket(bucketToMs(nextBucket) - msPerHour);
+  const history = await getEventHistoryUpTo(projectId, eventName, closedBucket);
+  const rolling = detectRollingDrop(
+    history,
+    projectId,
+    eventName,
+    closedBucket,
+  );
+  return rolling ? [rolling] : [];
+};
+
 const handleBucketTransition = async (
   stats: Stats,
   projectId: string,
@@ -791,7 +958,7 @@ const handleBucketTransition = async (
     stats.lastBucket,
   );
 
-  const anomalies = detectBucketAnomalies(
+  const bucketAnomalies = detectBucketAnomalies(
     stats,
     hourStats,
     prevTotalCount,
@@ -800,6 +967,14 @@ const handleBucketTransition = async (
     eventName,
     statsDecay,
   );
+  const rollingAnomalies = await checkRollingDropForTransition(
+    stats,
+    bucketAnomalies,
+    projectId,
+    eventName,
+    bucket,
+  );
+  const anomalies = [...bucketAnomalies, ...rollingAnomalies];
 
   const prevMaxUserCount = await getMaxUserCount(
     projectId,

@@ -291,6 +291,7 @@ type RollingWindowSpec = {
 };
 
 const rollingDropSpecs: RollingWindowSpec[] = [
+  { windowHours: 2, minWindowMean: 16, minDropFraction: 0.9, minAbsDiff: 14 },
   { windowHours: 6, minWindowMean: 25, minDropFraction: 0.75, minAbsDiff: 20 },
   { windowHours: 24, minWindowMean: 50, minDropFraction: 0.7, minAbsDiff: 30 },
 ];

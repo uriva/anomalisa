@@ -2215,3 +2215,63 @@ Deno.test({
     assertEquals(perEventCounts, [0, 0, 0, 0, 1, 0, 0]);
   },
 });
+
+Deno.test("detectRollingDrop — flags 2h total blackout on medium-volume event within 2 hours instead of waiting 5h", () => {
+  const buildDay = (h0: number, h1: number, h2: number) => [
+    h0,
+    h1,
+    h2,
+    ...Array.from({ length: 21 }, () => 12),
+  ];
+  const history = buildHourlyHistory("2026-11-19T00", [
+    ...buildDay(12, 8, 7),
+    ...buildDay(14, 9, 6),
+    ...buildDay(16, 10, 6),
+    ...buildDay(18, 12, 10),
+    ...buildDay(20, 12, 10),
+    ...buildDay(22, 12, 4),
+    14,
+    0,
+    0,
+  ]);
+  const result = detectRollingDrop(
+    history,
+    "2a5aeba9-a4a7-4349-80d0-801c9e65abbd",
+    "Performed Search",
+    "2026-11-25T02",
+  );
+  assertEquals(result !== null, true);
+  assertEquals(result?.metric, "percentageDrop");
+  assertEquals(result?.bucket, "2026-11-25T02");
+  assertEquals(result?.actual, 0);
+  assertEquals((result?.expected ?? 0) > 8, true);
+});
+
+Deno.test("detectRollingDrop — does not false-alarm on 2h zero window when baseline volume is low or erratic", () => {
+  const erraticDay = (h1: number, h2: number) => [
+    8,
+    h1,
+    h2,
+    ...Array.from({ length: 21 }, () => 8),
+  ];
+  const history = buildHourlyHistory("2026-11-19T00", [
+    ...erraticDay(10, 10),
+    ...erraticDay(2, 2),
+    ...erraticDay(12, 8),
+    ...erraticDay(0, 3),
+    ...erraticDay(9, 7),
+    ...erraticDay(4, 2),
+    8,
+    0,
+    0,
+  ]);
+  assertEquals(
+    detectRollingDrop(
+      history,
+      "8c0a6c49-proj",
+      "UserSwipedFromChat",
+      "2026-11-25T02",
+    ),
+    null,
+  );
+});

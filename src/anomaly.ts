@@ -46,6 +46,9 @@ export const stdDev = ({ m2, n }: Stats): number =>
   n < 2 ? 0 : Math.sqrt(m2 / (n - 1));
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
+const maxFiniteZScore = 999;
+const finiteScore = (x: number) =>
+  Number.isFinite(x) ? round2(x) : maxFiniteZScore;
 
 const minDataPoints = 3;
 const minColdStartCount = 5;
@@ -122,7 +125,7 @@ export const detectAnomaly = (
       bucket,
       expected: round2(stats.mean),
       actual: count,
-      zScore: round2(z),
+      zScore: finiteScore(z),
       detectedAt: new Date().toISOString(),
       metric,
       ...(userId ? { userId } : {}),
@@ -209,11 +212,12 @@ export const detectPoissonAnomaly = (
       bucket,
       expected: round2(stats.mean),
       actual: count,
-      zScore: Infinity,
+      zScore: maxFiniteZScore,
       detectedAt: new Date().toISOString(),
       metric: "totalCount",
     };
   }
+  if (count > 0 && count < 2) return null;
   if (stdDev(stats) > Math.max(1, Math.sqrt(stats.mean))) {
     return detectAnomaly(
       stats,
@@ -239,7 +243,7 @@ export const detectPoissonAnomaly = (
     bucket,
     expected: round2(lambda),
     actual: count,
-    zScore: round2(score),
+    zScore: finiteScore(score),
     detectedAt: new Date().toISOString(),
     metric: "totalCount",
   };
@@ -270,7 +274,7 @@ export const detectPercentageSpike = (
       bucket,
       expected: round2(stats.mean),
       actual: count,
-      zScore: round2(pctChange),
+      zScore: finiteScore(pctChange),
       detectedAt: new Date().toISOString(),
       metric: "percentageSpike",
     }
@@ -471,16 +475,52 @@ const isGloballyElevated = (
   bucket: string,
 ): boolean =>
   globalStats.n < minDataPoints ||
-  detectPoissonAnomaly(globalStats, count, projectId, eventName, bucket) !==
-    null ||
-  detectAnomaly(
-      globalStats,
-      count,
+  (count > globalStats.mean &&
+    (detectPoissonAnomaly(globalStats, count, projectId, eventName, bucket) !==
+        null ||
+      detectAnomaly(
+          globalStats,
+          count,
+          projectId,
+          eventName,
+          "totalCount",
+          bucket,
+        ) !== null));
+
+export const detectLiveBucketSpikes = (
+  stats: Stats,
+  hourStats: Stats,
+  currentCount: number,
+  projectId: string,
+  eventName: string,
+  bucket: string,
+): Anomaly[] => {
+  const hourHasData = hourStats.n >= minDataPoints;
+  const targetStats = hourHasData ? hourStats : stats;
+  if (
+    currentCount <= targetStats.mean ||
+    (hourHasData &&
+      !isGloballyElevated(stats, currentCount, projectId, eventName, bucket))
+  ) {
+    return [];
+  }
+  return [
+    detectPoissonAnomaly(
+      targetStats,
+      currentCount,
       projectId,
       eventName,
-      "totalCount",
       bucket,
-    ) !== null;
+    ),
+    detectPercentageSpike(
+      targetStats,
+      currentCount,
+      projectId,
+      eventName,
+      bucket,
+    ),
+  ].filter((a): a is Anomaly => a !== null && anomalyDirection(a) === "high");
+};
 
 const isGloballyDepressed = (
   globalStats: Stats,
@@ -938,12 +978,12 @@ const checkRollingDropForTransition = async (
   return rolling ? [rolling] : [];
 };
 
-const handleBucketTransition = async (
+const handleBucketTransitionWithStats = async (
   stats: Stats,
   projectId: string,
   eventName: string,
   bucket: string,
-): Promise<Anomaly[]> => {
+): Promise<{ anomalies: Anomaly[]; stats: Stats }> => {
   const prevTotalCount = await getCount(projectId, eventName, stats.lastBucket);
 
   const skippedHours = Math.max(0, hoursBetween(stats.lastBucket, bucket) - 1);
@@ -993,13 +1033,11 @@ const handleBucketTransition = async (
     skippedHours,
     statsDecay,
   );
+  const nextStats = { ...updatedStats, lastBucket: bucket };
 
   const [notifiable] = await Promise.all([
     storeAndFilter(anomalies),
-    saveStats(projectId, eventName, "total", {
-      ...updatedStats,
-      lastBucket: bucket,
-    }),
+    saveStats(projectId, eventName, "total", nextStats),
     saveStats(
       projectId,
       eventName,
@@ -1021,7 +1059,51 @@ const handleBucketTransition = async (
     console.warn("ANOMALY DETECTED:", JSON.stringify(a))
   );
 
-  return notifiable;
+  return { anomalies: notifiable, stats: nextStats };
+};
+
+const handleBucketTransition = (
+  stats: Stats,
+  projectId: string,
+  eventName: string,
+  bucket: string,
+): Promise<Anomaly[]> =>
+  handleBucketTransitionWithStats(stats, projectId, eventName, bucket).then(
+    ({ anomalies }) => anomalies,
+  );
+
+const shouldCheckLiveBucketSpikes = (
+  stats: Stats,
+  currentCount: number,
+): boolean =>
+  currentCount >= 2 &&
+  (stats.n < minDataPoints
+    ? currentCount >= minColdStartCount
+    : currentCount > stats.mean);
+
+const trackLiveBucketSpikes = async (
+  stats: Stats,
+  projectId: string,
+  eventName: string,
+  bucket: string,
+  currentCount: number,
+): Promise<Anomaly[]> => {
+  if (!shouldCheckLiveBucketSpikes(stats, currentCount)) return [];
+  const hourStats = await getOrInitStats(
+    projectId,
+    eventName,
+    `byHour:${parseInt(bucket.slice(-2), 10)}`,
+    bucket,
+  );
+  const spikes = detectLiveBucketSpikes(
+    stats,
+    hourStats,
+    currentCount,
+    projectId,
+    eventName,
+    bucket,
+  );
+  return empty(spikes) ? [] : storeAndFilter(spikes);
 };
 
 const trackUserSpike = async (
@@ -1057,7 +1139,7 @@ export const recordEvent = async (
 ): Promise<Anomaly[]> => {
   const bucket = getHourBucket();
 
-  await incrementCount(projectId, eventName, bucket);
+  const currentCount = await incrementCount(projectId, eventName, bucket);
 
   const totalStats = await getOrInitStats(
     projectId,
@@ -1066,19 +1148,34 @@ export const recordEvent = async (
     bucket,
   );
 
-  const newUserSpike = userId
-    ? await trackUserSpike(projectId, eventName, bucket, userId)
-    : [];
+  const { anomalies: bucketAnomalies, stats: activeStats } =
+    totalStats.lastBucket === bucket
+      ? { anomalies: [], stats: totalStats }
+      : await handleBucketTransitionWithStats(
+        totalStats,
+        projectId,
+        eventName,
+        bucket,
+      );
 
-  newUserSpike.forEach((a) =>
+  const [newUserSpike, liveBucketSpikes] = await Promise.all([
+    userId
+      ? trackUserSpike(projectId, eventName, bucket, userId)
+      : Promise.resolve([]),
+    trackLiveBucketSpikes(
+      activeStats,
+      projectId,
+      eventName,
+      bucket,
+      currentCount,
+    ),
+  ]);
+
+  [...newUserSpike, ...liveBucketSpikes].forEach((a) =>
     console.warn("ANOMALY DETECTED:", JSON.stringify(a))
   );
 
-  const bucketAnomalies = totalStats.lastBucket === bucket
-    ? []
-    : await handleBucketTransition(totalStats, projectId, eventName, bucket);
-
-  return [...newUserSpike, ...bucketAnomalies];
+  return [...newUserSpike, ...liveBucketSpikes, ...bucketAnomalies];
 };
 
 export const getEventCounts = async (

@@ -5,6 +5,7 @@ import {
   checkAndSetCooldown,
   detectAnomaly,
   detectBucketAnomalies,
+  detectLiveBucketSpikes,
   detectPercentageDrop,
   detectPercentageSpike,
   detectPoissonAnomaly,
@@ -15,6 +16,7 @@ import {
   enqueueOutgoingAlerts,
   getTrendIndication,
   hoursBetween,
+  recordEvent,
   shouldSuppress,
   stdDev,
   updateStats,
@@ -2103,4 +2105,113 @@ Deno.test("detectRollingDrop — returns null on cold start with fewer than 3 pr
     ),
     null,
   );
+});
+
+Deno.test("detectPoissonAnomaly — ignores single event when mean is 0", () => {
+  const stats = buildStats([0, 0, 0, 0, 0], "2026-11-24T22");
+  assertEquals(
+    detectPoissonAnomaly(
+      stats,
+      1,
+      "proj1",
+      "Outbound Phone Call",
+      "2026-11-24T22",
+    ),
+    null,
+  );
+});
+
+Deno.test("detectLiveBucketSpikes — flags mid-hour PSTN burst on cold start and established low baseline", () => {
+  const cold = emptyStats("2026-11-24T22");
+  const coldResult = detectLiveBucketSpikes(
+    cold,
+    emptyStats("2026-11-24T22"),
+    5,
+    "prompt2bot",
+    "Outbound Phone Call",
+    "2026-11-24T22",
+  );
+  assertEquals(
+    coldResult.some((a) => a.metric === "totalCount" && a.actual === 5),
+    true,
+  );
+
+  const globalStats = {
+    mean: 0.45,
+    m2: 113.2,
+    n: 50,
+    lastBucket: "2026-11-24T22",
+  };
+  const quietHourStats = buildStats([0, 0, 0, 0, 0], "2026-11-24T22");
+  const establishedResult = detectLiveBucketSpikes(
+    globalStats,
+    quietHourStats,
+    6,
+    "prompt2bot",
+    "Outbound Phone Call",
+    "2026-11-24T22",
+  );
+  assertEquals(
+    establishedResult.some((a) => a.metric === "totalCount" && a.actual === 6),
+    true,
+  );
+});
+
+Deno.test("detectLiveBucketSpikes — never fires mid-hour when count is below global mean even if above quiet hour mean", () => {
+  const globalStats = buildStats(
+    [100, 110, 95, 105, 90, 100],
+    "2026-11-24T03",
+  );
+  const quietHourStats = buildStats([1, 2, 1, 2, 1, 2], "2026-11-24T03");
+  const result = detectLiveBucketSpikes(
+    globalStats,
+    quietHourStats,
+    8,
+    "prompt2bot",
+    "Bot Reply",
+    "2026-11-24T03",
+  );
+  assertEquals(result, []);
+});
+
+Deno.test({
+  name:
+    "recordEvent — alerts immediately mid-hour on multi-account PSTN burst without waiting for bucket transition or duplicating",
+  sanitizeResources: false,
+  fn: async () => {
+    const projectId = "test-project-live-pstn-burst";
+    const eventName = "Outbound Phone Call";
+    const turso = getTurso();
+    const cleanup = () =>
+      turso.batch([
+        { sql: "DELETE FROM counts WHERE project_id = ?;", args: [projectId] },
+        {
+          sql: "DELETE FROM user_counts WHERE project_id = ?;",
+          args: [projectId],
+        },
+        {
+          sql: "DELETE FROM max_user_counts WHERE project_id = ?;",
+          args: [projectId],
+        },
+        { sql: "DELETE FROM stats WHERE project_id = ?;", args: [projectId] },
+        {
+          sql: "DELETE FROM anomalies WHERE project_id = ?;",
+          args: [projectId],
+        },
+        {
+          sql: "DELETE FROM cooldowns WHERE project_id = ?;",
+          args: [projectId],
+        },
+      ], "write");
+
+    await cleanup();
+    const perEventCounts: number[] = [];
+    for (let i = 1; i <= 7; i++) {
+      const detected = await recordEvent(projectId, eventName, `acct-${i}`);
+      perEventCounts.push(detected.length);
+    }
+    await cleanup();
+
+    assertEquals(perEventCounts, [0, 0, 0, 0, 1, 0, 0]);
+  },
 });

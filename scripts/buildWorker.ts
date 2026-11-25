@@ -26,13 +26,16 @@ if (!status.success) {
   Deno.exit(status.code);
 }
 
-const [rawCode, indexHtml, appHtml, docsHtml, ogPngBytes] = await Promise.all([
-  Deno.readTextFile(workerOut),
-  Deno.readTextFile(new URL("../web/index.html", import.meta.url)),
-  Deno.readTextFile(new URL("../web/app.html", import.meta.url)),
-  Deno.readTextFile(new URL("../web/docs.html", import.meta.url)),
-  Deno.readFile(new URL("../web/og.png", import.meta.url)),
-]);
+const [rawCode, indexHtml, appHtml, docsHtml, privacyHtml, termsHtml, ogPngBytes] =
+  await Promise.all([
+    Deno.readTextFile(workerOut),
+    Deno.readTextFile(new URL("../web/index.html", import.meta.url)),
+    Deno.readTextFile(new URL("../web/app.html", import.meta.url)),
+    Deno.readTextFile(new URL("../web/docs.html", import.meta.url)),
+    Deno.readTextFile(new URL("../web/privacy.html", import.meta.url)),
+    Deno.readTextFile(new URL("../web/terms.html", import.meta.url)),
+    Deno.readFile(new URL("../web/og.png", import.meta.url)),
+  ]);
 
 const toBase64 = (bytes: Uint8Array) => {
   let binary = "";
@@ -46,6 +49,8 @@ const embeddedTextFiles = JSON.stringify({
   "index.html": indexHtml,
   "app.html": appHtml,
   "docs.html": docsHtml,
+  "privacy.html": privacyHtml,
+  "terms.html": termsHtml,
 });
 
 const embeddedOgPngBase64 = JSON.stringify(toBase64(ogPngBytes));

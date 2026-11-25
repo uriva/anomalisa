@@ -155,16 +155,26 @@ const readWebFile = (name: string) =>
 
 let _htmlCachePromise:
   | Promise<
-    { landingHtml: string; appHtml: string; docsHtml: string }
+    {
+      landingHtml: string;
+      appHtml: string;
+      docsHtml: string;
+      privacyHtml: string;
+      termsHtml: string;
+    }
   >
   | null = null;
 const getHtml = () =>
   _htmlCachePromise ??= Promise.all(
-    ["index.html", "app.html", "docs.html"].map(readWebFile),
-  ).then(([landingHtml, appHtml, docsHtml]) => ({
+    ["index.html", "app.html", "docs.html", "privacy.html", "terms.html"].map(
+      readWebFile,
+    ),
+  ).then(([landingHtml, appHtml, docsHtml, privacyHtml, termsHtml]) => ({
     landingHtml,
     appHtml,
     docsHtml,
+    privacyHtml,
+    termsHtml,
   }));
 
 const jsonResponse = (data: Record<string, unknown>, status = 200) =>
@@ -188,11 +198,14 @@ const investigateHttpResponse = (res: InvestigateResponse) =>
     : htmlResponse(res.html, res.status);
 
 const getHtmlByPath = async () => {
-  const { landingHtml, appHtml, docsHtml } = await getHtml();
+  const { landingHtml, appHtml, docsHtml, privacyHtml, termsHtml } =
+    await getHtml();
   return {
     "/": landingHtml,
     "/app": appHtml,
     "/docs": docsHtml,
+    "/privacy": privacyHtml,
+    "/terms": termsHtml,
   };
 };
 

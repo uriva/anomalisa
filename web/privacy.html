@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>anomalisa - privacy policy</title>
+    <meta
+      name="description"
+      content="Privacy Policy for anomalisa (anomalisa.uriv.me): how account data, event telemetry, analytics, and third-party processors are handled."
+    />
+    <link rel="canonical" href="https://anomalisa.uriv.me/privacy" />
+    <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+    a {
+      color: #7eb8ff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .page {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem;
+    }
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.03em;
+      margin-bottom: 2rem;
+    }
+    .logo a {
+      color: #fff;
+    }
+    .logo a:hover {
+      text-decoration: none;
+      opacity: 0.8;
+    }
+    .updated {
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.78rem;
+      color: #666;
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-size: 1.75rem;
+      color: #fff;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+    h2 {
+      font-size: 1.05rem;
+      color: #fff;
+      margin: 2rem 0 0.6rem;
+      font-weight: 600;
+    }
+    p {
+      font-size: 0.9rem;
+      color: #999;
+      line-height: 1.65;
+      margin-bottom: 0.75rem;
+    }
+    ul {
+      margin: 0 0 1rem 1.25rem;
+      color: #999;
+      font-size: 0.9rem;
+      line-height: 1.65;
+    }
+    li {
+      margin-bottom: 0.5rem;
+    }
+    strong {
+      color: #d4d4d8;
+    }
+    code {
+      font-family: "SF Mono", "Fira Code", monospace;
+      background: #1a1a1a;
+      color: #e4e4e7;
+      padding: 0.12rem 0.35rem;
+      border-radius: 3px;
+      font-size: 0.82em;
+    }
+    .footer {
+      border-top: 1px solid #1a1a1a;
+      padding-top: 2rem;
+      margin-top: 3rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: #555;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .footer-links {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .footer a {
+      color: #666;
+    }
+    .footer a:hover {
+      color: #999;
+    }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="logo">
+        <a href="/">anomalisa</a> <span
+          style="font-size: 0.85rem; color: #555; font-weight: 400"
+        >privacy</span>
+      </div>
+
+      <p class="updated">Last Updated: November 25, 2026</p>
+      <h1>Privacy Policy</h1>
+      <p>
+        This Privacy Policy explains how anomalisa (<code>anomalisa.uriv.me</code>)
+        collects, processes, stores, and deletes information when you visit our
+        website, create an account, or send event telemetry to our anomaly
+        detection API.
+      </p>
+
+      <h2>1. Information We Collect</h2>
+      <ul>
+        <li>
+          <strong>Account and project data:</strong> your email address
+          (for magic-code authentication and alert delivery), project names,
+          generated project API tokens, and optional webhook URLs.
+        </li>
+        <li>
+          <strong>Event telemetry and anomaly data:</strong> event names,
+          hourly event count buckets, statistical baselines, detected anomaly
+          records, alert delivery logs/cooldowns, alert feedback ratings, and
+          optional customer end-user identifiers (<code>user_id</code>) sent
+          via the <code>sendEvent</code> API.
+        </li>
+        <li>
+          <strong>Optional GitHub integration credentials:</strong> if you
+          enable GitHub issue creation from anomaly alerts, we store your
+          configured repository identifier and GitHub Personal Access Token
+          (PAT).
+        </li>
+        <li>
+          <strong>Usage analytics and error diagnostics:</strong> pageviews,
+          product usage events, client exception reports, and server-side
+          lifecycle events (such as signups, first event received, event
+          submissions, and alert feedback), associated with your email address
+          when signed in.
+        </li>
+      </ul>
+
+      <h2>2. Infrastructure and Sub-Processors</h2>
+      <ul>
+        <li>
+          <strong>InstantDB:</strong> provides magic-code email authentication
+          and stores user accounts, projects, project API tokens, and webhook
+          configurations.
+        </li>
+        <li>
+          <strong>Turso (libSQL):</strong> stores hourly event counts, running
+          statistics, anomaly records, customer end-user <code>user_id</code>
+          counts, outgoing alert email queues/cooldowns, and optional GitHub
+          repository settings and Personal Access Tokens.
+        </li>
+        <li>
+          <strong>PostHog:</strong> provides client-side and server-side product
+          analytics and exception capture, including calling
+          <code>identify</code> with signed-in user email addresses.
+        </li>
+        <li>
+          <strong>AgentMail:</strong> sends transactional anomaly alert emails
+          (including feedback and investigation links) and administrative
+          notifications.
+        </li>
+        <li>
+          <strong>GitHub API:</strong> used only when you explicitly configure
+          a GitHub Personal Access Token and trigger issue creation from an
+          alert investigation link.
+        </li>
+        <li>
+          <strong>Cloudflare Workers:</strong> hosts the web pages, API
+          endpoints, and scheduled anomaly-check and alert-delivery cron jobs.
+        </li>
+      </ul>
+
+      <h2>3. B2B Processor Role and Customer End-User Data</h2>
+      <p>
+        When you integrate anomalisa into your own applications and transmit
+        end-user identifiers (<code>user_id</code>) or event names, you act as
+        the data controller for your end users and anomalisa acts as a service
+        provider / data processor on your behalf. We strongly recommend sending
+        pseudonymous or hashed user IDs rather than raw personal information
+        (such as end-user emails, names, or sensitive data). You are solely
+        responsible for providing appropriate privacy notices and obtaining any
+        consents required from your end users.
+      </p>
+
+      <h2>4. Retention and Deletion</h2>
+      <p>
+        Hourly event buckets and expired tracking records are pruned
+        periodically by automated cleanup jobs, while account, project, and
+        configured integration records remain stored until deleted. You can
+        remove GitHub credentials or projects in the dashboard, or request full
+        deletion of your account, projects, Turso telemetry, and associated
+        records at any time by contacting the operator via
+        <a href="https://uriv.me" target="_blank" rel="noopener noreferrer">uriv.me</a>
+        with your account email address.
+      </p>
+
+      <h2>5. Security</h2>
+      <p>
+        We use HTTPS in transit and restrict access to project data via
+        authentication and project tokens. Because GitHub Personal Access Tokens
+        and project API tokens grant programmatic access, scope GitHub tokens to
+        the minimum permissions required (such as Issues write on a single
+        repository) and rotate them if exposed.
+      </p>
+
+      <h2>6. Changes and Contact</h2>
+      <p>
+        We may update this Privacy Policy as the service changes and will revise
+        the Last Updated date above. For privacy questions or data deletion
+        requests, contact the operator via
+        <a href="https://uriv.me" target="_blank" rel="noopener noreferrer">uriv.me</a>.
+      </p>
+
+      <div class="footer">
+        <span>anomalisa</span>
+        <div class="footer-links">
+          <a href="/">Home</a>
+          <a href="/docs">Docs</a>
+          <a href="/app">App</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

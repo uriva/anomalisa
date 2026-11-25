@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>anomalisa - terms of service</title>
+    <meta
+      name="description"
+      content="Terms of Service for anomalisa (anomalisa.uriv.me)."
+    />
+    <link rel="canonical" href="https://anomalisa.uriv.me/terms" />
+    <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+    a {
+      color: #7eb8ff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .page {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem;
+    }
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.03em;
+      margin-bottom: 2rem;
+    }
+    .logo a {
+      color: #fff;
+    }
+    .logo a:hover {
+      text-decoration: none;
+      opacity: 0.8;
+    }
+    .updated {
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.78rem;
+      color: #666;
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-size: 1.75rem;
+      color: #fff;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+    h2 {
+      font-size: 1.05rem;
+      color: #fff;
+      margin: 2rem 0 0.6rem;
+      font-weight: 600;
+    }
+    p {
+      font-size: 0.9rem;
+      color: #999;
+      line-height: 1.65;
+      margin-bottom: 0.75rem;
+    }
+    ul {
+      margin: 0 0 1rem 1.25rem;
+      color: #999;
+      font-size: 0.9rem;
+      line-height: 1.65;
+    }
+    li {
+      margin-bottom: 0.5rem;
+    }
+    strong {
+      color: #d4d4d8;
+    }
+    code {
+      font-family: "SF Mono", "Fira Code", monospace;
+      background: #1a1a1a;
+      color: #e4e4e7;
+      padding: 0.12rem 0.35rem;
+      border-radius: 3px;
+      font-size: 0.82em;
+    }
+    .footer {
+      border-top: 1px solid #1a1a1a;
+      padding-top: 2rem;
+      margin-top: 3rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: #555;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .footer-links {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .footer a {
+      color: #666;
+    }
+    .footer a:hover {
+      color: #999;
+    }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="logo">
+        <a href="/">anomalisa</a> <span
+          style="font-size: 0.85rem; color: #555; font-weight: 400"
+        >terms</span>
+      </div>
+
+      <p class="updated">Last Updated: November 25, 2026</p>
+      <h1>Terms of Service</h1>
+      <p>
+        By accessing or using anomalisa (<code>anomalisa.uriv.me</code>) or the
+        hosted anomaly detection API, you agree to these Terms of Service.
+      </p>
+
+      <h2>1. Service Description and Statistical Limitations</h2>
+      <p>
+        anomalisa provides statistical anomaly detection and email/webhook
+        alerting for application event counts. Anomaly detection is heuristic
+        and probabilistic: it will not detect every outage, bug, security
+        incident, or failure mode, and it may produce false positives or delayed
+        alerts. Do not rely on anomalisa as your sole monitoring, safety,
+        financial, or mission-critical alerting system.
+      </p>
+
+      <h2>2. Accounts, API Tokens, and Integrations</h2>
+      <p>
+        You are responsible for maintaining the confidentiality of your email
+        account, project API tokens, webhook URLs, and any GitHub Personal
+        Access Tokens you connect to anomalisa. You authorize anomalisa to send
+        alert emails via AgentMail, invoke your configured webhook endpoints,
+        and call the GitHub API when you trigger issue creation.
+      </p>
+
+      <h2>3. Customer Responsibilities for End-User Data</h2>
+      <p>
+        If you transmit end-user identifiers (<code>user_id</code>) or other
+        data from your own applications to anomalisa, you represent and warrant
+        that you have all required rights, notices, and consents to share that
+        data with anomalisa and its sub-processors (InstantDB, Turso, PostHog,
+        AgentMail, GitHub, and Cloudflare Workers). You agree not to transmit
+        protected health information (HIPAA), payment card data (PCI),
+        government IDs, or sensitive personal data of minors in event names or
+        <code>user_id</code> values.
+      </p>
+
+      <h2>4. Acceptable Use and Rate Limits</h2>
+      <p>
+        You agree not to abuse, flood, probe, or disrupt the hosted API or
+        exceed reasonable event volumes and rate limits. We may throttle,
+        suspend, or terminate projects or accounts that cause service
+        degradation, violate applicable law, or breach these Terms.
+      </p>
+
+      <h2>5. Open Source SDK vs. Hosted Service</h2>
+      <p>
+        The open source repository and published SDK remain licensed under the
+        repository's MIT license. These Terms govern your use of the hosted
+        <code>anomalisa.uriv.me</code> service and website.
+      </p>
+
+      <h2>6. Disclaimer of Warranties and Limitation of Liability</h2>
+      <p>
+        The hosted service is provided "AS IS" and "AS AVAILABLE" without
+        warranties of any kind, express or implied, including uptime, alert
+        delivery, accuracy, merchantability, or fitness for a particular
+        purpose. To the maximum extent permitted by law, anomalisa and its
+        operators will not be liable for any indirect, incidental, special,
+        consequential, or punitive damages, missed alerts, downtime, or loss of
+        profits or data.
+      </p>
+
+      <h2>7. Governing Law and Contact</h2>
+      <p>
+        These Terms are governed by the laws of the State of New Mexico, United
+        States, without regard to conflict-of-law principles. For support,
+        account deletion, or legal inquiries, contact the operator via
+        <a href="https://uriv.me" target="_blank" rel="noopener noreferrer">uriv.me</a>.
+        See also our
+        <a href="/privacy">Privacy Policy</a>.
+      </p>
+
+      <div class="footer">
+        <span>anomalisa</span>
+        <div class="footer-links">
+          <a href="/">Home</a>
+          <a href="/docs">Docs</a>
+          <a href="/app">App</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

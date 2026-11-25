@@ -1,13 +1,24 @@
+import { context } from "@uri/inject";
 import { empty } from "gamla";
 import { anomalyDirection } from "./anomaly.ts";
 import type { Anomaly } from "./anomaly.ts";
+import { autoCreateGithubIssues } from "./autoIssue.ts";
 import {
-  createAlertFeedbackTokens,
+  createAlertFeedbackRecords,
   feedbackUrl,
   groupByEventBucket,
   investigateUrl,
 } from "./feedback.ts";
+import { formatBucket, metricLabel } from "./format.ts";
+import type { CreatedGithubIssue } from "./github.ts";
+import { escapeHtml } from "./page.ts";
 import { getTurso } from "./turso.ts";
+
+export { formatBucket, metricLabel };
+
+export const { inject: injectEmailFetch, access: emailFetch } = context(
+  (url: string, init?: RequestInit): Promise<Response> => fetch(url, init),
+);
 
 type BucketCount = { bucket: string; count: number };
 export type EventCounts = Record<string, BucketCount[]>;
@@ -108,7 +119,7 @@ const incrementEmailCounts = async (
 };
 
 const sendEmail = async ({ to, subject, html, text }: Email) => {
-  const response = await fetch(
+  const response = await emailFetch(
     `${agentmailBaseUrl}/accounts/${getAccountId()}/messages`,
     {
       method: "POST",
@@ -132,42 +143,6 @@ const sendEmail = async ({ to, subject, html, text }: Email) => {
   }
   return response;
 };
-
-const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const months = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-const hourLabel = (h: number) =>
-  h === 0 ? "12am" : h < 12 ? `${h}am` : h === 12 ? "12pm" : `${h - 12}pm`;
-
-export const formatBucket = (bucket: string) => {
-  const d = new Date(`${bucket}:00:00Z`);
-  const h = d.getUTCHours();
-  return `${days[d.getUTCDay()]} ${
-    months[d.getUTCMonth()]
-  } ${d.getUTCDate()}, ${hourLabel(h)}–${hourLabel((h + 1) % 24)} UTC`;
-};
-
-export const metricLabel = (metric: Anomaly["metric"]) =>
-  metric === "userSpike"
-    ? "User Spike"
-    : metric === "percentageSpike"
-    ? "Percentage Spike"
-    : metric === "percentageDrop"
-    ? "Percentage Drop"
-    : "Total Count";
 
 const truncate = (s: string, max: number) =>
   s.length > max ? `${s.slice(0, max)}...` : s;
@@ -217,12 +192,25 @@ const feedbackActionButton = (
       : "color: #b91c1c; background-color: #fef2f2; border: 1px solid #fecaca;"
   }">${label}</a>`;
 
-const createGithubIssueLabel = "Create GitHub issue";
+export const createGithubIssueLabel = "Create GitHub issue";
+export const autoOpenedGithubIssueLabel = "GitHub issue opened automatically";
+export const viewGithubIssueLabel = (issueNumber: number) =>
+  `View issue #${issueNumber}`;
 
 const githubIssueActionButton = (token: string) =>
   `<a class="feedback-btn feedback-btn-agent" href="${
     investigateUrl(token)
   }" style="${feedbackBtnStyle} color: #1d4ed8; background-color: #eff6ff; border: 1px solid #bfdbfe;">${createGithubIssueLabel}</a>`;
+
+const openedGithubIssueButton = ({
+  issueUrl,
+  issueNumber,
+}: CreatedGithubIssue) =>
+  `<a class="feedback-btn feedback-btn-agent" href="${
+    escapeHtml(issueUrl)
+  }" style="${feedbackBtnStyle} color: #047857; background-color: #ecfdf5; border: 1px solid #a7f3d0;">${
+    viewGithubIssueLabel(issueNumber)
+  }</a>`;
 
 const formatActionBar = (label: string, actions: string) => `
       <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #f1f5f9;">
@@ -243,8 +231,16 @@ const formatFeedbackBar = (token?: string) =>
     )
     : "";
 
-const formatGithubIssueBar = (token?: string) =>
-  token
+const formatGithubIssueBar = (
+  token?: string,
+  createdIssue?: CreatedGithubIssue,
+) =>
+  createdIssue
+    ? formatActionBar(
+      autoOpenedGithubIssueLabel,
+      openedGithubIssueButton(createdIssue),
+    )
+    : token
     ? formatActionBar(
       "Track on GitHub",
       githubIssueActionButton(token),
@@ -254,10 +250,13 @@ const formatGithubIssueBar = (token?: string) =>
 const formatEventCard = (
   sparklines: Record<string, string>,
   feedbackTokens?: Record<string, string>,
+  createdIssues?: Record<string, CreatedGithubIssue>,
 ) =>
 (groups: Anomaly[]) => {
   const a = groups[0];
-  const token = feedbackTokens?.[`${a.eventName}|${a.bucket}`];
+  const groupKey = `${a.eventName}|${a.bucket}`;
+  const token = feedbackTokens?.[groupKey];
+  const createdIssue = createdIssues?.[groupKey];
   const sparklineMarkup = sparklines[a.eventName]
     ? `
     <div style="margin-top: 6px; word-break: break-all; overflow-wrap: break-word;">
@@ -301,7 +300,7 @@ const formatEventCard = (
         </div>
       </div>
       ${formatFeedbackBar(token)}
-      ${formatGithubIssueBar(token)}
+      ${formatGithubIssueBar(token, createdIssue)}
     </div>`;
 };
 
@@ -311,6 +310,7 @@ export const anomaliesHtml = (
   counts?: EventCounts,
   maxUserCounts?: EventCounts,
   feedbackTokens?: Record<string, string>,
+  createdIssues?: Record<string, CreatedGithubIssue>,
 ) => {
   const sparklines = counts
     ? buildSparklines(anomalies, counts, maxUserCounts, sparkHtml)
@@ -372,7 +372,11 @@ export const anomaliesHtml = (
         
         <!-- Body -->
         <div class="email-body" style="padding: 24px; background-color: #ffffff;">
-          ${groups.map(formatEventCard(sparklines, feedbackTokens)).join("")}
+          ${
+    groups.map(formatEventCard(sparklines, feedbackTokens, createdIssues)).join(
+      "",
+    )
+  }
           
           <!-- Footer info -->
           <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #64748b; line-height: 1.5; text-align: left;">
@@ -447,16 +451,21 @@ const buildSparklines = (
 const eventText = (
   sparklines: Record<string, string>,
   feedbackTokens?: Record<string, string>,
+  createdIssues?: Record<string, CreatedGithubIssue>,
 ) =>
 (groups: Anomaly[]) => {
   const primary = groups[0];
-  const token = feedbackTokens?.[`${primary.eventName}|${primary.bucket}`];
+  const groupKey = `${primary.eventName}|${primary.bucket}`;
+  const token = feedbackTokens?.[groupKey];
+  const createdIssue = createdIssues?.[groupKey];
   const feedbackLine = token
     ? `\n    Helpful? Good: ${feedbackUrl(token, "good")} | Bad: ${
       feedbackUrl(token, "bad")
     }`
     : "";
-  const githubIssueLine = token
+  const githubIssueLine = createdIssue
+    ? `\n    ${autoOpenedGithubIssueLabel} (#${createdIssue.issueNumber}): ${createdIssue.issueUrl}`
+    : token
     ? `\n    ${createGithubIssueLabel}: ${investigateUrl(token)}`
     : "";
   return `  ${primary.eventName}${
@@ -473,13 +482,16 @@ export const anomaliesText = (
   counts?: EventCounts,
   maxUserCounts?: EventCounts,
   feedbackTokens?: Record<string, string>,
+  createdIssues?: Record<string, CreatedGithubIssue>,
 ) => {
   const sparklines = counts
     ? buildSparklines(anomalies, counts, maxUserCounts, sparkText)
     : {};
   const groups = groupByEventBucket(anomalies);
   return `Anomalies:\n\n${
-    groups.map(eventText(sparklines, feedbackTokens)).join("\n\n")
+    groups.map(eventText(sparklines, feedbackTokens, createdIssues)).join(
+      "\n\n",
+    )
   }`;
 };
 
@@ -491,10 +503,30 @@ const subjectLine = (
     userId ? ` (${truncate(userId, 20)})` : ""
   }`;
 
-export const batchSubject = (projectName: string, anomalies: Anomaly[]) =>
-  anomalies.length === 1
-    ? subjectLine(projectName, anomalies[0])
-    : `[${projectName}] ${anomalies.length} anomalies detected`;
+export const subjectGithubIssueOpenedSuffix = (issueNumber: number) =>
+  ` (GitHub issue #${issueNumber} opened)`;
+
+const subjectIssuesSuffix = (
+  createdIssues?: Record<string, CreatedGithubIssue>,
+) => {
+  const issues = Object.values(createdIssues ?? {});
+  return empty(issues)
+    ? ""
+    : issues.length === 1
+    ? subjectGithubIssueOpenedSuffix(issues[0].issueNumber)
+    : ` (${issues.length} GitHub issues opened)`;
+};
+
+export const batchSubject = (
+  projectName: string,
+  anomalies: Anomaly[],
+  createdIssues?: Record<string, CreatedGithubIssue>,
+) =>
+  `${
+    anomalies.length === 1
+      ? subjectLine(projectName, anomalies[0])
+      : `[${projectName}] ${anomalies.length} anomalies detected`
+  }${subjectIssuesSuffix(createdIssues)}`;
 
 export const sendAnomalyAlerts = async (
   toEmail: string,
@@ -511,26 +543,43 @@ export const sendAnomalyAlerts = async (
     );
     return;
   }
-  const feedbackTokens = await createAlertFeedbackTokens(
+  const records = await createAlertFeedbackRecords(
     anomalies,
     counts,
     maxUserCounts,
-  ).catch(() => ({}));
+  ).catch(() => []);
+  const feedbackTokens = Object.fromEntries(
+    records.map(({ eventName, bucket, token }) => [
+      `${eventName}|${bucket}`,
+      token,
+    ]),
+  );
+  const createdIssues = await autoCreateGithubIssues({
+    projectName,
+    records,
+  }).catch(() => ({}));
   return sendEmail({
     to: toEmail,
-    subject: batchSubject(projectName, anomalies),
+    subject: batchSubject(projectName, anomalies, createdIssues),
     html: anomaliesHtml(
       projectName,
       anomalies,
       counts,
       maxUserCounts,
       feedbackTokens,
+      createdIssues,
     ),
-    text: anomaliesText(anomalies, counts, maxUserCounts, feedbackTokens),
+    text: anomaliesText(
+      anomalies,
+      counts,
+      maxUserCounts,
+      feedbackTokens,
+      createdIssues,
+    ),
   });
 };
 
-export const sendAdminNotification = async ({
+export const sendAdminNotification = ({
   subject,
   html,
   text,
@@ -542,7 +591,7 @@ export const sendAdminNotification = async ({
   const key = getApiKey();
   if (!key) {
     console.warn("AgentMail not configured, skipping admin notification");
-    return;
+    return Promise.resolve();
   }
   return sendEmail({
     to: "uri.valevski@gmail.com",

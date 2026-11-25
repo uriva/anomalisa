@@ -83,65 +83,91 @@ const fetchStatsSnapshot = async (
   );
 };
 
-export const createAlertFeedbackTokens = async (
+const buildFeedbackEntry = (
+  counts?: EventCounts,
+  maxUserCounts?: EventCounts,
+  now?: number,
+) =>
+async (group: Anomaly[]): Promise<AlertFeedbackRecord> => {
+  const primary = group[0];
+  const token = crypto.randomUUID();
+  const statsJson = await fetchStatsSnapshot(
+    primary.projectId,
+    primary.eventName,
+  );
+  const historyJson = extractHistorySnapshot(
+    primary.eventName,
+    primary.metric,
+    counts,
+    maxUserCounts,
+  );
+  return {
+    token,
+    projectId: primary.projectId,
+    eventName: primary.eventName,
+    bucket: primary.bucket,
+    metric: group.map(({ metric }) => metric).join(","),
+    userId: primary.userId ?? "_",
+    expected: primary.expected,
+    actual: primary.actual,
+    zScore: primary.zScore,
+    anomaliesJson: JSON.stringify(group),
+    historyJson,
+    statsJson,
+    rating: null,
+    feedbackAt: null,
+    createdAt: now ?? Date.now(),
+  };
+};
+
+export const createAlertFeedbackRecords = async (
   anomalies: Anomaly[],
   counts?: EventCounts,
   maxUserCounts?: EventCounts,
-): Promise<Record<string, string>> => {
-  if (empty(anomalies)) return {};
+): Promise<AlertFeedbackRecord[]> => {
+  if (empty(anomalies)) return [];
   const groups = groupByEventBucket(anomalies);
-  const now = Date.now();
-  const entries = await Promise.all(
-    groups.map(async (group) => {
-      const primary = group[0];
-      const token = crypto.randomUUID();
-      const statsJson = await fetchStatsSnapshot(
-        primary.projectId,
-        primary.eventName,
-      );
-      const historyJson = extractHistorySnapshot(
-        primary.eventName,
-        primary.metric,
-        counts,
-        maxUserCounts,
-      );
-      return {
-        key: `${primary.eventName}|${primary.bucket}`,
-        token,
-        primary,
-        group,
-        historyJson,
-        statsJson,
-      };
-    }),
+  const records = await Promise.all(
+    groups.map(buildFeedbackEntry(counts, maxUserCounts, Date.now())),
   );
 
   await getTurso().batch(
-    entries.map(({ token, primary, group, historyJson, statsJson }) => ({
+    records.map((r) => ({
       sql:
         `INSERT INTO alert_feedback (token, project_id, event_name, bucket, metric, user_id, expected, actual, z_score, anomalies_json, history_json, stats_json, rating, feedback_at, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?);`,
       args: [
-        token,
-        primary.projectId,
-        primary.eventName,
-        primary.bucket,
-        group.map(({ metric }) => metric).join(","),
-        primary.userId ?? "_",
-        primary.expected,
-        primary.actual,
-        primary.zScore,
-        JSON.stringify(group),
-        historyJson,
-        statsJson,
-        now,
+        r.token,
+        r.projectId,
+        r.eventName,
+        r.bucket,
+        r.metric,
+        r.userId,
+        r.expected,
+        r.actual,
+        r.zScore,
+        r.anomaliesJson,
+        r.historyJson,
+        r.statsJson,
+        r.createdAt,
       ],
     })),
     "write",
   );
 
-  return Object.fromEntries(entries.map(({ key, token }) => [key, token]));
+  return records;
 };
+
+export const createAlertFeedbackTokens = async (
+  anomalies: Anomaly[],
+  counts?: EventCounts,
+  maxUserCounts?: EventCounts,
+): Promise<Record<string, string>> =>
+  Object.fromEntries(
+    (await createAlertFeedbackRecords(anomalies, counts, maxUserCounts)).map(
+      ({ eventName, bucket, token }) => [`${eventName}|${bucket}`, token],
+    ),
+  );
 
 export const updateAlertFeedback = async (
   token: string,

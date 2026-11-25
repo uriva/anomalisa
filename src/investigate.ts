@@ -1,7 +1,7 @@
 import { empty, join, map, nonempty, pipe } from "gamla";
 import { z } from "zod/v4";
 import type { Anomaly } from "./anomaly.ts";
-import { formatBucket, metricLabel } from "./email.ts";
+import { formatBucket, metricLabel } from "./format.ts";
 import {
   type AlertFeedbackRecord,
   getAlertFeedback,
@@ -53,12 +53,12 @@ const parseJsonSafe = (raw: string) => {
   }
 };
 
-const parseAnomalies = (raw: string): Anomaly[] => {
+export const parseAnomalies = (raw: string): Anomaly[] => {
   const parsed = z.array(anomalySchema).safeParse(parseJsonSafe(raw));
   return parsed.success ? parsed.data : [];
 };
 
-const parseHistory = (raw: string) => {
+export const parseHistory = (raw: string) => {
   const parsed = historySchema.safeParse(parseJsonSafe(raw));
   return {
     counts: parsed.success ? parsed.data.counts ?? [] : [],

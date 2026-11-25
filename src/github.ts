@@ -1,6 +1,11 @@
+import { context } from "@uri/inject";
 import { empty, filter, map } from "gamla";
 import { z } from "zod/v4";
 import { getTurso } from "./turso.ts";
+
+export const { inject: injectGithubFetch, access: githubFetch } = context(
+  (url: string, init?: RequestInit): Promise<Response> => fetch(url, init),
+);
 
 export type ProjectGithubConfig = {
   projectId: string;
@@ -11,6 +16,13 @@ export type ProjectGithubConfig = {
 export type CreatedGithubIssue = {
   issueUrl: string;
   issueNumber: number;
+};
+
+export type RecentProjectGithubIssue = {
+  eventName: string;
+  bucket: string;
+  issueNumber: number;
+  issueUrl: string;
 };
 
 export type RepoResolution =
@@ -100,6 +112,27 @@ export const saveAlertGithubIssue = async (
   });
 };
 
+export const getRecentProjectGithubIssues = async (
+  projectId: string,
+  sinceMs: number,
+): Promise<RecentProjectGithubIssue[]> => {
+  const res = await getTurso().execute({
+    sql: `SELECT af.event_name, af.bucket, agi.issue_number, agi.issue_url
+       FROM alert_github_issues agi
+       JOIN alert_feedback af ON agi.token = af.token
+       WHERE af.project_id = ? AND agi.created_at >= ?
+       ORDER BY agi.created_at DESC
+       LIMIT 20;`,
+    args: [projectId, sinceMs],
+  });
+  return res.rows.map((row) => ({
+    eventName: String(row.event_name),
+    bucket: String(row.bucket),
+    issueNumber: Number(row.issue_number),
+    issueUrl: String(row.issue_url),
+  }));
+};
+
 const githubHeaders = (githubToken: string) => ({
   Accept: "application/vnd.github+json",
   Authorization: `Bearer ${githubToken}`,
@@ -168,7 +201,7 @@ const fetchAccessibleRepos = async (
   githubToken: string,
   projectName: string,
 ): Promise<RepoResolution> => {
-  const res = await fetch(
+  const res = await githubFetch(
     `${githubApiBase}/user/repos?per_page=100&sort=updated`,
     { headers: githubHeaders(githubToken) },
   );
@@ -231,14 +264,17 @@ export const createGithubIssue = async ({
   title: string;
   body: string;
 }): Promise<CreateIssueResult> => {
-  const res = await fetch(`${githubApiBase}/repos/${githubRepo}/issues`, {
-    method: "POST",
-    headers: {
-      ...githubHeaders(githubToken),
-      "Content-Type": "application/json",
+  const res = await githubFetch(
+    `${githubApiBase}/repos/${githubRepo}/issues`,
+    {
+      method: "POST",
+      headers: {
+        ...githubHeaders(githubToken),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ title, body }),
     },
-    body: JSON.stringify({ title, body }),
-  });
+  );
   const text = await res.text();
   if (!res.ok) {
     return {
@@ -266,9 +302,12 @@ export const verifyGithubRepoAccess = async (
   githubToken: string,
   githubRepo: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> => {
-  const res = await fetch(`${githubApiBase}/repos/${githubRepo}`, {
-    headers: githubHeaders(githubToken),
-  });
+  const res = await githubFetch(
+    `${githubApiBase}/repos/${githubRepo}`,
+    {
+      headers: githubHeaders(githubToken),
+    },
+  );
   return res.ok ? { ok: true } : {
     ok: false,
     error: repoAccessError(

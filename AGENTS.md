@@ -38,12 +38,15 @@
     rate limits.
   - **InstantDB (`src/db.ts`, `instant.schema.ts`):** Users (magic code auth)
     and projects (`name`, `token`).
-- **Email (`src/email.ts`):** Sends alerts via AgentMail
-  (`anomalisa@theagentmail.net`, `AGENTMAIL_API_KEY`) with `/feedback` and
-  `/investigate` ("Create GitHub issue") links (`src/feedback.ts`,
-  `src/investigate.ts`, `src/github.ts`).
+- **Email & Auto-Issues (`src/email.ts`, `src/autoIssue.ts`):** Sends alerts via
+  AgentMail (`anomalisa@theagentmail.net`, `AGENTMAIL_API_KEY`) with `/feedback`
+  and `/investigate` ("Create GitHub issue") links (`src/feedback.ts`,
+  `src/investigate.ts`, `src/github.ts`), automatically opening GitHub issues
+  via the `@uriv/chaff` decision model (`GEMINI_API_KEY`) when warranted and
+  reflecting opened issues in the alert email.
 - **Web (`src/server.ts`, `web/`):** Serves `/` (`web/index.html`), `/app`
   (`web/app.html`), `/docs` (`web/docs.html`), `/feedback`, `/investigate`, and
   `/config`.
 - **Required `.env` vars:** `INSTANTDB_APP_ID`, `INSTANTDB_ADMIN_TOKEN`,
-  `AGENTMAIL_API_KEY`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`.
+  `AGENTMAIL_API_KEY`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`,
+  `GEMINI_API_KEY`.

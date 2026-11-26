@@ -1,4 +1,11 @@
 import { empty } from "gamla";
+import { resolveEffectivePlan } from "./billing.ts";
+import { lookupProjectById, type ProjectWithOwner } from "./db.ts";
+import {
+  buildRetentionBatch,
+  type ProjectRetention,
+  retentionCutoffsForPlan,
+} from "./retention.ts";
 import { getTurso } from "./turso.ts";
 import type { Anomaly, Metric } from "./types.ts";
 
@@ -46,8 +53,6 @@ const minPercentageSpikeMean = 10;
 const minPercentageSpikeZScore = 2.5;
 const poissonPThreshold = 1e-3;
 const lnPoissonPThreshold = Math.log(poissonPThreshold);
-const countTtlMs = 7 * 24 * 60 * 60 * 1000;
-const anomalyTtlMs = 30 * 24 * 60 * 60 * 1000;
 const cooldownTtlMs = 48 * 60 * 60 * 1000;
 const statsDecay = 0.98;
 
@@ -1288,35 +1293,53 @@ export const drainOutgoingAlerts = async (): Promise<
   return byProject;
 };
 
+const expiredProjectIds = async (
+  countsCutoffMs: number,
+  anomaliesCutoffMs: number,
+): Promise<string[]> => {
+  const res = await getTurso().execute({
+    sql: `SELECT project_id FROM counts WHERE created_at < ?
+          UNION
+          SELECT project_id FROM user_counts WHERE created_at < ?
+          UNION
+          SELECT project_id FROM max_user_counts WHERE created_at < ?
+          UNION
+          SELECT project_id FROM anomalies WHERE created_at < ?;`,
+    args: [countsCutoffMs, countsCutoffMs, countsCutoffMs, anomaliesCutoffMs],
+  });
+  return res.rows.map((row) => String(row.project_id));
+};
+
+const resolveOwnerRetention = async (
+  projectId: string,
+  project: ProjectWithOwner | null,
+): Promise<ProjectRetention | null> =>
+  project
+    ? await resolveEffectivePlan(project.owner.id, project.owner.email)
+      .then((plan): ProjectRetention => ({ projectId, plan }))
+      .catch(() => null)
+    : { projectId, plan: "free" };
+
+const resolveProjectRetention = (
+  projectId: string,
+): Promise<ProjectRetention | null> =>
+  lookupProjectById(projectId)
+    .then((project) => resolveOwnerRetention(projectId, project))
+    .catch(() => null);
+
 export const cleanExpiredData = async () => {
   const now = Date.now();
+  const { countsCutoffMs, anomaliesCutoffMs } = retentionCutoffsForPlan(
+    "free",
+    now,
+  );
+  const projectIds = await expiredProjectIds(
+    countsCutoffMs,
+    anomaliesCutoffMs,
+  );
+  const resolved = await Promise.all(projectIds.map(resolveProjectRetention));
   await getTurso().batch(
-    [
-      {
-        sql: "DELETE FROM counts WHERE created_at < ?;",
-        args: [now - countTtlMs],
-      },
-      {
-        sql: "DELETE FROM user_counts WHERE created_at < ?;",
-        args: [now - countTtlMs],
-      },
-      {
-        sql: "DELETE FROM max_user_counts WHERE created_at < ?;",
-        args: [now - countTtlMs],
-      },
-      {
-        sql: "DELETE FROM anomalies WHERE created_at < ?;",
-        args: [now - anomalyTtlMs],
-      },
-      {
-        sql: "DELETE FROM cooldowns WHERE expires_at < ?;",
-        args: [now],
-      },
-      {
-        sql: "DELETE FROM email_rate_limits WHERE expires_at < ?;",
-        args: [now],
-      },
-    ],
+    buildRetentionBatch(now)(resolved.flatMap((entry) => entry ? [entry] : [])),
     "write",
   );
 };

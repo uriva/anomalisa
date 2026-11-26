@@ -348,8 +348,9 @@
           <td><code>zScore</code></td>
           <td>number</td>
           <td>
-            Standard deviations from mean (totalCount/userSpike) or percentage
-            change (percentageSpike)
+            Standard deviations from mean (overdispersed totalCount, userSpike),
+            -log10(p) (Poisson totalCount), or fractional change
+            (percentageSpike, percentageDrop)
           </td>
         </tr>
         <tr>
@@ -361,30 +362,73 @@
 
       <h2>How detection works</h2>
       <p>
-        Events are counted in hourly buckets. The server maintains a running
-        mean and variance per event using <a
+        Events are counted in hourly UTC buckets (<code>YYYY-MM-DDTHH</code>).
+        The server maintains a decaying <a
           href="https://en.wikipedia.org/wiki/Welford%27s_online_algorithm"
           target="_blank"
-        >Welford's online algorithm</a>. When a bucket's count deviates by more
-        than 2 standard deviations, it's flagged as an anomaly and you get an
-        email.
-      </p>
-      <p>Three things are tracked independently:</p>
-      <p>
-        <strong style="color: #ccc">Total count (z-score)</strong> -- the total
-        number of times an event fires per hour across all users. Fires when
-        count is more than 2 standard deviations from the mean.
+          rel="noopener noreferrer"
+        >Welford's online algorithm</a> baseline per event with
+        <code>statsDecay = 0.98</code>, <code>minDataPoints = 3</code>, and
+        <code>minColdStartCount = 5</code>. Four metrics are tracked
+        independently:
       </p>
       <p>
-        <strong style="color: #ccc">Percentage spike</strong> -- fires when
-        hourly count more than doubles compared to the rolling mean (and the
-        absolute difference is at least 3). Catches gradual increases that
-        z-score misses in noisy data.
+        <strong style="color: #ccc">Total count (<code>totalCount</code>)</strong>
+        -- Uses a two-sided Poisson test (<code>p &lt; 1e-3</code>) when
+        variance is near-Poisson, falling back to <code>3σ</code>
+        (<code>zScoreThreshold = 3</code>) when overdispersed
+        (<code>stdDev &gt; max(1, sqrt(mean))</code>). Also includes cold-start
+        burst detection (<code>count &gt;= 5</code> when <code>n &lt; 3</code>),
+        live mid-hour spike checks, and per-hour-of-day
+        (<code>byHour:&lt;HH&gt;</code>) seasonality.
       </p>
       <p>
-        <strong style="color: #ccc">Per-user spikes</strong> -- each user's
-        hourly event count is compared against that user's historical pattern.
+        <strong style="color: #ccc">Percentage spike (<code>percentageSpike</code>)</strong>
+        -- Fires when an hourly count is <code>&gt;100%</code> above the
+        rolling mean (<code>diff &gt;= 3</code>, <code>mean &gt;= 10</code>,
+        <code>z &gt;= 2.5</code>) and is not explained by
+        <code>byHour:&lt;HH&gt;</code> seasonality.
       </p>
+      <p>
+        <strong style="color: #ccc">Percentage drop (<code>percentageDrop</code>)</strong>
+        -- Fires on a single-hour <code>&gt;50%</code> drop
+        (<code>mean &gt;= 30</code>, <code>diff &gt;= 3</code>,
+        <code>z &gt;= 1.05</code>) or a rolling 2h/6h/24h drop compared to the
+        prior 3-6 days (<code>z &gt;= 2.5</code>; skipped for error/failure
+        events).
+      </p>
+      <p>
+        <strong style="color: #ccc">Per-user spikes (<code>userSpike</code>)</strong>
+        -- Tracks <code>max_user_counts</code> (the highest single-user count
+        per hourly bucket) into a per-event <code>"perUser"</code> Welford
+        baseline (<code>0.98</code> decay), and alerts when any single user's
+        current-hour count exceeds it by <code>&gt; 3.5σ</code>
+        (<code>minDataPoints = 3</code>, <code>count &gt;= 3</code>, and
+        <code>count &gt;= 5</code> if <code>0 &lt; mean &lt; 1</code>).
+      </p>
+
+      <h2>Self-hosting</h2>
+      <p>
+        Clone the repository, configure <code>.env</code> with your database,
+        auth, and email credentials, and run the server with Deno:
+      </p>
+      <div class="code-block">
+<span class="comment"># Required</span>
+TURSO_DATABASE_URL=your-turso-database-url
+TURSO_AUTH_TOKEN=your-turso-auth-token
+INSTANTDB_APP_ID=your-instantdb-app-id
+INSTANTDB_ADMIN_TOKEN=your-instantdb-admin-token
+AGENTMAIL_API_KEY=your-agentmail-api-key
+
+<span class="comment"># Optional (enables automatic GitHub issue triage)</span>
+GEMINI_API_KEY=your-gemini-api-key</div>
+      <p>
+        Push the InstantDB schema and permissions, then start the server:
+      </p>
+      <div class="code-block">
+npx instant-cli push schema --app $INSTANTDB_APP_ID --token $INSTANTDB_ADMIN_TOKEN
+npx instant-cli push perms --app $INSTANTDB_APP_ID --token $INSTANTDB_ADMIN_TOKEN
+deno run --allow-net --allow-env --allow-read src/server.ts</div>
 
       <div class="footer">
         <span>anomalisa</span>

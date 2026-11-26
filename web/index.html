@@ -1253,8 +1253,9 @@ curl -X POST https://anomalisa.uriv.me \
             </div>
             <div class="feature-title">Per-user anomalies</div>
             <div class="feature-desc">
-              One user generating 100x more events than usual. Could be a bot,
-              abuse, or an infinite retry loop in their client. You'll know.
+              One user exceeding the historical per-user max baseline for an
+              event. Could be a bot, abuse, or an infinite retry loop in their
+              client. You'll know.
             </div>
           </div>
 
@@ -1316,28 +1317,33 @@ curl -X POST https://anomalisa.uriv.me \
             target="_blank"
             rel="noopener noreferrer"
           >Welford's online algorithm</a>
-          to maintain a running mean and variance from your data. Three numbers
-          in memory: count, mean, and sum of squared deviations. Each hour, the
-          event count gets fed into the model. If the new count is more than 2
-          standard deviations from the running mean, you get an email. That's
-          it.
+          with exponential decay (<code>statsDecay = 0.98</code>) to maintain a
+          running mean and variance from your data. Three numbers in memory:
+          count, mean, and sum of squared deviations, tracked per event and per
+          hour-of-day (<code>byHour:&lt;HH&gt;</code>) after a 3-point warm-up
+          (<code>minDataPoints = 3</code>, with cold-start burst alerts at
+          <code>count &gt;= 5</code>).
         </p>
 
         <p class="prose">
-          No batch jobs, no time-series database. The model updates
-          incrementally with constant memory and stays numerically stable even
-          over millions of updates.
+          No batch jobs, no time-series database. The model adapts continuously
+          with constant memory, checks live mid-hour counts for sudden bursts,
+          and applies a 48-hour directional cooldown so ongoing incidents don't
+          spam your inbox.
         </p>
 
-        <!-- Three detection modes -->
+        <!-- Four detection modes -->
         <div class="modes-grid">
           <div class="mode-card">
             <div class="mode-pill">totalCount</div>
             <div class="mode-body">
               <h4>Total count anomalies</h4>
               <p>
-                Your signup event usually gets ~50/hour, suddenly it's 200 or 3.
-                Works in both directions, catches drops as well as spikes.
+                Uses a two-sided Poisson test (<code>p &lt; 1e-3</code>) when
+                variance is near-Poisson, falling back to <code>3&sigma;</code>
+                when overdispersed (<code>stdDev &gt; max(1, sqrt(mean))</code>),
+                plus cold-start bursts (<code>count &gt;= 5</code>), live
+                mid-hour checks, and <code>byHour:&lt;HH&gt;</code> seasonality.
               </p>
             </div>
           </div>
@@ -1347,8 +1353,24 @@ curl -X POST https://anomalisa.uriv.me \
             <div class="mode-body">
               <h4>Percentage spike detection</h4>
               <p>
-                Errors go from 2% to 30% of your traffic while total volume
-                stays flat. Absolute counts look fine, but the ratio is off.
+                Fires when an hourly count is <code>&gt;100%</code> above the
+                rolling mean (<code>diff &gt;= 3</code>, <code>mean &gt;= 10</code>,
+                <code>z &gt;= 2.5</code>) and is not explained by
+                <code>byHour</code> seasonality.
+              </p>
+            </div>
+          </div>
+
+          <div class="mode-card">
+            <div class="mode-pill">percentageDrop</div>
+            <div class="mode-body">
+              <h4>Percentage drop &amp; rolling outages</h4>
+              <p>
+                Catches single-hour <code>&gt;50%</code> drops
+                (<code>mean &gt;= 30</code>, <code>diff &gt;= 3</code>,
+                <code>z &gt;= 1.05</code>) plus rolling 2h/6h/24h drops against
+                the prior 3-6 days (<code>z &gt;= 2.5</code>, skipped for error
+                events).
               </p>
             </div>
           </div>
@@ -1358,8 +1380,12 @@ curl -X POST https://anomalisa.uriv.me \
             <div class="mode-body">
               <h4>Per-user spike detection</h4>
               <p>
-                One user generating 100x their normal volume. Could be a bot,
-                abuse, or a bug in their integration.
+                Tracks <code>max_user_counts</code> (highest single-user count
+                per hourly bucket) into a per-event <code>"perUser"</code>
+                Welford baseline (<code>0.98</code> decay), alerting when any
+                user's current-hour count exceeds it by <code>&gt; 3.5&sigma;</code>
+                (<code>minDataPoints = 3</code>, <code>count &gt;= 3</code>, and
+                <code>count &gt;= 5</code> if <code>0 &lt; mean &lt; 1</code>).
               </p>
             </div>
           </div>
@@ -1373,19 +1399,20 @@ curl -X POST https://anomalisa.uriv.me \
             <span class="pipeline-arrow">→</span>
             <span class="pipeline-node">API Gateway</span>
             <span class="pipeline-arrow">→</span>
-            <span class="pipeline-node">Welford Engine [n, μ, M2]</span>
+            <span class="pipeline-node">Welford + Decay (0.98)</span>
             <span class="pipeline-arrow">→</span>
             <span class="pipeline-node">Key-Value Store</span>
             <span class="pipeline-arrow">→</span>
-            <span class="pipeline-node">Email / Webhook (z > 2)</span>
+            <span class="pipeline-node">Email / Webhook</span>
           </div>
         </div>
 
         <p class="prose">
-          The entire storage layer is a key-value store. Event counts in hourly
-          buckets with a 7-day TTL, three Welford states per event name,
-          detected anomalies with a 30-day TTL. No relational queries, no
-          migrations. TTLs handle cleanup. The detection engine is
+          The entire storage layer holds hourly bucket counts with a 7-day TTL,
+          decaying Welford states (global, <code>byHour:&lt;HH&gt;</code>, and
+          <code>perUser</code>) per event name, and detected anomalies with a
+          30-day TTL. No relational query gymnastics, no heavy pipeline. The
+          detection engine is
           <a
             href="https://github.com/uriva/anomalisa/blob/main/src/anomaly.ts"
             target="_blank"
@@ -1679,9 +1706,11 @@ deno run --allow-net --allow-env --allow-read src/server.ts</pre>
           <div class="faq-item">
             <div class="faq-q">How does cold-start work?</div>
             <div class="faq-a">
-              Anomalisa requires 3 hourly data points before statistical detection
-              activates. During these initial hours, baseline data is collected
-              quietly to avoid alerting on empty or incomplete baselines.
+              Anomalisa requires 3 hourly data points (<code>minDataPoints = 3</code>)
+              before statistical detection activates, collecting baseline data
+              quietly to avoid noise on incomplete baselines. Sudden cold-start
+              bursts of 5 or more events in an hour (<code>minColdStartCount = 5</code>)
+              still trigger immediately.
             </div>
           </div>
 

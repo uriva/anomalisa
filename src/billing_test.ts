@@ -614,3 +614,88 @@ Deno.test("Pro feature gating restricts team emails, signed webhooks with retrie
 
   await cleanupBillingTestData();
 });
+
+Deno.test("checkout sync does not upgrade unpaid, open, expired, or unexpanded sessions to Pro", async () => {
+  await cleanupBillingTestData();
+
+  await withEnv(
+    {
+      STRIPE_SECRET_KEY: "sk_test_mock",
+      STRIPE_PRO_PRICE_ID: "price_anomalisa_pro_15",
+      APP_BASE_URL: "https://anomalisa.uriv.me",
+    },
+    async () => {
+      const sessionCases = [
+        {
+          id: "cs_test_unpaid_open",
+          status: "open",
+          payment_status: "unpaid",
+          customer: null,
+          client_reference_id: testUserId,
+          subscription: null,
+          metadata: { product: stripeProductTag, userId: testUserId },
+        },
+        {
+          id: "cs_test_unpaid_expired",
+          status: "expired",
+          payment_status: "unpaid",
+          customer: "cus_unpaid_1",
+          client_reference_id: testUserId,
+          subscription: "sub_unexpanded_unpaid",
+          metadata: { product: stripeProductTag, userId: testUserId },
+        },
+        {
+          id: "cs_test_incomplete",
+          status: "complete",
+          payment_status: "unpaid",
+          customer: "cus_incomplete_1",
+          client_reference_id: testUserId,
+          subscription: { id: "sub_incomplete_1", status: "incomplete" },
+          metadata: { product: stripeProductTag, userId: testUserId },
+        },
+      ];
+
+      await pipe(
+        injectVerifyUserToken((token) =>
+          Promise.resolve(
+            token === "valid-user-token"
+              ? { id: testUserId, email: testEmail }
+              : null,
+          )
+        ),
+        injectStripeFetch((url) => {
+          const match = sessionCases.find((c) => url.includes(c.id));
+          return Promise.resolve(
+            match
+              ? new Response(JSON.stringify(match), { status: 200 })
+              : new Response("{}", { status: 404 }),
+          );
+        }),
+      )(async () => {
+        await sessionCases.reduce(
+          async (prev, sessionCase) => {
+            await prev;
+            const syncRes = await httpHandler(
+              new Request("https://anomalisa.uriv.me/api/billing/sync", {
+                method: "POST",
+                headers: {
+                  Authorization: "Bearer valid-user-token",
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ sessionId: sessionCase.id }),
+              }),
+            );
+            assertEquals(syncRes.status, 200);
+            const synced = await syncRes.json();
+            assertEquals(synced.plan, "free");
+            assertEquals(synced.monthlyEventLimit, planLimits.free);
+            assertEquals(synced.features.teamEmails, false);
+          },
+          Promise.resolve(),
+        );
+      })();
+    },
+  );
+
+  await cleanupBillingTestData();
+});

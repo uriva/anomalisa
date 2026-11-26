@@ -1510,10 +1510,12 @@
             });
             if (syncRes.ok) {
               billingStatus = await syncRes.json();
-              billingBanner = {
-                kind: "success",
-                text: "Welcome to Anomalisa Pro! Your 1,000,000 events/month limit and Pro features are now active.",
-              };
+              if (billingStatus.plan === "pro") {
+                billingBanner = {
+                  kind: "success",
+                  text: "Welcome to Anomalisa Pro! Your 1,000,000 events/month limit and Pro features are now active.",
+                };
+              }
             }
           } catch (e) {
             captureClientError(e, { action: "sync_checkout_session" });

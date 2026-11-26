@@ -49,6 +49,16 @@ export const apiDefinition = {
       ),
     }),
   }),
+  sendTestAnomaly: endpoint({
+    authRequired: false,
+    input: z.object({
+      token: z.string().min(1),
+    }),
+    output: z.object({
+      ok: z.boolean(),
+      sentTo: z.string(),
+    }),
+  }),
 } as const;
 
 export type Api = typeof apiDefinition;

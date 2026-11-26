@@ -14,7 +14,12 @@ import {
   recordEvent,
 } from "./anomaly.ts";
 import { lookupProjectById, lookupProjectByToken } from "./db.ts";
-import { sendAdminNotification, sendAnomalyAlerts } from "./email.ts";
+import {
+  sendAdminNotification,
+  sendAnomalyAlerts,
+  sendTestAnomalyAlert,
+} from "./email.ts";
+import { handleTestAnomalyRequest } from "./testAnomaly.ts";
 import {
   captureServerEvent,
   defaultPosthogHost,
@@ -136,6 +141,11 @@ const endpoints: ApiImplementation<null, Api> = {
     getEventCounts: async ({ token }) => {
       const project = await resolveProject(token);
       return { events: await getEventCounts(project.id) };
+    },
+    sendTestAnomaly: async ({ token }) => {
+      const project = await resolveProject(token);
+      await sendTestAnomalyAlert(project.owner.email, project.name, project.id);
+      return { ok: true, sentTo: project.owner.email };
     },
   },
 };
@@ -259,6 +269,14 @@ const handlePost = async (req: Request, url: URL) => {
     const { status, body } = await handleProjectGithubRequest(
       bodyText,
       resolveProject,
+    );
+    return jsonResponse(body, status);
+  }
+
+  if (url.pathname === "/api/test-anomaly") {
+    const { status, body } = await handleTestAnomalyRequest(
+      bodyText,
+      lookupProjectByToken,
     );
     return jsonResponse(body, status);
   }

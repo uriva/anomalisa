@@ -600,3 +600,48 @@ export const sendAdminNotification = ({
     text,
   });
 };
+
+const sampleTestAnomaly = (
+  projectId: string,
+  bucket: string,
+): Anomaly => ({
+  projectId,
+  eventName: "checkout_error",
+  bucket,
+  expected: 12,
+  actual: 48,
+  zScore: 4.5,
+  detectedAt: new Date().toISOString(),
+  metric: "totalCount",
+});
+
+const sampleTestCounts = (bucket: string): EventCounts => {
+  const endMs = bucketToMs(bucket);
+  const startMs = endMs - (sparkWindowHours - 1) * hourMs;
+  return {
+    checkout_error: Array.from({ length: sparkWindowHours }, (_, i) => ({
+      bucket: msToBucket(startMs + i * hourMs),
+      count: i === sparkWindowHours - 1 ? 48 : 10 + (i % 5),
+    })),
+  };
+};
+
+export const sendTestAnomalyAlert = (
+  toEmail: string,
+  projectName: string,
+  projectId: string,
+) => {
+  const bucket = msToBucket(Date.now());
+  const anomalies = [sampleTestAnomaly(projectId, bucket)];
+  const counts = sampleTestCounts(bucket);
+  const notice = "Sample test alert (no real anomaly occurred).";
+  return sendEmail({
+    to: toEmail,
+    subject: `[Test] ${batchSubject(projectName, anomalies)}`,
+    html:
+      `<p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; color: #475569; margin: 0 0 12px 0; text-align: center;">${notice}</p>${
+        anomaliesHtml(projectName, anomalies, counts)
+      }`,
+    text: `${notice}\n\n${anomaliesText(anomalies, counts)}`,
+  });
+};

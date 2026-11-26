@@ -1,4 +1,5 @@
 import { init } from "@instantdb/admin";
+import { context } from "@uri/inject";
 import schema from "../instant.schema.ts";
 
 const createDb = () => {
@@ -14,7 +15,7 @@ const createDb = () => {
 let _db: ReturnType<typeof createDb> | null = null;
 const getDb = () => _db ??= createDb();
 
-type ProjectWithOwner = {
+export type ProjectWithOwner = {
   id: string;
   name: string;
   token: string;
@@ -81,10 +82,14 @@ const queryProject = async (
   return parsed;
 };
 
-export const lookupProjectByToken = async (
+export const { inject: injectProjectLookup, access: projectLookup } = context(
+  async (token: string): Promise<ProjectWithOwner | null> =>
+    cacheGet(tokenCache, token) ?? await queryProject({ token }),
+);
+
+export const lookupProjectByToken = (
   token: string,
-): Promise<ProjectWithOwner | null> =>
-  cacheGet(tokenCache, token) ?? await queryProject({ token });
+): Promise<ProjectWithOwner | null> => projectLookup(token);
 
 export const lookupProjectById = async (
   id: string,

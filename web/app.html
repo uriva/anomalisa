@@ -709,7 +709,8 @@
       <div class="app-container">
         <div class="header">
           <button class="btn-back" id="back">\u2190 Projects</button>
-          <div style="display:flex;gap:0.5rem">
+          <div style="display:flex;gap:0.5rem;align-items:center">
+            <button class="btn-secondary" id="send-test-anomaly">Send Test Anomaly</button>
             <button class="btn-danger" id="delete-project">Delete</button>
           </div>
         </div>
@@ -718,7 +719,8 @@
         <p class="muted" style="margin-bottom:0.75rem">
           <span class="muted">Token:</span> <span class="token">${project.token}</span>
         </p>
-        <p class="muted" id="last-event" style="margin-bottom:1.5rem">...</p>
+        <p class="muted" id="last-event" style="margin-bottom:0.5rem">...</p>
+        <p class="muted" id="test-anomaly-msg" style="margin-bottom:1.5rem"></p>
 
         <div class="section">
           <h2>Webhook</h2>
@@ -780,6 +782,42 @@
             renderProjectList();
           } catch (e) {
             captureClientError(e, { action: "delete_project" });
+          }
+        },
+      );
+
+      document.getElementById("send-test-anomaly").addEventListener(
+        "click",
+        async () => {
+          const btn = document.getElementById("send-test-anomaly");
+          const msg = document.getElementById("test-anomaly-msg");
+          btn.disabled = true;
+          msg.textContent = "Sending test alert...";
+          try {
+            const res = await fetch("/api/test-anomaly", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token: project.token }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              msg.textContent = data.error || "Failed to send test alert";
+              return;
+            }
+            if (window.posthog) {
+              window.posthog.capture("test_anomaly_sent", {
+                projectId: project.id,
+              });
+            }
+            msg.textContent = `Test alert sent to ${data.sentTo}!`;
+            setTimeout(() => {
+              msg.textContent = "";
+            }, 4000);
+          } catch (e) {
+            captureClientError(e, { action: "send_test_anomaly" });
+            msg.textContent = e.message;
+          } finally {
+            btn.disabled = false;
           }
         },
       );

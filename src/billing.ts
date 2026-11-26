@@ -495,6 +495,46 @@ export const createBillingPortalSession = async ({
   return { url: parsed.data.url };
 };
 
+export type StripeCheckoutSession = z.infer<typeof stripeCheckoutSessionSchema>;
+
+export const resolveCheckoutSyncPlan = (
+  session: StripeCheckoutSession,
+): {
+  shouldUpsert: boolean;
+  plan: Plan;
+  status: string;
+  stripeSubscriptionId?: string;
+  currentPeriodEnd?: number;
+  cancelAtPeriodEnd: boolean;
+} => {
+  const expanded = typeof session.subscription === "object" &&
+      session.subscription !== null
+    ? session.subscription
+    : null;
+  const stripeSubscriptionId = typeof session.subscription === "string"
+    ? session.subscription
+    : expanded?.id;
+  const subStatus = expanded?.status;
+  const isActiveSub = subStatus !== undefined &&
+    activeSubscriptionStatuses.has(subStatus);
+  const isPaid = session.payment_status === "paid";
+  const shouldUpsert = isPaid || isActiveSub;
+  const status = subStatus ?? (isPaid ? "active" : session.status ?? "free");
+  const plan: Plan = isActiveSub || (isPaid && subStatus === undefined)
+    ? "pro"
+    : "free";
+  return {
+    shouldUpsert,
+    plan,
+    status,
+    stripeSubscriptionId,
+    currentPeriodEnd: expanded?.current_period_end
+      ? expanded.current_period_end * 1000
+      : undefined,
+    cancelAtPeriodEnd: Boolean(expanded?.cancel_at_period_end),
+  };
+};
+
 export const syncCheckoutSession = async ({
   userId,
   email,
@@ -525,32 +565,17 @@ export const syncCheckoutSession = async ({
   ) {
     throw new Error("Checkout session does not belong to this user");
   }
-  const expanded = typeof session.subscription === "object" &&
-      session.subscription !== null
-    ? session.subscription
-    : null;
-  const stripeSubscriptionId = typeof session.subscription === "string"
-    ? session.subscription
-    : expanded?.id;
-  const status = expanded?.status ?? "active";
-  const currentPeriodEnd = expanded?.current_period_end
-    ? expanded.current_period_end * 1000
-    : undefined;
-  const cancelAtPeriodEnd = Boolean(expanded?.cancel_at_period_end);
-  if (
-    session.payment_status === "paid" ||
-    session.status === "complete" ||
-    activeSubscriptionStatuses.has(status)
-  ) {
+  const resolved = resolveCheckoutSyncPlan(session);
+  if (resolved.shouldUpsert) {
     await upsertUserSubscription({
       userId,
       email,
-      plan: activeSubscriptionStatuses.has(status) ? "pro" : "free",
-      status,
+      plan: resolved.plan,
+      status: resolved.status,
       stripeCustomerId: session.customer ?? undefined,
-      stripeSubscriptionId,
-      currentPeriodEnd,
-      cancelAtPeriodEnd,
+      stripeSubscriptionId: resolved.stripeSubscriptionId,
+      currentPeriodEnd: resolved.currentPeriodEnd,
+      cancelAtPeriodEnd: resolved.cancelAtPeriodEnd,
     });
   }
   return getBillingStatus(userId, email);

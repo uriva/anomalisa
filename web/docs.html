@@ -26,7 +26,7 @@
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="anomalisa: a sparkline spiking above its 2 sigma threshold"
+      content="anomalisa: a sparkline spiking above its 3σ/3.5σ and Poisson thresholds"
     />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="anomalisa - docs" />
@@ -40,7 +40,7 @@
     />
     <meta
       name="twitter:image:alt"
-      content="anomalisa: a sparkline spiking above its 2 sigma threshold"
+      content="anomalisa: a sparkline spiking above its 3σ/3.5σ and Poisson thresholds"
     />
     <script>
     !function (t, e) {
@@ -255,7 +255,8 @@
       <p>Then import in Node, Deno, Bun, or browsers:</p>
       <div class="code-block">
         <span class="kw">import</span> { <span class="fn">sendEvent</span>,
-        <span class="fn">getAnomalies</span> } <span class="kw">from</span>
+        <span class="fn">getAnomalies</span>,
+        <span class="fn">captureClientErrors</span> } <span class="kw">from</span>
         <span class="str">"anomalisa"</span>;
       </div>
 
@@ -359,6 +360,46 @@
           <td>ISO timestamp of detection</td>
         </tr>
       </table>
+
+      <h2>captureClientErrors</h2>
+      <p>
+        Attaches global browser <code>error</code> and
+        <code>unhandledrejection</code> listeners and sends anonymized client
+        error events without storing PII.
+      </p>
+      <div class="code-block">
+        <span class="fn">captureClientErrors</span>({ token: <span class="str"
+        >"your-project-token"</span> });
+      </div>
+      <table class="field-table">
+        <tr>
+          <th>Field</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+        <tr>
+          <td><code>token</code></td>
+          <td>string</td>
+          <td>Your project token from the <a href="/app">dashboard</a></td>
+        </tr>
+        <tr>
+          <td><code>userId</code></td>
+          <td>string?</td>
+          <td>Optional user identifier (defaults to <code>"anonymous"</code>)</td>
+        </tr>
+      </table>
+
+      <h2>Raw HTTP / JSON-RPC (curl)</h2>
+      <p>
+        You can call the JSON-RPC endpoint directly from any language or shell
+        without installing an SDK:
+      </p>
+      <div class="code-block">
+        curl -X POST https://anomalisa.uriv.me \<br />
+        &nbsp;&nbsp;-H <span class="str">"Content-Type: application/json"</span>
+        \<br />
+        &nbsp;&nbsp;-d <span class="str">'{"jsonrpc":"2.0","id":1,"method":"sendEvent","params":{"token":"your-project-token","userId":"user-123","eventName":"purchase"}}'</span>
+      </div>
 
       <h2>How detection works</h2>
       <p>

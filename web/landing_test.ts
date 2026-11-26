@@ -1,4 +1,5 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { httpHandler } from "../src/server.ts";
 
 Deno.test("web/index.html has zero em dashes", async () => {
   const html = await Deno.readTextFile(
@@ -139,4 +140,51 @@ Deno.test("web/index.html does not mention internal third-party services", async
   assertEquals(normalized.includes("turso"), false);
   assertEquals(normalized.includes("instantdb"), false);
   assertEquals(normalized.includes("deno deploy"), false);
+});
+
+Deno.test("GET /robots.txt returns text/plain with sitemap", async () => {
+  const res = await httpHandler(
+    new Request("https://anomalisa.uriv.me/robots.txt"),
+  );
+  assertEquals(res.status, 200);
+  assertStringIncludes(res.headers.get("content-type") ?? "", "text/plain");
+  assertEquals(
+    (await res.text()).trim(),
+    "User-agent: *\nAllow: /\nSitemap: https://anomalisa.uriv.me/sitemap.xml",
+  );
+});
+
+Deno.test("GET /sitemap.xml returns application/xml with landing and docs URLs", async () => {
+  const res = await httpHandler(
+    new Request("https://anomalisa.uriv.me/sitemap.xml"),
+  );
+  assertEquals(res.status, 200);
+  assertStringIncludes(
+    res.headers.get("content-type") ?? "",
+    "application/xml",
+  );
+  const body = await res.text();
+  assertStringIncludes(body, "<loc>https://anomalisa.uriv.me/</loc>");
+  assertStringIncludes(body, "<loc>https://anomalisa.uriv.me/docs</loc>");
+});
+
+Deno.test("web/docs.html documents captureClientErrors, curl JSON-RPC, and accurate thresholds in image alt", async () => {
+  const html = await Deno.readTextFile(
+    new URL("./docs.html", import.meta.url),
+  );
+  assertStringIncludes(html, "captureClientErrors");
+  assertStringIncludes(html, "curl -X POST https://anomalisa.uriv.me");
+  assertEquals(html.includes("2 sigma"), false);
+  assertStringIncludes(html, "3σ/3.5σ and Poisson thresholds");
+});
+
+Deno.test("web/app.html only shows Welcome to Anomalisa Pro banner when plan is pro", async () => {
+  const html = await Deno.readTextFile(
+    new URL("./app.html", import.meta.url),
+  );
+  const syncBlock = html.match(
+    /if \(syncRes\.ok\) \{[\s\S]*?Welcome to Anomalisa Pro!/,
+  );
+  assert(syncBlock, "Expected syncRes.ok block with Pro welcome banner");
+  assertStringIncludes(syncBlock[0], 'billingStatus.plan === "pro"');
 });

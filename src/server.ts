@@ -320,8 +320,36 @@ const handleBillingPost = async (
   }
 };
 
+const robotsTxt = [
+  "User-agent: *",
+  "Allow: /",
+  "Sitemap: https://anomalisa.uriv.me/sitemap.xml",
+].join("\n");
+
+const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://anomalisa.uriv.me/</loc>
+  </url>
+  <url>
+    <loc>https://anomalisa.uriv.me/docs</loc>
+  </url>
+</urlset>`;
+
+const textResponse = (body: string, contentType: string, status = 200) =>
+  new Response(body, {
+    status,
+    headers: { ...corsHeaders, "Content-Type": contentType },
+  });
+
 const handleGet = async (req: Request, url: URL) => {
   if (url.pathname === "/og.png") return await ogImageResponse();
+  if (url.pathname === "/robots.txt") {
+    return textResponse(robotsTxt, "text/plain");
+  }
+  if (url.pathname === "/sitemap.xml") {
+    return textResponse(sitemapXml, "application/xml");
+  }
   if (url.pathname === "/api/billing/status") return handleBillingGet(req);
   if (url.pathname === "/config") {
     return jsonResponse({

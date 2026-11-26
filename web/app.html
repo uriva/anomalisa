@@ -323,6 +323,87 @@
       color: #888;
       font-weight: 500;
     }
+    .billing-card {
+      background: #141414;
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .billing-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.65rem;
+    }
+    .plan-badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: #222;
+      color: #bbb;
+      border: 1px solid #333;
+      vertical-align: middle;
+    }
+    .plan-badge.pro {
+      background: rgba(16, 185, 129, 0.14);
+      color: #6ee7b7;
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+    .usage-bar {
+      width: 100%;
+      height: 6px;
+      background: #1f1f1f;
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 0.45rem 0 0.35rem;
+    }
+    .usage-fill {
+      height: 100%;
+      background: #7eb8ff;
+      border-radius: 999px;
+      transition: width 0.2s ease;
+    }
+    .usage-fill.warn {
+      background: #f59e0b;
+    }
+    .usage-fill.over {
+      background: #f43f5e;
+    }
+    .banner {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #a7f3d0;
+      border-radius: 6px;
+      padding: 0.65rem 0.85rem;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+    .banner.warn {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.35);
+      color: #fde68a;
+    }
+    .pro-note {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      background: #141414;
+      border: 1px solid #222;
+      border-radius: 6px;
+      padding: 0.55rem 0.75rem;
+      font-size: 0.82rem;
+      color: #888;
+      margin-top: 0.5rem;
+    }
     </style>
   </head>
   <body>
@@ -552,6 +633,176 @@
     let selectedProjectId = null;
     let projects = [];
     let eventCountsCache = {};
+    let billingStatus = null;
+    let billingBanner = null;
+    const urlParams = new URLSearchParams(window.location.search);
+    let pendingUpgrade = urlParams.get("upgrade") === "pro";
+    let pendingSessionId = urlParams.get("billing") === "success"
+      ? urlParams.get("session_id")
+      : null;
+    if (urlParams.get("billing") === "cancelled") {
+      billingBanner = {
+        kind: "warn",
+        text: "Checkout cancelled. You can upgrade to Pro anytime.",
+      };
+      window.history.replaceState({}, "", "/app");
+    }
+
+    const authHeaders = () => ({
+      "Content-Type": "application/json",
+      ...(currentUser?.refresh_token
+        ? { Authorization: `Bearer ${currentUser.refresh_token}` }
+        : {}),
+    });
+
+    const loadBillingStatus = async () => {
+      if (!currentUser?.refresh_token) return null;
+      try {
+        const res = await fetch("/api/billing/status", {
+          headers: authHeaders(),
+        });
+        if (!res.ok) return null;
+        billingStatus = await res.json();
+        return billingStatus;
+      } catch (e) {
+        captureClientError(e, { action: "load_billing_status" });
+        return null;
+      }
+    };
+
+    const startProCheckout = async (btn) => {
+      if (!currentUser?.refresh_token) {
+        pendingUpgrade = true;
+        showAuthModal();
+        return;
+      }
+      const prevText = btn ? btn.textContent : "";
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Redirecting...";
+      }
+      try {
+        if (window.posthog) {
+          window.posthog.capture("billing_checkout_started", { plan: "pro" });
+        }
+        const res = await fetch("/api/billing/checkout", {
+          method: "POST",
+          headers: authHeaders(),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.url) {
+          throw new Error(data.error || "Could not start checkout");
+        }
+        window.location.href = data.url;
+      } catch (e) {
+        captureClientError(e, { action: "start_pro_checkout" });
+        billingBanner = { kind: "warn", text: e.message };
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = prevText;
+        }
+        renderBillingCard();
+      }
+    };
+
+    const openBillingPortal = async (btn) => {
+      if (!currentUser?.refresh_token) return;
+      const prevText = btn ? btn.textContent : "";
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Opening...";
+      }
+      try {
+        const res = await fetch("/api/billing/portal", {
+          method: "POST",
+          headers: authHeaders(),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.url) {
+          throw new Error(data.error || "Could not open billing portal");
+        }
+        window.location.href = data.url;
+      } catch (e) {
+        captureClientError(e, { action: "open_billing_portal" });
+        billingBanner = { kind: "warn", text: e.message };
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = prevText;
+        }
+        renderBillingCard();
+      }
+    };
+
+    const renderBillingCard = () => {
+      const el = document.getElementById("billing-card-container");
+      if (!el) return;
+      const bannerHtml = billingBanner
+        ? `<div class="banner ${
+          billingBanner.kind === "warn" ? "warn" : ""
+        }">${billingBanner.text}</div>`
+        : "";
+      if (!billingStatus) {
+        el.innerHTML = bannerHtml +
+          `<div class="billing-card"><p class="muted">Loading plan...</p></div>`;
+        return;
+      }
+      const isPro = billingStatus.plan === "pro";
+      const used = billingStatus.monthlyEventCount ?? 0;
+      const limit = billingStatus.monthlyEventLimit ?? 100000;
+      const pct = Math.min(100, Math.round((used / Math.max(limit, 1)) * 100));
+      const fillClass = pct >= 100 ? "over" : pct >= 80 ? "warn" : "";
+      const periodNote = isPro && billingStatus.currentPeriodEnd
+        ? (billingStatus.cancelAtPeriodEnd
+          ? `Cancels on ${
+            new Date(billingStatus.currentPeriodEnd).toLocaleDateString()
+          }`
+          : `Renews on ${
+            new Date(billingStatus.currentPeriodEnd).toLocaleDateString()
+          }`)
+        : (isPro && billingStatus.grandfathered
+          ? "Founder Pro access"
+          : "100k events/mo included");
+      const actionsHtml = isPro
+        ? (billingStatus.hasStripeCustomer
+          ? `<button class="btn-secondary" id="manage-billing">Manage billing</button>`
+          : "")
+        : `<button class="btn-app" id="upgrade-pro">Upgrade to Pro ($15/mo)</button>`;
+      el.innerHTML = `
+        ${bannerHtml}
+        <div class="billing-card">
+          <div class="billing-top">
+            <div>
+              <span class="plan-badge ${isPro ? "pro" : ""}">${
+        isPro ? "Pro" : "Free"
+      }</span>
+              <span class="muted" style="margin-left:0.5rem">${periodNote}</span>
+            </div>
+            <div>${actionsHtml}</div>
+          </div>
+          <div class="usage-bar"><div class="usage-fill ${fillClass}" style="width:${pct}%"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:#888">
+            <span>${used.toLocaleString()} / ${limit.toLocaleString()} events this month (${pct}%)</span>
+            <span>${
+        pct >= 100
+          ? "Quota reached"
+          : pct >= 80
+          ? "Approaching monthly limit"
+          : isPro
+          ? "Team emails, signed webhooks & AI issues active"
+          : "Upgrade for 1M events, team alerts, signed webhooks & AI issues"
+      }</span>
+          </div>
+        </div>
+      `;
+      const upgradeBtn = document.getElementById("upgrade-pro");
+      if (upgradeBtn) {
+        upgradeBtn.addEventListener("click", () => startProCheckout(upgradeBtn));
+      }
+      const portalBtn = document.getElementById("manage-billing");
+      if (portalBtn) {
+        portalBtn.addEventListener("click", () => openBillingPortal(portalBtn));
+      }
+    };
 
     const renderLogin = () => {
       render(`
@@ -559,7 +810,11 @@
         <div class="header">
           <h1><a href="/">anomalisa</a></h1>
         </div>
-        <p class="muted" style="margin-bottom:1.5rem">Sign in to manage your projects.</p>
+        <p class="muted" style="margin-bottom:1.5rem">${
+        pendingUpgrade
+          ? "Sign in to upgrade your account to Anomalisa Pro ($15/mo)."
+          : "Sign in to manage your projects."
+      }</p>
         <button class="btn-app" id="sign-in">Sign in</button>
         <div style="margin-top:2rem;display:flex;gap:1rem;font-size:0.8rem">
           <a href="/privacy" style="color:#666">Privacy</a>
@@ -571,6 +826,7 @@
         "click",
         showAuthModal,
       );
+      if (pendingUpgrade) showAuthModal();
     };
 
     const renderProjectList = () => {
@@ -583,7 +839,9 @@
             <button class="btn-secondary" id="logout">Sign out</button>
           </div>
         </div>
-        <p class="muted" style="margin-bottom:1.5rem">${currentUser.email}</p>
+        <p class="muted" style="margin-bottom:1rem">${currentUser.email}</p>
+
+        <div id="billing-card-container"></div>
 
         <div class="section">
           <h2>Create project</h2>
@@ -605,9 +863,13 @@
         "click",
         () => {
           if (window.posthog) window.posthog.reset();
+          billingStatus = null;
           db.auth.signOut();
         },
       );
+
+      renderBillingCard();
+      loadBillingStatus().then(() => renderBillingCard());
 
       document.getElementById("create-project").addEventListener(
         "click",
@@ -731,6 +993,25 @@
             <button class="btn-app" id="save-webhook">Save</button>
           </div>
           <p class="muted" id="webhook-msg"></p>
+          <div style="margin-top:0.75rem">
+            <div class="row">
+              <input id="webhook-secret-input" placeholder="Signing secret (X-Anomalisa-Signature, Pro)" autocomplete="off" />
+              <button class="btn-secondary" id="generate-webhook-secret" type="button">Generate</button>
+              <button class="btn-app" id="save-webhook-secret" type="button">Save secret</button>
+            </div>
+            <p class="muted" id="webhook-secret-msg"></p>
+            <div id="webhook-pro-gate"></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Team alert emails <span class="plan-badge pro" style="margin-left:0.35rem">Pro</span></h2>
+          <div class="row">
+            <input id="alert-emails-input" placeholder="alice@company.com, oncall@company.com" autocomplete="off" />
+            <button class="btn-app" id="save-alert-emails" type="button">Save</button>
+          </div>
+          <p class="muted" id="alert-emails-msg">Additional recipients emailed alongside ${currentUser.email}.</p>
+          <div id="emails-pro-gate"></div>
         </div>
 
         <div class="section">
@@ -744,6 +1025,7 @@
             <button class="btn-secondary" id="clear-github" style="display:none">Clear</button>
           </div>
           <p class="muted" id="github-msg"></p>
+          <div id="github-pro-gate"></div>
         </div>
 
         <div class="section" id="charts-section">
@@ -1038,6 +1320,148 @@
         },
       );
 
+      const renderProGateNotice = (containerId, text) => {
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        el.innerHTML = `<div class="pro-note"><span>${text}</span><button class="btn-app" data-upgrade-gate="1" style="padding:0.35rem 0.7rem;font-size:0.8rem">Upgrade ($15/mo)</button></div>`;
+        el.querySelector("[data-upgrade-gate]").addEventListener(
+          "click",
+          (e) => startProCheckout(e.currentTarget),
+        );
+      };
+
+      const syncProjectSettingsUi = (data) => {
+        const isPro = Boolean(data.isPro);
+        const secretInput = document.getElementById("webhook-secret-input");
+        const genBtn = document.getElementById("generate-webhook-secret");
+        const saveSecretBtn = document.getElementById("save-webhook-secret");
+        const emailsInput = document.getElementById("alert-emails-input");
+        const saveEmailsBtn = document.getElementById("save-alert-emails");
+        if (!secretInput || !emailsInput) return;
+        secretInput.value = data.webhookSecret || "";
+        emailsInput.value = (data.alertEmails || []).join(", ");
+        secretInput.disabled = !isPro;
+        genBtn.disabled = !isPro;
+        saveSecretBtn.disabled = !isPro;
+        emailsInput.disabled = !isPro;
+        saveEmailsBtn.disabled = !isPro;
+        if (!isPro) {
+          renderProGateNotice(
+            "webhook-pro-gate",
+            "Signed webhooks with automatic retries require Pro.",
+          );
+          renderProGateNotice(
+            "emails-pro-gate",
+            "Team multi-email alerts require Pro.",
+          );
+          renderProGateNotice(
+            "github-pro-gate",
+            "Automated AI GitHub issue investigation runs automatically on Pro.",
+          );
+        } else {
+          document.getElementById("webhook-pro-gate").innerHTML = "";
+          document.getElementById("emails-pro-gate").innerHTML = "";
+          document.getElementById("github-pro-gate").innerHTML = "";
+        }
+      };
+
+      const loadProjectSettings = async () => {
+        try {
+          const res = await fetch("/project-settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: project.token, action: "get" }),
+          });
+          if (!res.ok) return;
+          syncProjectSettingsUi(await res.json());
+        } catch (e) {
+          captureClientError(e, { action: "load_project_settings" });
+        }
+      };
+
+      document.getElementById("generate-webhook-secret").addEventListener(
+        "click",
+        () => {
+          const bytes = new Uint8Array(24);
+          crypto.getRandomValues(bytes);
+          const hex = Array.from(bytes).map((b) =>
+            b.toString(16).padStart(2, "0")
+          ).join("");
+          document.getElementById("webhook-secret-input").value =
+            `whsec_${hex}`;
+        },
+      );
+
+      document.getElementById("save-webhook-secret").addEventListener(
+        "click",
+        async () => {
+          const webhookSecret = document.getElementById("webhook-secret-input")
+            .value.trim();
+          const msg = document.getElementById("webhook-secret-msg");
+          msg.textContent = "Saving...";
+          try {
+            const res = await fetch("/project-settings", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                token: project.token,
+                action: "set",
+                webhookSecret,
+              }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              msg.textContent = data.error || "Failed to save";
+              return;
+            }
+            syncProjectSettingsUi(data);
+            msg.textContent = "Saved!";
+            setTimeout(() => (msg.textContent = ""), 2000);
+          } catch (e) {
+            captureClientError(e, { action: "save_webhook_secret" });
+            msg.textContent = e.message;
+          }
+        },
+      );
+
+      document.getElementById("save-alert-emails").addEventListener(
+        "click",
+        async () => {
+          const alertEmails = document.getElementById("alert-emails-input")
+            .value.trim();
+          const msg = document.getElementById("alert-emails-msg");
+          msg.textContent = "Saving...";
+          try {
+            const res = await fetch("/project-settings", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                token: project.token,
+                action: "set",
+                alertEmails,
+              }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              msg.textContent = data.error || "Failed to save";
+              return;
+            }
+            syncProjectSettingsUi(data);
+            msg.textContent = "Saved!";
+            setTimeout(
+              () =>
+                (msg.textContent =
+                  `Additional recipients emailed alongside ${currentUser.email}.`),
+              2000,
+            );
+          } catch (e) {
+            captureClientError(e, { action: "save_alert_emails" });
+            msg.textContent = e.message;
+          }
+        },
+      );
+
+      loadProjectSettings();
       loadGithubConfig();
       loadCharts();
       loadAnomalies();
@@ -1062,7 +1486,7 @@
       }
     };
 
-    db.subscribeAuth((auth) => {
+    db.subscribeAuth(async (auth) => {
       currentUser = auth.user;
       if (auth.user) {
         if (auth.user.email) {
@@ -1074,11 +1498,38 @@
           }
           notifySignup(auth.user.email);
         }
+        if (pendingSessionId) {
+          const sessionId = pendingSessionId;
+          pendingSessionId = null;
+          window.history.replaceState({}, "", "/app");
+          try {
+            const syncRes = await fetch("/api/billing/sync", {
+              method: "POST",
+              headers: authHeaders(),
+              body: JSON.stringify({ sessionId }),
+            });
+            if (syncRes.ok) {
+              billingStatus = await syncRes.json();
+              billingBanner = {
+                kind: "success",
+                text: "Welcome to Anomalisa Pro! Your 1,000,000 events/month limit and Pro features are now active.",
+              };
+            }
+          } catch (e) {
+            captureClientError(e, { action: "sync_checkout_session" });
+          }
+        }
         selectedProjectId ? renderProjectDetail() : renderProjectList();
+        if (pendingUpgrade) {
+          pendingUpgrade = false;
+          window.history.replaceState({}, "", "/app");
+          startProCheckout(document.getElementById("upgrade-pro"));
+        }
       } else {
         if (window.posthog) {
           window.posthog.reset();
         }
+        billingStatus = null;
         selectedProjectId = null;
         renderLogin();
       }

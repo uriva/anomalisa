@@ -1025,12 +1025,12 @@
             <span>GitHub</span>
           </a>
           <a
-            href="https://jsr.io/@uri/anomalisa"
+            href="https://www.npmjs.com/package/anomalisa"
             class="nav-link"
             target="_blank"
             rel="noopener noreferrer"
           >
-            <span>JSR</span>
+            <span>npm</span>
           </a>
           <a href="/app" class="nav-cta">Open App</a>
         </nav>
@@ -1078,7 +1078,7 @@
         <div class="quick-install">
           <span class="quick-install-prompt">$</span>
           <span class="quick-install-code"
-            id="heroInstallCmd">npx jsr add @uri/anomalisa</span>
+            id="heroInstallCmd">npm i anomalisa</span>
           <button
             class="copy-btn-mini"
             onclick="copySnippet('heroInstallCmd', this)"
@@ -1133,9 +1133,9 @@
 
           <pre class="code-block"
             id="snippet-npm"><span class="comment">// 1. Install package</span>
-<span class="comment">// npx jsr add @uri/anomalisa</span>
+<span class="comment">// npm i anomalisa</span>
 
-<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
+<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"anomalisa"</span>;
 
 <span class="kw">await</span> <span class="fn">sendEvent</span>({
   token: <span class="str">"your-project-token"</span>,
@@ -1145,9 +1145,9 @@
 
           <pre class="code-block" id="snippet-deno"
             style="display:none"><span class="comment">// 1. Install package</span>
-<span class="comment">// deno add jsr:@uri/anomalisa</span>
+<span class="comment">// deno add npm:anomalisa</span>
 
-<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
+<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"anomalisa"</span>;
 
 <span class="kw">await</span> <span class="fn">sendEvent</span>({
   token: <span class="str">"your-project-token"</span>,
@@ -1157,9 +1157,9 @@
 
           <pre class="code-block" id="snippet-pnpm"
             style="display:none"><span class="comment">// 1. Install package</span>
-<span class="comment">// pnpm dlx jsr add @uri/anomalisa</span>
+<span class="comment">// pnpm add anomalisa</span>
 
-<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
+<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"anomalisa"</span>;
 
 <span class="kw">await</span> <span class="fn">sendEvent</span>({
   token: <span class="str">"your-project-token"</span>,
@@ -1169,9 +1169,9 @@
 
           <pre class="code-block" id="snippet-bun"
             style="display:none"><span class="comment">// 1. Install package</span>
-<span class="comment">// bunx jsr add @uri/anomalisa</span>
+<span class="comment">// bun add anomalisa</span>
 
-<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
+<span class="kw">import</span> { <span class="fn">sendEvent</span> } <span class="kw">from</span> <span class="str">"anomalisa"</span>;
 
 <span class="kw">await</span> <span class="fn">sendEvent</span>({
   token: <span class="str">"your-project-token"</span>,
@@ -1204,7 +1204,7 @@ curl -X POST https://anomalisa.uriv.me \
             </button>
           </div>
           <pre class="code-block"
-            id="clientErrorsSnippet"><span class="kw">import</span> { <span class="fn">captureClientErrors</span> } <span class="kw">from</span> <span class="str">"@uri/anomalisa"</span>;
+            id="clientErrorsSnippet"><span class="kw">import</span> { <span class="fn">captureClientErrors</span> } <span class="kw">from</span> <span class="str">"anomalisa"</span>;
 
 <span class="comment">// Listens to window.onerror and unhandledrejection</span>
 <span class="comment">// Automatically filters out browser extensions, DOMExceptions, and ResizeObserver loops</span>
@@ -1605,6 +1605,13 @@ deno run --allow-net --allow-env --allow-read src/server.ts</pre>
                   stroke="currentColor" stroke-width="2.5">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
+                <span>Automated AI GitHub issue investigation</span>
+              </li>
+              <li>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
                 <span>30-day hourly counts retention</span>
               </li>
               <li>
@@ -1614,16 +1621,9 @@ deno run --allow-net --allow-env --allow-read src/server.ts</pre>
                 </svg>
                 <span>90-day anomaly history</span>
               </li>
-              <li>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2.5">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                <span>Directional cooldown tuning</span>
-              </li>
             </ul>
-            <button class="btn btn-disabled pricing-btn"
-              disabled>Coming soon</button>
+            <a href="/app?upgrade=pro"
+              class="btn btn-primary pricing-btn">Upgrade to Pro</a>
           </div>
 
           <!-- Self-Hosted Tier -->
@@ -1778,10 +1778,10 @@ deno run --allow-net --allow-env --allow-read src/server.ts</pre>
             rel="noopener noreferrer"
           >GitHub</a>
           <a
-            href="https://jsr.io/@uri/anomalisa"
+            href="https://www.npmjs.com/package/anomalisa"
             target="_blank"
             rel="noopener noreferrer"
-          >JSR</a>
+          >npm</a>
           <a
             href="https://uriv.me/blog/anomaly-detection-with-welford-and-kv"
             target="_blank"

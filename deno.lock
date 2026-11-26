@@ -1,14 +1,22 @@
 {
   "version": "5",
   "specifiers": {
+    "jsr:@david/code-block-writer@^13.0.3": "13.0.3",
+    "jsr:@deno/dnt@0.44.0": "0.44.0",
     "jsr:@std/assert@*": "1.0.19",
     "jsr:@std/assert@^1.0.19": "1.0.19",
     "jsr:@std/cli@1.0.32": "1.0.32",
     "jsr:@std/encoding@^1.0.11": "1.0.11",
+    "jsr:@std/fmt@1": "1.0.10",
     "jsr:@std/fmt@^1.0.10": "1.0.10",
+    "jsr:@std/fs@1": "1.0.24",
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@std/internal@^1.0.14": "1.0.14",
+    "jsr:@std/path@1": "1.1.6",
+    "jsr:@std/path@^1.1.5": "1.1.6",
     "jsr:@std/path@^1.1.6": "1.1.6",
+    "jsr:@ts-morph/bootstrap@0.29": "0.29.0",
+    "jsr:@ts-morph/common@0.29": "0.29.1",
     "jsr:@uri/inject@0.0.2": "0.0.2",
     "jsr:@uri/typed-api@0.0.11": "0.0.11",
     "npm:@instantdb/admin@*": "1.0.65",
@@ -26,19 +34,32 @@
     "npm:zod@3.25.57": "3.25.57"
   },
   "jsr": {
+    "@david/code-block-writer@13.0.3": {
+      "integrity": "f98c77d320f5957899a61bfb7a9bead7c6d83ad1515daee92dbacc861e13bb7f"
+    },
     "@deno/deploy@0.0.9908": {
       "integrity": "d6785a9027a20f07b50a81757732e3f42e91d76e5985d6862ec93f749f59bf8e",
       "dependencies": [
         "jsr:@std/cli",
         "jsr:@std/encoding",
-        "jsr:@std/fmt",
-        "jsr:@std/path",
+        "jsr:@std/fmt@^1.0.10",
+        "jsr:@std/path@^1.1.6",
         "npm:@trpc/client",
         "npm:@trpc/server",
         "npm:event-source-polyfill",
         "npm:open",
         "npm:superjson",
         "npm:temporal-polyfill"
+      ]
+    },
+    "@deno/dnt@0.44.0": {
+      "integrity": "87f4cf9f6b87f5d443ed981781440c21106c7097bed07f9b58a5dcaf0d1e7289",
+      "dependencies": [
+        "jsr:@david/code-block-writer",
+        "jsr:@std/fmt@1",
+        "jsr:@std/fs",
+        "jsr:@std/path@1",
+        "jsr:@ts-morph/bootstrap"
       ]
     },
     "@std/assert@1.0.19": {
@@ -56,6 +77,13 @@
     "@std/fmt@1.0.10": {
       "integrity": "90dfba288802ac6de82fb31d0917eb9e4450b9925b954d5e51fc29ac07419db5"
     },
+    "@std/fs@1.0.24": {
+      "integrity": "f3061b45b81673a2bece689da041df32d174be064c89eb6397fb5718d3fb7877",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.14",
+        "jsr:@std/path@^1.1.5"
+      ]
+    },
     "@std/internal@1.0.12": {
       "integrity": "972a634fd5bc34b242024402972cd5143eac68d8dffaca5eaa4dba30ce17b027"
     },
@@ -66,6 +94,19 @@
       "integrity": "c68485c2a4dfbb5ae3cc74fae4e8c4e5d874cf8a8ed12927917235c758b46cbe",
       "dependencies": [
         "jsr:@std/internal@^1.0.14"
+      ]
+    },
+    "@ts-morph/bootstrap@0.29.0": {
+      "integrity": "69f9b1b42b03423308a9f623f924174181ef20f6f2a8771799f216f561b9b7a6",
+      "dependencies": [
+        "jsr:@ts-morph/common"
+      ]
+    },
+    "@ts-morph/common@0.29.1": {
+      "integrity": "b46478d7908609729d6fb2c02f016d65169987606e7283ef6b7db24c30d6564f",
+      "dependencies": [
+        "jsr:@std/fs",
+        "jsr:@std/path@1"
       ]
     },
     "@uri/inject@0.0.2": {
@@ -881,6 +922,7 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@deno/dnt@0.44.0",
       "jsr:@std/assert@^1.0.19",
       "jsr:@uri/inject@0.0.2",
       "jsr:@uri/typed-api@0.0.11",

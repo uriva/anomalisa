@@ -1,23 +1,31 @@
-import { apiClient, httpCommunication } from "@uri/typed-api";
-import { apiDefinition } from "./src/api.ts";
-import type { Anomaly } from "./src/anomaly.ts";
+import type { Anomaly, Metric } from "./src/types.ts";
 import { withRetry } from "./src/retry.ts";
 
-const communication = httpCommunication("https://anomalisa.uriv.me");
+const serverUrl = "https://anomalisa.uriv.me";
 
-const client = apiClient(
-  <input, output>(params: input) =>
-    withRetry(2, 500, (p: input) => communication<input, output>(p))(params),
-  apiDefinition,
-);
+const postJson = async <input, output>(params: input): Promise<output> => {
+  const response = await fetch(serverUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  return response.status === 200
+    ? response.json()
+    : Promise.reject(
+      new Error(`HTTP ${response.status}: ${await response.text()}`),
+    );
+};
 
-type SendEventPayload = {
+const client = <input, output>(params: input): Promise<output> =>
+  withRetry(2, 500, (p: input) => postJson<input, output>(p))(params);
+
+export type SendEventPayload = {
   token: string;
   userId?: string;
   eventName: string;
 };
 
-export type { Anomaly };
+export type { Anomaly, Metric };
 
 export const sendEvent: (
   payload: SendEventPayload,

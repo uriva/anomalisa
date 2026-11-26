@@ -66,7 +66,7 @@ const getAccountId = () =>
 const maxEmailsPerDay = 5;
 
 type Email = {
-  to: string;
+  to: string | string[];
   subject: string;
   html: string;
   text: string;
@@ -119,6 +119,7 @@ const incrementEmailCounts = async (
 };
 
 const sendEmail = async ({ to, subject, html, text }: Email) => {
+  const recipients = Array.isArray(to) ? to : [to];
   const response = await emailFetch(
     `${agentmailBaseUrl}/accounts/${getAccountId()}/messages`,
     {
@@ -128,7 +129,7 @@ const sendEmail = async ({ to, subject, html, text }: Email) => {
         Authorization: `Bearer ${getApiKey()}`,
       },
       body: JSON.stringify({
-        to: [to],
+        to: recipients,
         subject,
         html,
         text,
@@ -528,12 +529,24 @@ export const batchSubject = (
       : `[${projectName}] ${anomalies.length} anomalies detected`
   }${subjectIssuesSuffix(createdIssues)}`;
 
+export type SendAnomalyAlertOptions = {
+  extraEmails?: string[];
+  enableAutoGithubIssues?: boolean;
+};
+
+const uniqueRecipients = (primary: string, extra?: string[]): string[] => [
+  ...new Set(
+    [primary, ...(extra ?? [])].map((e) => e.trim()).filter(Boolean),
+  ),
+];
+
 export const sendAnomalyAlerts = async (
   toEmail: string,
   projectName: string,
   anomalies: Anomaly[],
   counts?: EventCounts,
   maxUserCounts?: EventCounts,
+  options?: SendAnomalyAlertOptions,
 ) => {
   const eventNames = [...new Set(anomalies.map(({ eventName }) => eventName))];
   const canSend = await incrementEmailCounts(toEmail, projectName, eventNames);
@@ -554,12 +567,14 @@ export const sendAnomalyAlerts = async (
       token,
     ]),
   );
-  const createdIssues = await autoCreateGithubIssues({
-    projectName,
-    records,
-  }).catch(() => ({}));
+  const createdIssues = options?.enableAutoGithubIssues === false
+    ? {}
+    : await autoCreateGithubIssues({
+      projectName,
+      records,
+    }).catch(() => ({}));
   return sendEmail({
-    to: toEmail,
+    to: uniqueRecipients(toEmail, options?.extraEmails),
     subject: batchSubject(projectName, anomalies, createdIssues),
     html: anomaliesHtml(
       projectName,
@@ -577,6 +592,39 @@ export const sendAnomalyAlerts = async (
       createdIssues,
     ),
   });
+};
+
+export const sendQuotaNotification = ({
+  to,
+  plan,
+  limit,
+  reached,
+}: {
+  to: string;
+  plan: string;
+  limit: number;
+  reached: boolean;
+}) => {
+  const key = getApiKey();
+  if (!key) return Promise.resolve();
+  const formattedLimit = limit.toLocaleString("en-US");
+  const subject = reached
+    ? `[Anomalisa] Monthly event limit reached (${formattedLimit} events)`
+    : `[Anomalisa] You've used 80% of your monthly event limit (${formattedLimit} events)`;
+  const upgradeLine = plan === "free"
+    ? "Upgrade to Pro ($15/mo) for 1,000,000 events/month, team multi-email alerts, signed webhooks, and automated AI GitHub issue investigation: https://anomalisa.uriv.me/app?upgrade=pro"
+    : "Manage your plan in the Anomalisa dashboard: https://anomalisa.uriv.me/app";
+  const text = reached
+    ? `Your Anomalisa ${plan} plan reached its monthly limit of ${formattedLimit} events. New events will be rejected with HTTP 429 until the next UTC month or until you upgrade.\n\n${upgradeLine}`
+    : `Your Anomalisa ${plan} plan has used 80% of its ${formattedLimit} monthly events.\n\n${upgradeLine}`;
+  const html = reached
+    ? `<p>Your Anomalisa <strong>${
+      escapeHtml(plan)
+    }</strong> plan reached its monthly limit of <strong>${formattedLimit}</strong> events. New events will return HTTP 429 until next month or until you upgrade.</p><p><a href="https://anomalisa.uriv.me/app?upgrade=pro">Upgrade to Pro ($15/mo)</a> for 1,000,000 events/month, team multi-email alerts, signed webhooks, and automated AI GitHub issue investigation.</p>`
+    : `<p>Your Anomalisa <strong>${
+      escapeHtml(plan)
+    }</strong> plan has used 80% of its <strong>${formattedLimit}</strong> monthly events.</p><p><a href="https://anomalisa.uriv.me/app?upgrade=pro">Upgrade to Pro ($15/mo)</a> anytime for 1,000,000 events/month.</p>`;
+  return sendEmail({ to, subject, html, text });
 };
 
 export const sendAdminNotification = ({

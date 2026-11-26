@@ -249,14 +249,14 @@
       </div>
 
       <h2>Install</h2>
-      <div class="code-block">npx jsr add @uri/anomalisa</div>
+      <div class="code-block">npm i anomalisa</div>
       <p>Or with Deno:</p>
-      <div class="code-block">deno add jsr:@uri/anomalisa</div>
-      <p>Or import directly from JSR:</p>
+      <div class="code-block">deno add npm:anomalisa</div>
+      <p>Then import in Node, Deno, Bun, or browsers:</p>
       <div class="code-block">
         <span class="kw">import</span> { <span class="fn">sendEvent</span>,
         <span class="fn">getAnomalies</span> } <span class="kw">from</span>
-        <span class="str">"jsr:@uri/anomalisa"</span>;
+        <span class="str">"anomalisa"</span>;
       </div>
 
       <h2>sendEvent</h2>
@@ -436,7 +436,7 @@ deno run --allow-net --allow-env --allow-read src/server.ts</div>
           <a href="/app">Dashboard</a>
           <a href="https://github.com/uriva/anomalisa" target="_blank"
           >GitHub</a>
-          <a href="https://jsr.io/@uri/anomalisa" target="_blank">JSR</a>
+          <a href="https://www.npmjs.com/package/anomalisa" target="_blank">npm</a>
           <a href="/privacy">Privacy</a>
           <a href="/terms">Terms</a>
         </div>

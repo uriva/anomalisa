@@ -1,8 +1,10 @@
 name: Publish
+
 on:
   push:
     branches:
       - main
+  workflow_dispatch: {}
 
 jobs:
   publish:
@@ -12,5 +14,44 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
-      - name: Publish package
-        run: npx jsr publish
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Check if version is already on npm
+        id: check
+        run: |
+          VERSION=$(jq -r .version deno.json)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          if npm view "anomalisa@${VERSION}" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "anomalisa@${VERSION} is already published on npm."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build npm package
+        if: steps.check.outputs.published == 'false'
+        run: deno task build:npm
+
+      - name: Smoke test built package in Node.js
+        if: steps.check.outputs.published == 'false'
+        run: |
+          node -e 'import("./dist/npm/esm/mod.js").then(m => {
+            if (typeof m.sendEvent !== "function" || typeof m.captureClientErrors !== "function") {
+              process.exit(1);
+            }
+          })'
+
+      - name: Publish to npm
+        if: steps.check.outputs.published == 'false'
+        working-directory: dist/npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public

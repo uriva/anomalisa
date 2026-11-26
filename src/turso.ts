@@ -123,4 +123,30 @@ export const initTursoSchema = () =>
       issue_number INTEGER NOT NULL,
       created_at INTEGER NOT NULL
     );`,
+    `CREATE TABLE IF NOT EXISTS user_subscriptions (
+      user_id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      plan TEXT NOT NULL DEFAULT 'free',
+      status TEXT NOT NULL DEFAULT 'free',
+      stripe_customer_id TEXT,
+      stripe_subscription_id TEXT,
+      current_period_end INTEGER,
+      cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL
+    );`,
+    `CREATE INDEX IF NOT EXISTS idx_user_subscriptions_customer ON user_subscriptions (stripe_customer_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_user_subscriptions_sub ON user_subscriptions (stripe_subscription_id);`,
+    `CREATE TABLE IF NOT EXISTS monthly_usage (
+      user_id TEXT NOT NULL,
+      month_bucket TEXT NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, month_bucket)
+    );`,
+    `CREATE TABLE IF NOT EXISTS project_alert_settings (
+      project_id TEXT PRIMARY KEY,
+      alert_emails TEXT NOT NULL DEFAULT '[]',
+      webhook_secret TEXT NOT NULL DEFAULT '',
+      updated_at INTEGER NOT NULL
+    );`,
   ], "write");

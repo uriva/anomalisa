@@ -1,9 +1,11 @@
 {
   "name": "@uri/anomalisa",
-  "version": "0.0.48",
+  "version": "0.1.0",
   "license": "MIT",
   "exports": "./mod.ts",
+  "exclude": ["dist"],
   "tasks": {
+    "build:npm": "deno run -A scripts/buildNpm.ts",
     "build:worker": "deno run -A scripts/buildWorker.ts",
     "deploy": "npx wrangler deploy",
     "check": "deno check",
@@ -12,6 +14,7 @@
   },
   "imports": {
     "gamla": "npm:gamla@124.0.0",
+    "@deno/dnt": "jsr:@deno/dnt@0.44.0",
     "@uri/inject": "jsr:@uri/inject@0.0.2",
     "@uri/typed-api": "jsr:@uri/typed-api@0.0.11",
     "@uriv/chaff": "npm:@uriv/chaff@^0.4.6",

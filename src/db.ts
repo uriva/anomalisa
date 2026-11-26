@@ -2,6 +2,19 @@ import { init } from "@instantdb/admin";
 import { context } from "@uri/inject";
 import schema from "../instant.schema.ts";
 
+export type AuthenticatedUser = {
+  id: string;
+  email: string;
+};
+
+export type ProjectWithOwner = {
+  id: string;
+  name: string;
+  token: string;
+  webhookUrl?: string;
+  owner: AuthenticatedUser;
+};
+
 const createDb = () => {
   const appId = Deno.env.get("INSTANTDB_APP_ID") ?? "";
   const adminToken = Deno.env.get("INSTANTDB_ADMIN_TOKEN") ?? "";
@@ -15,13 +28,22 @@ const createDb = () => {
 let _db: ReturnType<typeof createDb> | null = null;
 const getDb = () => _db ??= createDb();
 
-export type ProjectWithOwner = {
-  id: string;
-  name: string;
-  token: string;
-  webhookUrl?: string;
-  owner: { id: string; email: string };
+const verifyInstantToken = async (
+  token: string,
+): Promise<AuthenticatedUser | null> => {
+  if (!token) return null;
+  try {
+    const user = await getDb().auth.verifyToken(token);
+    return user?.id && user?.email ? { id: user.id, email: user.email } : null;
+  } catch {
+    return null;
+  }
 };
+
+export const {
+  inject: injectVerifyUserToken,
+  access: verifyUserToken,
+} = context(verifyInstantToken);
 
 type CacheEntry = { value: ProjectWithOwner; expiresAt: number };
 

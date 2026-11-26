@@ -22,10 +22,15 @@
 
 ## Deno & Deployment
 
-- Dependencies live in `deno.json` (no `package.json`).
-- Deployed to Cloudflare Workers (`https://anomalisa.uriv.me`) via
-  `npx wrangler deploy` and published to JSR (`@uri/anomalisa`) automatically on
-  push to `main` (bump `version` in `deno.json` to publish a new JSR version).
+- Dependencies live in `deno.json` (no root `package.json`).
+- **Auto-deploy on push to `main`:** Pushing to `main` automatically triggers
+  `.github/workflows/deploy-worker.yml`, which runs `deno task check` and
+  `deno task deploy` (`npx wrangler deploy`) to deploy to Cloudflare Workers
+  (`https://anomalisa.uriv.me`).
+- **Auto-publish to npm:** Pushing a bumped `version` in `deno.json` to `main`
+  automatically runs `.github/workflows/publish.yml`, which builds the
+  zero-dependency ESM + `.d.ts` package via `deno task build:npm` and publishes
+  `anomalisa` to npm.
 
 ## Architecture
 
@@ -44,9 +49,17 @@
   `src/investigate.ts`, `src/github.ts`), automatically opening GitHub issues
   via the `@uriv/chaff` decision model (`GEMINI_API_KEY`) when warranted and
   reflecting opened issues in the alert email.
+- **Billing & Plan Gating (`src/billing.ts`, `src/webhook.ts`):** Stripe Pro
+  ($15/mo) subscriptions (`GET /api/billing/status`, `POST /api/billing/checkout`,
+  `POST /api/billing/portal`, `POST /api/billing/sync`,
+  `POST /api/stripe/webhook`, `POST /project-settings`). Enforces monthly event
+  quotas (Free: 100k/mo, Pro: 1M/mo) and gates team multi-email alerts, signed
+  webhooks with delivery retries (`X-Anomalisa-Signature`), and automated AI
+  GitHub issue investigation to Pro.
 - **Web (`src/server.ts`, `web/`):** Serves `/` (`web/index.html`), `/app`
   (`web/app.html`), `/docs` (`web/docs.html`), `/feedback`, `/investigate`, and
   `/config`.
 - **Required `.env` vars:** `INSTANTDB_APP_ID`, `INSTANTDB_ADMIN_TOKEN`,
   `AGENTMAIL_API_KEY`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`,
-  `GEMINI_API_KEY`.
+  `GEMINI_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+  `STRIPE_PRO_PRICE_ID` (optional; falls back to inline $15/mo recurring price).

@@ -1,30 +1,14 @@
 import { empty } from "gamla";
 import { getTurso } from "./turso.ts";
+import type { Anomaly, Metric } from "./types.ts";
+
+export type { Anomaly, Metric };
 
 export type Stats = {
   mean: number;
   m2: number;
   n: number;
   lastBucket: string;
-};
-
-export type Metric =
-  | "totalCount"
-  | "userSpike"
-  | "percentageSpike"
-  | "percentageDrop";
-
-export type Anomaly = {
-  projectId: string;
-  eventName: string;
-  bucket: string;
-  expected: number;
-  actual: number;
-  zScore: number;
-  detectedAt: string;
-  metric: Metric;
-  userId?: string;
-  trend?: string;
 };
 
 const getHourBucket = (): string => new Date().toISOString().slice(0, 13);

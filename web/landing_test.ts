@@ -61,10 +61,10 @@ Deno.test("web/index.html contains developer quickstarts and SDK methods", async
   );
 
   // Package managers
-  assertStringIncludes(html, "npx jsr add @uri/anomalisa");
-  assertStringIncludes(html, "deno add jsr:@uri/anomalisa");
-  assertStringIncludes(html, "pnpm dlx jsr add @uri/anomalisa");
-  assertStringIncludes(html, "bunx jsr add @uri/anomalisa");
+  assertStringIncludes(html, "npm i anomalisa");
+  assertStringIncludes(html, "deno add npm:anomalisa");
+  assertStringIncludes(html, "pnpm add anomalisa");
+  assertStringIncludes(html, "bun add anomalisa");
   assertStringIncludes(html, "curl -X POST https://anomalisa.uriv.me");
 
   // SDK functions
@@ -72,7 +72,7 @@ Deno.test("web/index.html contains developer quickstarts and SDK methods", async
   assertStringIncludes(html, "captureClientErrors");
 });
 
-Deno.test("web/index.html includes pricing section with generous free tier and disabled upgrade", async () => {
+Deno.test("web/index.html includes pricing section with generous free tier and active Pro upgrade", async () => {
   const html = await Deno.readTextFile(
     new URL("./index.html", import.meta.url),
   );
@@ -85,11 +85,12 @@ Deno.test("web/index.html includes pricing section with generous free tier and d
   assertStringIncludes(normalizedHtml, "1,000,000");
   assertStringIncludes(normalizedHtml, "Self-Hosted");
 
-  // Upgrade button disabled
+  // Active Pro upgrade CTA
   assertStringIncludes(
     normalizedHtml,
-    '<button class="btn btn-disabled pricing-btn" disabled>Coming soon</button>',
+    '<a href="/app?upgrade=pro" class="btn btn-primary pricing-btn">Upgrade to Pro</a>',
   );
+  assertEquals(normalizedHtml.includes("Coming soon"), false);
 
   // 48px CTA touch targets
   assertStringIncludes(normalizedHtml, "height: 48px");
@@ -104,7 +105,7 @@ Deno.test("web/index.html includes all key outbound and navigation links", async
   assertStringIncludes(html, 'href="/app"');
   assertStringIncludes(html, 'href="/docs"');
   assertStringIncludes(html, 'href="https://github.com/uriva/anomalisa"');
-  assertStringIncludes(html, 'href="https://jsr.io/@uri/anomalisa"');
+  assertStringIncludes(html, 'href="https://www.npmjs.com/package/anomalisa"');
   assertStringIncludes(
     html,
     'href="https://uriv.me/blog/anomaly-detection-with-welford-and-kv"',

@@ -50,19 +50,19 @@ quiet during the initial cold start (`minDataPoints = 3`) unless a rare burst
 Install with npm:
 
 ```
-npx jsr add @uri/anomalisa
+npm i anomalisa
 ```
 
 Or with Deno:
 
 ```
-deno add jsr:@uri/anomalisa
+deno add npm:anomalisa
 ```
 
 Send events from your app:
 
 ```ts
-import { sendEvent } from "@uri/anomalisa";
+import { sendEvent } from "anomalisa";
 
 await sendEvent({
   token: "your-project-token",
@@ -77,7 +77,7 @@ creating a project, and copying the token.
 Check detected anomalies:
 
 ```ts
-import { getAnomalies } from "@uri/anomalisa";
+import { getAnomalies } from "anomalisa";
 
 const { anomalies } = await getAnomalies({ token: "your-project-token" });
 ```

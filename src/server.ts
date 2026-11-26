@@ -13,13 +13,28 @@ import {
   recordAdminNotificationOnce,
   recordEvent,
 } from "./anomaly.ts";
-import { lookupProjectById, lookupProjectByToken } from "./db.ts";
+import { lookupProjectById, lookupProjectByToken, verifyUserToken } from "./db.ts";
 import {
   sendAdminNotification,
   sendAnomalyAlerts,
+  sendQuotaNotification,
   sendTestAnomalyAlert,
 } from "./email.ts";
 import { handleTestAnomalyRequest } from "./testAnomaly.ts";
+import {
+  createBillingPortalSession,
+  createCheckoutSession,
+  extractBearerToken,
+  getBillingStatus,
+  getProjectAlertSettings,
+  handleProjectSettingsRequest,
+  handleStripeWebhook,
+  incrementAndCheckMonthlyQuota,
+  makeQuotaExceededError,
+  quotaExceededErrorName,
+  resolveEffectivePlan,
+  syncCheckoutSession,
+} from "./billing.ts";
 import {
   captureServerEvent,
   defaultPosthogHost,
@@ -76,6 +91,37 @@ const endpoints: ApiImplementation<null, Api> = {
   handlers: {
     sendEvent: async ({ token, eventName, userId }) => {
       const project = await resolveProject(token);
+      const quota = await incrementAndCheckMonthlyQuota(
+        project.owner.id,
+        project.owner.email,
+      );
+      if (!quota.allowed) {
+        const shouldNotifyQuota = await recordAdminNotificationOnce(
+          `quota_exceeded:${project.owner.id}:${quota.monthBucket}`,
+        ).catch(() => false);
+        if (shouldNotifyQuota) {
+          await sendQuotaNotification({
+            to: project.owner.email,
+            plan: quota.plan,
+            limit: quota.limit,
+            reached: true,
+          }).catch(logError("send quota exceeded email"));
+        }
+        throw makeQuotaExceededError(quota.plan, quota.limit);
+      }
+      if (quota.count === Math.floor(quota.limit * 0.8)) {
+        const shouldWarnQuota = await recordAdminNotificationOnce(
+          `quota_warning_80:${project.owner.id}:${quota.monthBucket}`,
+        ).catch(() => false);
+        if (shouldWarnQuota) {
+          await sendQuotaNotification({
+            to: project.owner.email,
+            plan: quota.plan,
+            limit: quota.limit,
+            reached: false,
+          }).catch(logError("send quota warning email"));
+        }
+      }
       const anomalies = await recordEvent(
         project.id,
         eventName,
@@ -219,8 +265,64 @@ const getHtmlByPath = async () => {
   };
 };
 
-const handleGet = async (url: URL) => {
+const authenticateRequest = (req: Request) =>
+  verifyUserToken(extractBearerToken(req));
+
+const handleBillingGet = async (req: Request) => {
+  const user = await authenticateRequest(req);
+  if (!user) return jsonResponse({ error: "Unauthorized" }, 401);
+  return jsonResponse(await getBillingStatus(user.id, user.email));
+};
+
+const handleBillingPost = async (
+  req: Request,
+  url: URL,
+  bodyText: string,
+) => {
+  const user = await authenticateRequest(req);
+  if (!user) return jsonResponse({ error: "Unauthorized" }, 401);
+  try {
+    if (url.pathname === "/api/billing/checkout") {
+      return jsonResponse(
+        await createCheckoutSession({
+          userId: user.id,
+          email: user.email,
+          origin: url.origin,
+        }),
+      );
+    }
+    if (url.pathname === "/api/billing/portal") {
+      return jsonResponse(
+        await createBillingPortalSession({
+          userId: user.id,
+          origin: url.origin,
+        }),
+      );
+    }
+    if (url.pathname === "/api/billing/sync") {
+      const parsed = JSON.parse(bodyText || "{}");
+      const sessionId = typeof parsed?.sessionId === "string"
+        ? parsed.sessionId.trim()
+        : "";
+      if (!sessionId) return jsonResponse({ error: "Missing sessionId" }, 400);
+      return jsonResponse(
+        await syncCheckoutSession({
+          userId: user.id,
+          email: user.email,
+          sessionId,
+        }),
+      );
+    }
+    return jsonResponse({ error: "Not found" }, 404);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Billing error";
+    return jsonResponse({ error: message }, 400);
+  }
+};
+
+const handleGet = async (req: Request, url: URL) => {
   if (url.pathname === "/og.png") return await ogImageResponse();
+  if (url.pathname === "/api/billing/status") return handleBillingGet(req);
   if (url.pathname === "/config") {
     return jsonResponse({
       instantdbAppId: Deno.env.get("INSTANTDB_APP_ID") ?? "",
@@ -258,6 +360,30 @@ const handleGet = async (url: URL) => {
 
 const handlePost = async (req: Request, url: URL) => {
   const bodyText = await req.text();
+
+  if (url.pathname === "/api/stripe/webhook") {
+    const { status, body } = await handleStripeWebhook(
+      bodyText,
+      req.headers.get("stripe-signature"),
+    );
+    return jsonResponse(body, status);
+  }
+
+  if (
+    url.pathname === "/api/billing/checkout" ||
+    url.pathname === "/api/billing/portal" ||
+    url.pathname === "/api/billing/sync"
+  ) {
+    return handleBillingPost(req, url, bodyText);
+  }
+
+  if (url.pathname === "/project-settings") {
+    const { status, body } = await handleProjectSettingsRequest(
+      bodyText,
+      resolveProject,
+    );
+    return jsonResponse(body, status);
+  }
 
   if (url.pathname === "/investigate") {
     return investigateHttpResponse(
@@ -327,6 +453,12 @@ const handlePost = async (req: Request, url: URL) => {
     } catch (error) {
       if (
         error instanceof Error &&
+        error.name === quotaExceededErrorName
+      ) {
+        return jsonResponse({ error: error.message }, 429);
+      }
+      if (
+        error instanceof Error &&
         (error.name === "ValidationError" || error.message === "Invalid token")
       ) {
         return jsonResponse({ error: error.message }, 400);
@@ -344,7 +476,7 @@ export const httpHandler = async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
-  if (req.method === "GET") return await handleGet(url);
+  if (req.method === "GET") return await handleGet(req, url);
   return handlePost(req, url);
 };
 
@@ -361,22 +493,41 @@ export const drainOutgoingAlertsCron = async () => {
     try {
       const project = await lookupProjectById(projectId);
       if (project) {
-        const counts = await getEventCounts(projectId).catch(() => undefined);
-        const maxUserCounts = await getMaxUserCounts(projectId).catch(() =>
-          undefined
-        );
+        const [counts, maxUserCounts, plan] = await Promise.all([
+          getEventCounts(projectId).catch(() => undefined),
+          getMaxUserCounts(projectId).catch(() => undefined),
+          resolveEffectivePlan(project.owner.id, project.owner.email).catch(
+            () => "free" as const,
+          ),
+        ]);
+        const isPro = plan === "pro";
+        const alertSettings = isPro
+          ? await getProjectAlertSettings(projectId).catch(() => ({
+            alertEmails: [],
+            webhookSecret: "",
+          }))
+          : { alertEmails: [], webhookSecret: "" };
         await sendAnomalyAlerts(
           project.owner.email,
           project.name,
           anomalies,
           counts,
           maxUserCounts,
+          {
+            extraEmails: alertSettings.alertEmails,
+            enableAutoGithubIssues: isPro,
+          },
         ).catch(logError("send anomaly email"));
         if (project.webhookUrl) {
           const webhookUrl = project.webhookUrl;
+          const webhookOptions = isPro && alertSettings.webhookSecret
+            ? { secret: alertSettings.webhookSecret }
+            : undefined;
           await Promise.all(
             anomalies.map((a) =>
-              sendWebhook(webhookUrl, a).catch(logError("send webhook"))
+              sendWebhook(webhookUrl, a, webhookOptions).catch(
+                logError("send webhook"),
+              )
             ),
           );
         }

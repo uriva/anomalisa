@@ -191,6 +191,10 @@ const endpoints: ApiImplementation<null, Api> = {
     sendTestAnomaly: async ({ token }) => {
       const project = await resolveProject(token);
       await sendTestAnomalyAlert(project.owner.email, project.name, project.id);
+      await captureServerEvent(project.owner.email, "test_anomaly_sent", {
+        projectId: project.id,
+        projectName: project.name,
+      });
       return { ok: true, sentTo: project.owner.email };
     },
   },

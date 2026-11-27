@@ -57,6 +57,7 @@ for (const { file, title, description, url } of pageMetaCases) {
     assertEquals(metaContent(html, "og:image:width"), "1200");
     assertEquals(metaContent(html, "og:image:height"), "630");
     assert(metaContent(html, "og:image:alt").length > 0);
+    assertEquals(metaContent(html, "og:image:alt").includes("2 sigma"), false);
     assertEquals(metaContent(html, "twitter:image"), imageUrl);
     assertEquals(
       metaContent(html, "twitter:image:alt"),

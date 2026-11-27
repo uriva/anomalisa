@@ -699,3 +699,45 @@ Deno.test("checkout sync does not upgrade unpaid, open, expired, or unexpanded s
 
   await cleanupBillingTestData();
 });
+
+Deno.test("grandfathered accounts bypass monthly_usage writes and quota cap", async () => {
+  const grandfatheredUserId = "test_grandfathered_user_001";
+  const grandfatheredEmail = "uri.valevski@gmail.com";
+  const month = currentMonthBucket();
+  const cleanup = () =>
+    getTurso().execute({
+      sql: "DELETE FROM monthly_usage WHERE user_id = ?;",
+      args: [grandfatheredUserId],
+    });
+
+  await cleanup();
+  try {
+    const first = await incrementAndCheckMonthlyQuota(
+      grandfatheredUserId,
+      grandfatheredEmail,
+    );
+    assertEquals(first.allowed, true);
+    assertEquals(first.plan, "pro");
+
+    const rowsAfterFirst = await getTurso().execute({
+      sql:
+        "SELECT count FROM monthly_usage WHERE user_id = ? AND month_bucket = ?;",
+      args: [grandfatheredUserId, month],
+    });
+    assertEquals(rowsAfterFirst.rows.length, 0);
+
+    await getTurso().execute({
+      sql:
+        "INSERT INTO monthly_usage (user_id, month_bucket, count, updated_at) VALUES (?, ?, ?, ?);",
+      args: [grandfatheredUserId, month, planLimits.pro, Date.now()],
+    });
+    const aboveCap = await incrementAndCheckMonthlyQuota(
+      grandfatheredUserId,
+      grandfatheredEmail,
+    );
+    assertEquals(aboveCap.allowed, true);
+    assertEquals(aboveCap.plan, "pro");
+  } finally {
+    await cleanup();
+  }
+});

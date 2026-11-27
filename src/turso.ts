@@ -151,13 +151,17 @@ export const initTursoSchema = () =>
     );`,
   ], "write");
 
+const knownAdminNotifications = new Set<string>();
+
 export const recordAdminNotificationOnce = async (
   key: string,
 ): Promise<boolean> => {
+  if (knownAdminNotifications.has(key)) return false;
   const res = await getTurso().execute({
     sql:
       `INSERT INTO admin_notifications (key, created_at) VALUES (?, ?) ON CONFLICT DO NOTHING;`,
     args: [key, Date.now()],
   });
+  knownAdminNotifications.add(key);
   return res.rowsAffected > 0;
 };

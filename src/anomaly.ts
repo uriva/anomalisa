@@ -56,6 +56,13 @@ const poissonPThreshold = 1e-3;
 const lnPoissonPThreshold = Math.log(poissonPThreshold);
 const cooldownTtlMs = 48 * 60 * 60 * 1000;
 const statsDecay = 0.98;
+const settledZeroThreshold = 1e-6;
+const settledZeroMinN = 49.9;
+
+export const isSettledZeroStats = ({ mean, m2, n }: Stats): boolean =>
+  n >= settledZeroMinN &&
+  Math.abs(mean) < settledZeroThreshold &&
+  Math.abs(m2) < settledZeroThreshold;
 
 export const emptyStats = (lastBucket: string): Stats => ({
   mean: 0,
@@ -80,10 +87,12 @@ export const updateStatsWithZeros = (
   count: number,
   decay = 1.0,
 ): Stats =>
-  Array.from({ length: count }).reduce<Stats>(
-    (s) => updateStats(s, 0, decay),
-    stats,
-  );
+  decay < 1 && isSettledZeroStats(stats)
+    ? stats
+    : Array.from({ length: count }).reduce<Stats>(
+      (s) => updateStats(s, 0, decay),
+      stats,
+    );
 
 export const detectAnomaly = (
   stats: Stats,
@@ -451,12 +460,14 @@ export const detectSkippedHourAnomalies = (
   eventName: string,
   decay = 1.0,
 ): Anomaly[] =>
-  Array.from({ length: skippedHours }).reduce<
-    { stats: Stats; anomalies: Anomaly[] }
-  >(
-    skippedHourStep(projectId, eventName, decay),
-    { stats, anomalies: [] },
-  ).anomalies;
+  decay < 1 && isSettledZeroStats(stats)
+    ? []
+    : Array.from({ length: skippedHours }).reduce<
+      { stats: Stats; anomalies: Anomaly[] }
+    >(
+      skippedHourStep(projectId, eventName, decay),
+      { stats, anomalies: [] },
+    ).anomalies;
 
 const isGloballyElevated = (
   globalStats: Stats,
@@ -767,18 +778,43 @@ const storeAndFilter = async (anomalies: Anomaly[]): Promise<Anomaly[]> => {
   return newAnomalies.filter((_, i) => unsuppressed[i]);
 };
 
+const readStatsRow = async (
+  projectId: string,
+  eventName: string,
+  type: string,
+) => {
+  const res = await getTurso().execute({
+    sql: `SELECT mean, m2, n, last_bucket FROM stats
+          WHERE project_id = ? AND event_name = ? AND type = ?;`,
+    args: [projectId, eventName, type],
+  });
+  return res.rows[0] ?? null;
+};
+
+const getStats = async (
+  projectId: string,
+  eventName: string,
+  type: string,
+  bucket: string,
+): Promise<Stats> => {
+  const row = await readStatsRow(projectId, eventName, type);
+  return row
+    ? {
+      mean: Number(row.mean),
+      m2: Number(row.m2),
+      n: Number(row.n),
+      lastBucket: String(row.last_bucket || bucket),
+    }
+    : emptyStats(bucket);
+};
+
 const getOrInitStats = async (
   projectId: string,
   eventName: string,
   type: string,
   bucket: string,
 ): Promise<Stats> => {
-  const res = await getTurso().execute({
-    sql: `SELECT mean, m2, n, last_bucket FROM stats
-          WHERE project_id = ? AND event_name = ? AND type = ?;`,
-    args: [projectId, eventName, type],
-  });
-  const row = res.rows[0];
+  const row = await readStatsRow(projectId, eventName, type);
   if (row) {
     return {
       mean: Number(row.mean),
@@ -829,6 +865,18 @@ const saveStats = (
     ],
   });
 
+const saveStatsIfChanged = (
+  projectId: string,
+  eventName: string,
+  type: string,
+  prev: Stats,
+  value: number,
+  next: Stats,
+) =>
+  value === 0 && isSettledZeroStats(prev)
+    ? Promise.resolve()
+    : saveStats(projectId, eventName, type, next);
+
 const incrementCount = async (
   projectId: string,
   eventName: string,
@@ -863,7 +911,7 @@ const incrementUserCount = async (
   return Number(res.rows[0].count);
 };
 
-const updateMaxUserCount = (
+export const updateMaxUserCount = (
   projectId: string,
   eventName: string,
   bucket: string,
@@ -874,7 +922,8 @@ const updateMaxUserCount = (
       `INSERT INTO max_user_counts (project_id, event_name, bucket, count, created_at)
           VALUES (?, ?, ?, ?, ?)
           ON CONFLICT (project_id, event_name, bucket)
-          DO UPDATE SET count = MAX(count, excluded.count);`,
+          DO UPDATE SET count = excluded.count
+          WHERE excluded.count > max_user_counts.count;`,
     args: [projectId, eventName, bucket, count, Date.now()],
   });
 
@@ -911,7 +960,7 @@ const checkUserSpike = async (
   userId: string,
   userCount: number,
 ): Promise<Anomaly | null> => {
-  const perUserStats = await getOrInitStats(
+  const perUserStats = await getStats(
     projectId,
     eventName,
     "perUser",
@@ -974,15 +1023,17 @@ const handleBucketTransitionWithStats = async (
   projectId: string,
   eventName: string,
   bucket: string,
+  knownPrevTotalCount?: number,
 ): Promise<{ anomalies: Anomaly[]; stats: Stats }> => {
-  const prevTotalCount = await getCount(projectId, eventName, stats.lastBucket);
+  const prevTotalCount = knownPrevTotalCount ??
+    await getCount(projectId, eventName, stats.lastBucket);
 
   const skippedHours = Math.max(0, hoursBetween(stats.lastBucket, bucket) - 1);
   const statsWithZeros = updateStatsWithZeros(stats, skippedHours, statsDecay);
   const updatedStats = updateStats(statsWithZeros, prevTotalCount, statsDecay);
 
   const prevHourOfDay = parseInt(stats.lastBucket.slice(-2), 10);
-  const hourStats = await getOrInitStats(
+  const hourStats = await getStats(
     projectId,
     eventName,
     `byHour:${prevHourOfDay}`,
@@ -1013,7 +1064,7 @@ const handleBucketTransitionWithStats = async (
     stats.lastBucket,
   );
 
-  const perUserStats = await getOrInitStats(
+  const perUserStats = await getStats(
     projectId,
     eventName,
     "perUser",
@@ -1029,19 +1080,23 @@ const handleBucketTransitionWithStats = async (
   const [notifiable] = await Promise.all([
     storeAndFilter(anomalies),
     saveStats(projectId, eventName, "total", nextStats),
-    saveStats(
+    saveStatsIfChanged(
       projectId,
       eventName,
       "perUser",
+      perUserStats,
+      prevMaxUserCount,
       {
         ...updateStats(perUserSkippedZeros, prevMaxUserCount, statsDecay),
         lastBucket: bucket,
       },
     ),
-    saveStats(
+    saveStatsIfChanged(
       projectId,
       eventName,
       `byHour:${prevHourOfDay}`,
+      hourStats,
+      prevTotalCount,
       updateStats(hourStats, prevTotalCount, statsDecay),
     ),
   ]);
@@ -1058,10 +1113,15 @@ const handleBucketTransition = (
   projectId: string,
   eventName: string,
   bucket: string,
+  knownPrevTotalCount?: number,
 ): Promise<Anomaly[]> =>
-  handleBucketTransitionWithStats(stats, projectId, eventName, bucket).then(
-    ({ anomalies }) => anomalies,
-  );
+  handleBucketTransitionWithStats(
+    stats,
+    projectId,
+    eventName,
+    bucket,
+    knownPrevTotalCount,
+  ).then(({ anomalies }) => anomalies);
 
 const shouldCheckLiveBucketSpikes = (
   stats: Stats,
@@ -1080,7 +1140,7 @@ const trackLiveBucketSpikes = async (
   currentCount: number,
 ): Promise<Anomaly[]> => {
   if (!shouldCheckLiveBucketSpikes(stats, currentCount)) return [];
-  const hourStats = await getOrInitStats(
+  const hourStats = await getStats(
     projectId,
     eventName,
     `byHour:${parseInt(bucket.slice(-2), 10)}`,
@@ -1217,39 +1277,65 @@ export const getAnomalies = async (projectId: string): Promise<Anomaly[]> => {
   return res.rows.map((row) => mapAnomalyRow(row as Record<string, unknown>));
 };
 
-export const checkAllEmptyBuckets = async (): Promise<
-  Record<string, Anomaly[]>
-> => {
+const pendingEmptyBucketsQuery = (
+  currentBucket: string,
+  projectIdFilter?: string,
+) => ({
+  sql: `SELECT s.project_id, s.event_name, s.mean, s.m2, s.n, s.last_bucket,
+               COALESCE(c.count, 0) AS prev_count
+        FROM stats s
+        LEFT JOIN counts c
+          ON c.project_id = s.project_id
+         AND c.event_name = s.event_name
+         AND c.bucket = s.last_bucket
+        WHERE s.type = 'total'
+          AND s.last_bucket != ?
+          AND NOT (
+            s.n >= ? AND ABS(s.mean) < ? AND ABS(s.m2) < ?
+            AND COALESCE(c.count, 0) = 0
+          )${projectIdFilter ? " AND s.project_id = ?" : ""};`,
+  args: [
+    currentBucket,
+    settledZeroMinN,
+    settledZeroThreshold,
+    settledZeroThreshold,
+    ...(projectIdFilter ? [projectIdFilter] : []),
+  ],
+});
+
+export const checkProjectEmptyBuckets = async (
+  projectIdFilter?: string,
+): Promise<Record<string, Anomaly[]>> => {
   const currentBucket = getHourBucket();
   const res = await getTurso().execute(
-    "SELECT project_id, event_name, mean, m2, n, last_bucket FROM stats WHERE type = 'total';",
+    pendingEmptyBucketsQuery(currentBucket, projectIdFilter),
   );
 
   const anomaliesByProject: Record<string, Anomaly[]> = {};
-  for (const row of res.rows) {
+  await res.rows.reduce(async (prev, row) => {
+    await prev;
     const projectId = String(row.project_id);
-    const eventName = String(row.event_name);
-    const lastBucket = String(row.last_bucket);
-    if (lastBucket !== currentBucket) {
-      const stats: Stats = {
+    const anomalies = await handleBucketTransition(
+      {
         mean: Number(row.mean),
         m2: Number(row.m2),
         n: Number(row.n),
-        lastBucket,
-      };
-      const anomalies = await handleBucketTransition(
-        stats,
-        projectId,
-        eventName,
-        currentBucket,
-      );
-      if (anomalies.length > 0) {
-        (anomaliesByProject[projectId] ??= []).push(...anomalies);
-      }
+        lastBucket: String(row.last_bucket),
+      },
+      projectId,
+      String(row.event_name),
+      currentBucket,
+      Number(row.prev_count),
+    );
+    if (anomalies.length > 0) {
+      (anomaliesByProject[projectId] ??= []).push(...anomalies);
     }
-  }
+  }, Promise.resolve());
   return anomaliesByProject;
 };
+
+export const checkAllEmptyBuckets = (): Promise<Record<string, Anomaly[]>> =>
+  checkProjectEmptyBuckets();
 
 export const enqueueOutgoingAlerts = async (
   projectId: string,

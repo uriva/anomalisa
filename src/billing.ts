@@ -370,6 +370,15 @@ export const incrementAndCheckMonthlyQuota = async (
   nowMs = Date.now(),
 ): Promise<QuotaCheckResult> => {
   const monthBucket = currentMonthBucket(nowMs);
+  if (isGrandfatheredEmail(email)) {
+    return {
+      allowed: true,
+      plan: "pro",
+      count: 0,
+      limit: planLimits.pro,
+      monthBucket,
+    };
+  }
   const [plan, currentCount] = await Promise.all([
     resolveEffectivePlan(userId, email),
     getMonthlyEventCount(userId, monthBucket),

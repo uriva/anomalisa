@@ -780,19 +780,26 @@
             </div>
             <div>${actionsHtml}</div>
           </div>
-          <div class="usage-bar"><div class="usage-fill ${fillClass}" style="width:${pct}%"></div></div>
+          ${
+        billingStatus.grandfathered
+          ? `<div style="display:flex;justify-content:space-between;font-size:0.78rem;color:#888">
+            <span>Unlimited events</span>
+            <span>Team emails, signed webhooks & AI issues active</span>
+          </div>`
+          : `<div class="usage-bar"><div class="usage-fill ${fillClass}" style="width:${pct}%"></div></div>
           <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:#888">
             <span>${used.toLocaleString()} / ${limit.toLocaleString()} events this month (${pct}%)</span>
             <span>${
-        pct >= 100
-          ? "Quota reached"
-          : pct >= 80
-          ? "Approaching monthly limit"
-          : isPro
-          ? "Team emails, signed webhooks & AI issues active"
-          : "Upgrade for 1M events, team alerts, signed webhooks & AI issues"
-      }</span>
-          </div>
+            pct >= 100
+              ? "Quota reached"
+              : pct >= 80
+              ? "Approaching monthly limit"
+              : isPro
+              ? "Team emails, signed webhooks & AI issues active"
+              : "Upgrade for 1M events, team alerts, signed webhooks & AI issues"
+          }</span>
+          </div>`
+      }
         </div>
       `;
       const upgradeBtn = document.getElementById("upgrade-pro");

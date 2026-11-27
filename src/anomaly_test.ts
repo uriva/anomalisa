@@ -3,6 +3,7 @@ import {
   type Anomaly,
   anomalyDirection,
   checkAndSetCooldown,
+  checkProjectEmptyBuckets,
   detectAnomaly,
   detectBucketAnomalies,
   detectLiveBucketSpikes,
@@ -16,9 +17,11 @@ import {
   enqueueOutgoingAlerts,
   getTrendIndication,
   hoursBetween,
+  recordAdminNotificationOnce,
   recordEvent,
   shouldSuppress,
   stdDev,
+  updateMaxUserCount,
   updateStats,
   updateStatsWithZeros,
 } from "./anomaly.ts";
@@ -2274,4 +2277,213 @@ Deno.test("detectRollingDrop — does not false-alarm on 2h zero window when bas
     ),
     null,
   );
+});
+
+Deno.test({
+  name: "updateMaxUserCount — skips write when count does not exceed stored max",
+  sanitizeResources: false,
+  fn: async () => {
+    const projectId = "test-project-max-user-noop";
+    const eventName = "click";
+    const bucket = "2026-01-01T00";
+    const cleanup = () =>
+      getTurso().execute({
+        sql: "DELETE FROM max_user_counts WHERE project_id = ?;",
+        args: [projectId],
+      });
+
+    await cleanup();
+    try {
+      const first = await updateMaxUserCount(projectId, eventName, bucket, 3);
+      assertEquals(first.rowsAffected, 1);
+
+      const lower = await updateMaxUserCount(projectId, eventName, bucket, 2);
+      assertEquals(lower.rowsAffected, 0);
+
+      const equal = await updateMaxUserCount(projectId, eventName, bucket, 3);
+      assertEquals(equal.rowsAffected, 0);
+
+      const higher = await updateMaxUserCount(projectId, eventName, bucket, 4);
+      assertEquals(higher.rowsAffected, 1);
+
+      const stored = await getTurso().execute({
+        sql:
+          "SELECT count FROM max_user_counts WHERE project_id = ? AND event_name = ? AND bucket = ?;",
+        args: [projectId, eventName, bucket],
+      });
+      assertEquals(Number(stored.rows[0].count), 4);
+    } finally {
+      await cleanup();
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "checkProjectEmptyBuckets — skips dormant zero-settled events, wakes them on new counts, and skips settled-zero perUser rewrites",
+  sanitizeResources: false,
+  fn: async () => {
+    const projectId = "test-project-empty-bucket-writes";
+    const dormantEvent = "dormant_event";
+    const activeEvent = "active_event";
+    const oldBucket = "2026-01-01T00";
+    const turso = getTurso();
+    const cleanup = () =>
+      turso.batch([
+        { sql: "DELETE FROM counts WHERE project_id = ?;", args: [projectId] },
+        { sql: "DELETE FROM stats WHERE project_id = ?;", args: [projectId] },
+        {
+          sql: "DELETE FROM max_user_counts WHERE project_id = ?;",
+          args: [projectId],
+        },
+        {
+          sql: "DELETE FROM anomalies WHERE project_id = ?;",
+          args: [projectId],
+        },
+        {
+          sql: "DELETE FROM cooldowns WHERE project_id = ?;",
+          args: [projectId],
+        },
+      ], "write");
+
+    await cleanup();
+    try {
+      await turso.batch([
+        {
+          sql:
+            "INSERT INTO stats (project_id, event_name, type, mean, m2, n, last_bucket) VALUES (?, ?, 'total', 1e-12, 1e-12, 50, ?);",
+          args: [projectId, dormantEvent, oldBucket],
+        },
+        {
+          sql:
+            "INSERT INTO stats (project_id, event_name, type, mean, m2, n, last_bucket) VALUES (?, ?, 'total', 5, 10, 10, ?);",
+          args: [projectId, activeEvent, oldBucket],
+        },
+        {
+          sql:
+            "INSERT INTO stats (project_id, event_name, type, mean, m2, n, last_bucket) VALUES (?, ?, 'perUser', 0, 0, 50, ?);",
+          args: [projectId, activeEvent, oldBucket],
+        },
+      ], "write");
+
+      await checkProjectEmptyBuckets(projectId);
+
+      const dormantAfterSkip = await turso.execute({
+        sql:
+          "SELECT type, last_bucket FROM stats WHERE project_id = ? AND event_name = ?;",
+        args: [projectId, dormantEvent],
+      });
+      assertEquals(dormantAfterSkip.rows.length, 1);
+      assertEquals(String(dormantAfterSkip.rows[0].last_bucket), oldBucket);
+
+      const activePerUserAfter = await turso.execute({
+        sql:
+          "SELECT last_bucket FROM stats WHERE project_id = ? AND event_name = ? AND type = 'perUser';",
+        args: [projectId, activeEvent],
+      });
+      assertEquals(String(activePerUserAfter.rows[0].last_bucket), oldBucket);
+
+      const activeTotalAfter = await turso.execute({
+        sql:
+          "SELECT last_bucket FROM stats WHERE project_id = ? AND event_name = ? AND type = 'total';",
+        args: [projectId, activeEvent],
+      });
+      assertEquals(
+        String(activeTotalAfter.rows[0].last_bucket) !== oldBucket,
+        true,
+      );
+
+      await turso.execute({
+        sql:
+          "INSERT INTO counts (project_id, event_name, bucket, count, created_at) VALUES (?, ?, ?, 10, ?);",
+        args: [projectId, dormantEvent, oldBucket, Date.now()],
+      });
+
+      await checkProjectEmptyBuckets(projectId);
+
+      const dormantAfterWake = await turso.execute({
+        sql:
+          "SELECT mean, last_bucket FROM stats WHERE project_id = ? AND event_name = ? AND type = 'total';",
+        args: [projectId, dormantEvent],
+      });
+      assertEquals(
+        String(dormantAfterWake.rows[0].last_bucket) !== oldBucket,
+        true,
+      );
+      assertEquals(Number(dormantAfterWake.rows[0].mean) > 0.1, true);
+    } finally {
+      await cleanup();
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "recordEvent — does not insert empty perUser or byHour stats rows during read-only spike checks",
+  sanitizeResources: false,
+  fn: async () => {
+    const projectId = "test-project-readonly-stats";
+    const eventName = "fresh_click";
+    const turso = getTurso();
+    const cleanup = () =>
+      turso.batch([
+        { sql: "DELETE FROM counts WHERE project_id = ?;", args: [projectId] },
+        {
+          sql: "DELETE FROM user_counts WHERE project_id = ?;",
+          args: [projectId],
+        },
+        {
+          sql: "DELETE FROM max_user_counts WHERE project_id = ?;",
+          args: [projectId],
+        },
+        { sql: "DELETE FROM stats WHERE project_id = ?;", args: [projectId] },
+        {
+          sql: "DELETE FROM anomalies WHERE project_id = ?;",
+          args: [projectId],
+        },
+        {
+          sql: "DELETE FROM cooldowns WHERE project_id = ?;",
+          args: [projectId],
+        },
+      ], "write");
+
+    await cleanup();
+    try {
+      await recordEvent(projectId, eventName, "u1");
+      const statsRows = await turso.execute({
+        sql:
+          "SELECT type FROM stats WHERE project_id = ? AND event_name = ?;",
+        args: [projectId, eventName],
+      });
+      assertEquals(
+        statsRows.rows.map((r) => String(r.type)),
+        ["total"],
+      );
+    } finally {
+      await cleanup();
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "recordAdminNotificationOnce — caches confirmed keys in memory to avoid repeat Turso round trips",
+  sanitizeResources: false,
+  fn: async () => {
+    const key = `test_cache_admin_notif_${Date.now()}`;
+    const cleanup = () =>
+      getTurso().execute({
+        sql: "DELETE FROM admin_notifications WHERE key = ?;",
+        args: [key],
+      });
+
+    await cleanup();
+    try {
+      assertEquals(await recordAdminNotificationOnce(key), true);
+      await cleanup();
+      assertEquals(await recordAdminNotificationOnce(key), false);
+    } finally {
+      await cleanup();
+    }
+  },
 });

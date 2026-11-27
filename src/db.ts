@@ -15,18 +15,91 @@ export type ProjectWithOwner = {
   owner: AuthenticatedUser;
 };
 
-const instantApiUri = "https://api.instantdb.uriv.me";
+export type InstantClientConfig = {
+  appId: string;
+  apiURI?: string;
+  websocketURI?: string;
+};
 
-const createDb = () => {
-  const appId = Deno.env.get("INSTANTDB_APP_ID") ?? "";
-  const adminToken = Deno.env.get("INSTANTDB_ADMIN_TOKEN") ?? "";
-  return init({
-    appId,
-    adminToken,
-    apiURI: instantApiUri,
+export type InstantClientEnv = {
+  appId?: string;
+  apiUri?: string;
+  websocketUri?: string;
+};
+
+export type InstantAdminEnv = {
+  appId?: string;
+  adminToken?: string;
+  apiUri?: string;
+};
+
+export const instantConfigPlaceholder = "__ANOMALISA_INSTANT_CONFIG__";
+
+const stripTrailingSlashes = (value: string) =>
+  value.trim().replace(/\/+$/, "");
+
+const deriveWebsocketUri = (apiUri: string) =>
+  apiUri.startsWith("https://")
+    ? `wss://${apiUri.slice("https://".length)}/runtime/session`
+    : apiUri.startsWith("http://")
+    ? `ws://${apiUri.slice("http://".length)}/runtime/session`
+    : "";
+
+export const resolveInstantAdminConfig = (
+  { appId, adminToken, apiUri }: InstantAdminEnv,
+) => {
+  const normalizedApiUri = stripTrailingSlashes(apiUri ?? "");
+  return {
+    appId: (appId ?? "").trim(),
+    adminToken: (adminToken ?? "").trim(),
+    ...(normalizedApiUri ? { apiURI: normalizedApiUri } : {}),
+  };
+};
+
+export const resolveInstantClientConfig = (
+  { appId, apiUri, websocketUri }: InstantClientEnv,
+): InstantClientConfig => {
+  const normalizedApiUri = stripTrailingSlashes(apiUri ?? "");
+  const normalizedWebsocketUri = stripTrailingSlashes(websocketUri ?? "") ||
+    deriveWebsocketUri(normalizedApiUri);
+  return {
+    appId: (appId ?? "").trim(),
+    ...(normalizedApiUri ? { apiURI: normalizedApiUri } : {}),
+    ...(normalizedWebsocketUri ? { websocketURI: normalizedWebsocketUri } : {}),
+  };
+};
+
+export const getInstantClientConfig = (): InstantClientConfig =>
+  resolveInstantClientConfig({
+    appId: Deno.env.get("INSTANTDB_APP_ID"),
+    apiUri: Deno.env.get("INSTANTDB_API_URI"),
+    websocketUri: Deno.env.get("INSTANTDB_WEBSOCKET_URI"),
+  });
+
+const serializeInlineJson = (value: InstantClientConfig) =>
+  JSON.stringify(value)
+    .replaceAll("<", "\\u003c")
+    .replaceAll(">", "\\u003e")
+    .replaceAll("&", "\\u0026");
+
+export const renderAppHtml = (
+  template: string,
+  config: InstantClientConfig,
+) =>
+  template.replaceAll(
+    instantConfigPlaceholder,
+    () => serializeInlineJson(config),
+  );
+
+const createDb = () =>
+  init({
+    ...resolveInstantAdminConfig({
+      appId: Deno.env.get("INSTANTDB_APP_ID"),
+      adminToken: Deno.env.get("INSTANTDB_ADMIN_TOKEN"),
+      apiUri: Deno.env.get("INSTANTDB_API_URI"),
+    }),
     schema,
   });
-};
 
 let _db: ReturnType<typeof createDb> | null = null;
 const getDb = () => _db ??= createDb();

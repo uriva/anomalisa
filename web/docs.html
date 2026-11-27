@@ -462,7 +462,19 @@ INSTANTDB_ADMIN_TOKEN=your-instantdb-admin-token
 AGENTMAIL_API_KEY=your-agentmail-api-key
 
 <span class="comment"># Optional (enables automatic GitHub issue triage)</span>
-GEMINI_API_KEY=your-gemini-api-key</div>
+GEMINI_API_KEY=your-gemini-api-key
+
+<span class="comment"># Optional (only for self-hosted InstantDB; omit to use InstantDB Cloud)</span>
+INSTANTDB_API_URI=https://api.instantdb.example.com
+INSTANTDB_WEBSOCKET_URI=wss://api.instantdb.example.com/runtime/session</div>
+      <p>
+        Leave <code>INSTANTDB_API_URI</code> unset to use standard InstantDB
+        Cloud. When <code>INSTANTDB_API_URI</code> is set,
+        <code>INSTANTDB_WEBSOCKET_URI</code> defaults to
+        <code>ws(s)://&lt;host&gt;/runtime/session</code>. If deploying to
+        Cloudflare Workers, edit <code>routes</code> and <code>vars</code> in
+        <code>wrangler.jsonc</code> for your own domain and InstantDB setup.
+      </p>
       <p>
         Push the InstantDB schema and permissions, then start the server:
       </p>

@@ -413,13 +413,9 @@
     import { id, init } from "https://esm.sh/@instantdb/core@0.22.135";
 
     const app = document.getElementById("app");
-    const apiUrl = "https://anomalisa.uriv.me";
+    const apiUrl = window.location.origin;
 
-    const db = init({
-      appId: "6c54827f-212d-4e48-9e87-b57626726004",
-      apiURI: "https://api.instantdb.uriv.me",
-      websocketURI: "wss://api.instantdb.uriv.me/runtime/session",
-    });
+    const db = init(__ANOMALISA_INSTANT_CONFIG__);
 
     const render = (html) => {
       app.innerHTML = html;

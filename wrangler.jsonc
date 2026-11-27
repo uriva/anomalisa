@@ -20,6 +20,9 @@
       "custom_domain": true
     }
   ],
+  "vars": {
+    "INSTANTDB_API_URI": "https://api.instantdb.uriv.me"
+  },
   "triggers": {
     "crons": ["5 * * * *", "*/5 * * * *", "0 3 * * *"]
   },

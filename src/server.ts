@@ -172,12 +172,6 @@ const endpoints: ApiImplementation<null, Api> = {
         ]);
       }
 
-      await captureServerEvent(project.owner.email, "send_event", {
-        projectId: project.id,
-        projectName: project.name,
-        eventName,
-      });
-
       return {};
     },
     getAnomalies: async ({ token }) => {

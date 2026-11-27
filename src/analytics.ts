@@ -9,15 +9,15 @@ export type AnalyticsProperties = Record<
   string | number | boolean | undefined
 >;
 
+export const { inject: injectAnalyticsFetch, access: analyticsFetch } = context(
+  (url: string, init?: RequestInit): Promise<Response> => fetch(url, init),
+);
+
 const getPosthogKey = () =>
   Deno.env.get("POSTHOG_API_KEY") ??
     Deno.env.get("POSTHOG_KEY") ??
     defaultPosthogKey;
 const getPosthogHost = () => Deno.env.get("POSTHOG_HOST") ?? defaultPosthogHost;
-
-export const { inject: injectPosthogFetch, access: posthogFetch } = context(
-  (url: string, init?: RequestInit): Promise<Response> => fetch(url, init),
-);
 
 const sendServerEvent = (
   distinctId: string,
@@ -26,7 +26,7 @@ const sendServerEvent = (
 ): Promise<void> => {
   const key = getPosthogKey();
   if (!key) return Promise.resolve();
-  return posthogFetch(`${getPosthogHost()}/capture/`, {
+  return analyticsFetch(`${getPosthogHost()}/capture/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

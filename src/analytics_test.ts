@@ -3,7 +3,7 @@ import {
   captureServerEvent,
   defaultPosthogHost,
   defaultPosthogKey,
-  injectPosthogFetch,
+  injectAnalyticsFetch,
 } from "./analytics.ts";
 
 type CapturedPosthogCall = {
@@ -26,7 +26,9 @@ const makePosthogRecorder =
       method: init?.method ?? "GET",
       body: JSON.parse(init?.body ? String(init.body) : "{}"),
     });
-    return Promise.resolve(new Response(JSON.stringify({ status: 1 }), { status: 200 }));
+    return Promise.resolve(
+      new Response(JSON.stringify({ status: 1 }), { status: 200 }),
+    );
   };
 
 Deno.test("captureServerEvent posts expected PostHog /capture/ payload", async () => {
@@ -36,7 +38,7 @@ Deno.test("captureServerEvent posts expected PostHog /capture/ payload", async (
   Deno.env.delete("POSTHOG_HOST");
   const calls: CapturedPosthogCall[] = [];
   try {
-    await injectPosthogFetch(makePosthogRecorder(calls))(() =>
+    await injectAnalyticsFetch(makePosthogRecorder(calls))(() =>
       captureServerEvent("user@example.com", "checkout_started", {
         plan: "pro",
         projectId: "proj-1",
@@ -63,7 +65,7 @@ Deno.test("captureServerEvent is a no-op when POSTHOG_API_KEY is empty", async (
   Deno.env.set("POSTHOG_API_KEY", "");
   const calls: CapturedPosthogCall[] = [];
   try {
-    await injectPosthogFetch(makePosthogRecorder(calls))(() =>
+    await injectAnalyticsFetch(makePosthogRecorder(calls))(() =>
       captureServerEvent("user@example.com", "checkout_started", {
         plan: "pro",
       })

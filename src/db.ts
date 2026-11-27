@@ -15,12 +15,15 @@ export type ProjectWithOwner = {
   owner: AuthenticatedUser;
 };
 
+const instantApiUri = "https://api.instantdb.uriv.me";
+
 const createDb = () => {
   const appId = Deno.env.get("INSTANTDB_APP_ID") ?? "";
   const adminToken = Deno.env.get("INSTANTDB_ADMIN_TOKEN") ?? "";
   return init({
     appId,
     adminToken,
+    apiURI: instantApiUri,
     schema,
   });
 };

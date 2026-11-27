@@ -126,13 +126,19 @@ INSTANTDB_ADMIN_TOKEN=your-instantdb-admin-token
 AGENTMAIL_API_KEY=your-agentmail-api-key
 # Optional: enables automatic GitHub issue triage via @uriv/chaff
 GEMINI_API_KEY=your-gemini-api-key
+# Optional: only needed if you self-host InstantDB (omit to use InstantDB Cloud)
+INSTANTDB_API_URI=https://api.instantdb.example.com
+# Optional: defaults to ws(s)://<INSTANTDB_API_URI host>/runtime/session
+INSTANTDB_WEBSOCKET_URI=wss://api.instantdb.example.com/runtime/session
 ```
 
 You'll need a [Turso](https://turso.tech) database for event counts, Welford
 baselines, and anomalies, an [InstantDB](https://instantdb.com) app for
 user/project management, and an [AgentMail](https://theagentmail.net) account
 for email alerts (`GEMINI_API_KEY` is optional for automatic GitHub issue
-triage).
+triage). Leave `INSTANTDB_API_URI` unset to use InstantDB Cloud; if deploying to
+Cloudflare Workers, update `routes` and `vars` in `wrangler.jsonc` for your own
+domain and InstantDB setup.
 
 Push the schema and permissions:
 

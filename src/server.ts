@@ -13,7 +13,13 @@ import {
   recordAdminNotificationOnce,
   recordEvent,
 } from "./anomaly.ts";
-import { lookupProjectById, lookupProjectByToken, verifyUserToken } from "./db.ts";
+import {
+  getInstantClientConfig,
+  lookupProjectById,
+  lookupProjectByToken,
+  renderAppHtml,
+  verifyUserToken,
+} from "./db.ts";
 import {
   sendAdminNotification,
   sendAnomalyAlerts,
@@ -256,7 +262,7 @@ const getHtmlByPath = async () => {
     await getHtml();
   return {
     "/": landingHtml,
-    "/app": appHtml,
+    "/app": renderAppHtml(appHtml, getInstantClientConfig()),
     "/docs": docsHtml,
     "/privacy": privacyHtml,
     "/terms": termsHtml,
@@ -350,8 +356,11 @@ const handleGet = async (req: Request, url: URL) => {
   }
   if (url.pathname === "/api/billing/status") return handleBillingGet(req);
   if (url.pathname === "/config") {
+    const { appId, apiURI, websocketURI } = getInstantClientConfig();
     return jsonResponse({
-      instantdbAppId: Deno.env.get("INSTANTDB_APP_ID") ?? "",
+      instantdbAppId: appId,
+      ...(apiURI ? { instantdbApiUri: apiURI } : {}),
+      ...(websocketURI ? { instantdbWebsocketUri: websocketURI } : {}),
       posthogKey: Deno.env.get("POSTHOG_API_KEY") ??
         Deno.env.get("POSTHOG_KEY") ??
         defaultPosthogKey,

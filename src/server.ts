@@ -499,13 +499,20 @@ const handlePost = async (req: Request, url: URL) => {
   }
 };
 
+const handleHead = async (req: Request, url: URL) => {
+  const { status, headers } = await handleGet(req, url);
+  return new Response(null, { status, headers });
+};
+
 export const httpHandler = async (req: Request) => {
   const url = new URL(req.url);
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
   if (req.method === "GET") return await handleGet(req, url);
-  return handlePost(req, url);
+  if (req.method === "HEAD") return await handleHead(req, url);
+  if (req.method === "POST") return await handlePost(req, url);
+  return new Response(null, { status: 405, headers: corsHeaders });
 };
 
 export const checkEmptyBucketsCron = async () => {

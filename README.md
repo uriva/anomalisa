@@ -101,6 +101,19 @@ Each anomaly looks like:
 `"userSpike"`. For per-user spikes, `metric` is `"userSpike"` and `userId` is
 included.
 
+Capture frontend browser errors automatically (filters out bots, browser
+extensions, and opaque cross-origin noise; sends zero PII):
+
+```ts
+import { captureClientErrors } from "anomalisa";
+
+captureClientErrors({ token: "your-project-token" });
+```
+
+See the full API, detection math, and signed webhook docs at
+[anomalisa.uriv.me/docs](https://anomalisa.uriv.me/docs) and the package on
+[npm](https://www.npmjs.com/package/anomalisa).
+
 ## self-hosting
 
 Clone the repo and create a `.env`:

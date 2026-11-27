@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { captureServerEvent } from "./analytics.ts";
 import type { ProjectWithOwner } from "./db.ts";
 import { sendTestAnomalyAlert } from "./email.ts";
 
@@ -25,6 +26,12 @@ const sendForProject = ({
   owner,
 }: ProjectWithOwner): Promise<TestAnomalyResult> =>
   sendTestAnomalyAlert(owner.email, name, id)
+    .then(() =>
+      captureServerEvent(owner.email, "test_anomaly_sent", {
+        projectId: id,
+        projectName: name,
+      })
+    )
     .then(() => ({
       status: 200,
       body: { ok: true, sentTo: owner.email },

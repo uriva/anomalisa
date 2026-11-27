@@ -1,8 +1,29 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  type AnalyticsProperties,
+  injectCaptureServerEvent,
+} from "./analytics.ts";
 import { injectProjectLookup } from "./db.ts";
 import { injectEmailFetch, sendTestAnomalyAlert } from "./email.ts";
 import { httpHandler } from "./server.ts";
 import { handleTestAnomalyRequest } from "./testAnomaly.ts";
+
+type CapturedAnalytics = {
+  distinctId: string;
+  event: string;
+  properties: AnalyticsProperties;
+};
+
+const makeAnalyticsRecorder =
+  (events: CapturedAnalytics[]) =>
+  (
+    distinctId: string,
+    event: string,
+    properties?: AnalyticsProperties,
+  ): Promise<void> => {
+    events.push({ distinctId, event, properties: properties ?? {} });
+    return Promise.resolve();
+  };
 
 type CapturedEmail = {
   url: string;
@@ -102,11 +123,15 @@ Deno.test("handleTestAnomalyRequest rejects unknown project token", async () => 
 
 Deno.test("handleTestAnomalyRequest sends email to project owner on valid token", async () => {
   const captured: CapturedEmail[] = [];
-  const res = await injectEmailFetch(makeEmailRecorder(captured))(() =>
-    handleTestAnomalyRequest(
-      JSON.stringify({ token: sampleProject.token }),
-      stubProjectLookup,
-    )
+  const analytics: CapturedAnalytics[] = [];
+  const res = await injectCaptureServerEvent(makeAnalyticsRecorder(analytics))(
+    () =>
+      injectEmailFetch(makeEmailRecorder(captured))(() =>
+        handleTestAnomalyRequest(
+          JSON.stringify({ token: sampleProject.token }),
+          stubProjectLookup,
+        )
+      )(),
   )();
   assertEquals(res, {
     status: 200,
@@ -114,64 +139,97 @@ Deno.test("handleTestAnomalyRequest sends email to project owner on valid token"
   });
   assertEquals(captured.length, 1);
   assertEquals(captured[0].to, ["owner@example.com"]);
+  assertEquals(analytics, [{
+    distinctId: "owner@example.com",
+    event: "test_anomaly_sent",
+    properties: { projectId: "proj-1", projectName: "Demo App" },
+  }]);
 });
 
 Deno.test("handleTestAnomalyRequest returns 500 when email send fails", async () => {
-  const res = await injectEmailFetch(failingEmailFetch)(() =>
-    handleTestAnomalyRequest(
-      JSON.stringify({ token: sampleProject.token }),
-      stubProjectLookup,
-    )
+  const analytics: CapturedAnalytics[] = [];
+  const res = await injectCaptureServerEvent(makeAnalyticsRecorder(analytics))(
+    () =>
+      injectEmailFetch(failingEmailFetch)(() =>
+        handleTestAnomalyRequest(
+          JSON.stringify({ token: sampleProject.token }),
+          stubProjectLookup,
+        )
+      )(),
   )();
   assertEquals(res.status, 500);
   assertStringIncludes(String(res.body.error), "Email send failed");
+  assertEquals(analytics, []);
 });
 
 Deno.test("POST /api/test-anomaly sends test anomaly email via httpHandler", async () => {
   const captured: CapturedEmail[] = [];
-  const res = await injectProjectLookup(stubProjectLookup)(() =>
-    injectEmailFetch(makeEmailRecorder(captured))(() =>
-      postJson(
-        "/api/test-anomaly",
-        JSON.stringify({ token: sampleProject.token }),
-      )
-    )()
+  const analytics: CapturedAnalytics[] = [];
+  const res = await injectCaptureServerEvent(makeAnalyticsRecorder(analytics))(
+    () =>
+      injectProjectLookup(stubProjectLookup)(() =>
+        injectEmailFetch(makeEmailRecorder(captured))(() =>
+          postJson(
+            "/api/test-anomaly",
+            JSON.stringify({ token: sampleProject.token }),
+          )
+        )()
+      )(),
   )();
   assertEquals(res.status, 200);
   assertEquals(await res.json(), { ok: true, sentTo: "owner@example.com" });
   assertEquals(captured.length, 1);
   assertEquals(captured[0].to, ["owner@example.com"]);
+  assertEquals(analytics, [{
+    distinctId: "owner@example.com",
+    event: "test_anomaly_sent",
+    properties: { projectId: "proj-1", projectName: "Demo App" },
+  }]);
 });
 
 Deno.test("POST /api/test-anomaly rejects invalid token via httpHandler", async () => {
   const captured: CapturedEmail[] = [];
-  const res = await injectProjectLookup(stubProjectLookup)(() =>
-    injectEmailFetch(makeEmailRecorder(captured))(() =>
-      postJson("/api/test-anomaly", JSON.stringify({ token: "nope" }))
-    )()
+  const analytics: CapturedAnalytics[] = [];
+  const res = await injectCaptureServerEvent(makeAnalyticsRecorder(analytics))(
+    () =>
+      injectProjectLookup(stubProjectLookup)(() =>
+        injectEmailFetch(makeEmailRecorder(captured))(() =>
+          postJson("/api/test-anomaly", JSON.stringify({ token: "nope" }))
+        )()
+      )(),
   )();
   assertEquals(res.status, 400);
   assertEquals(await res.json(), { error: "Invalid token" });
   assertEquals(captured.length, 0);
+  assertEquals(analytics, []);
 });
 
 Deno.test("POST / typed-api sendTestAnomaly sends test anomaly email", async () => {
   const captured: CapturedEmail[] = [];
-  const res = await injectProjectLookup(stubProjectLookup)(() =>
-    injectEmailFetch(makeEmailRecorder(captured))(() =>
-      postJson(
-        "/",
-        JSON.stringify({
-          endpoint: "sendTestAnomaly",
-          payload: { token: sampleProject.token },
-        }),
-      )
-    )()
+  const analytics: CapturedAnalytics[] = [];
+  const res = await injectCaptureServerEvent(makeAnalyticsRecorder(analytics))(
+    () =>
+      injectProjectLookup(stubProjectLookup)(() =>
+        injectEmailFetch(makeEmailRecorder(captured))(() =>
+          postJson(
+            "/",
+            JSON.stringify({
+              endpoint: "sendTestAnomaly",
+              payload: { token: sampleProject.token },
+            }),
+          )
+        )()
+      )(),
   )();
   assertEquals(res.status, 200);
   assertEquals(await res.json(), { ok: true, sentTo: "owner@example.com" });
   assertEquals(captured.length, 1);
   assertEquals(captured[0].to, ["owner@example.com"]);
+  assertEquals(analytics, [{
+    distinctId: "owner@example.com",
+    event: "test_anomaly_sent",
+    properties: { projectId: "proj-1", projectName: "Demo App" },
+  }]);
 });
 
 Deno.test("web/app.html includes Send Test Anomaly button wired to /api/test-anomaly", async () => {

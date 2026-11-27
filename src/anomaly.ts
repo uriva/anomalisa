@@ -9,6 +9,7 @@ import {
 import { getTurso } from "./turso.ts";
 import type { Anomaly, Metric } from "./types.ts";
 
+export { recordAdminNotificationOnce } from "./turso.ts";
 export type { Anomaly, Metric };
 
 export type Stats = {
@@ -1342,15 +1343,4 @@ export const cleanExpiredData = async () => {
     buildRetentionBatch(now)(resolved.flatMap((entry) => entry ? [entry] : [])),
     "write",
   );
-};
-
-export const recordAdminNotificationOnce = async (
-  key: string,
-): Promise<boolean> => {
-  const res = await getTurso().execute({
-    sql:
-      `INSERT INTO admin_notifications (key, created_at) VALUES (?, ?) ON CONFLICT DO NOTHING;`,
-    args: [key, Date.now()],
-  });
-  return res.rowsAffected > 0;
 };

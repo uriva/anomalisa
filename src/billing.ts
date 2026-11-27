@@ -1,8 +1,9 @@
 import { context } from "@uri/inject";
 import { empty, filter, map, nonempty, pipe, reduce } from "gamla";
 import { z } from "zod/v4";
+import { captureServerEvent } from "./analytics.ts";
 import type { ProjectWithOwner } from "./db.ts";
-import { getTurso } from "./turso.ts";
+import { getTurso, recordAdminNotificationOnce } from "./turso.ts";
 
 export type Plan = "free" | "pro";
 
@@ -242,7 +243,7 @@ const rowToSubscription = (
   cancelAtPeriodEnd: Number(row.cancel_at_period_end ?? 0) === 1,
 });
 
-export const getUserSubscription = async (
+const getUserSubscriptionDb = async (
   userId: string,
 ): Promise<UserSubscription | null> => {
   const res = await getTurso().execute({
@@ -252,6 +253,11 @@ export const getUserSubscription = async (
   });
   return empty(res.rows) ? null : rowToSubscription(res.rows[0]);
 };
+
+export const {
+  inject: injectGetUserSubscription,
+  access: getUserSubscription,
+} = context(getUserSubscriptionDb);
 
 export const getSubscriptionByStripeIds = async ({
   stripeSubscriptionId,
@@ -279,7 +285,7 @@ export const getSubscriptionByStripeIds = async ({
   return null;
 };
 
-export const upsertUserSubscription = async ({
+const upsertUserSubscriptionDb = async ({
   userId,
   email,
   plan,
@@ -325,6 +331,16 @@ export const upsertUserSubscription = async ({
     ],
   });
 };
+
+export const {
+  inject: injectUpsertUserSubscription,
+  access: upsertUserSubscription,
+} = context(upsertUserSubscriptionDb);
+
+export const {
+  inject: injectRecordAdminNotificationOnce,
+  access: billingRecordAdminNotificationOnce,
+} = context(recordAdminNotificationOnce);
 
 export const resolveEffectivePlan = async (
   userId: string,
@@ -411,6 +427,29 @@ export const getBillingStatus = async (
   };
 };
 
+export const {
+  inject: injectGetBillingStatus,
+  access: billingGetBillingStatus,
+} = context(getBillingStatus);
+
+const captureProUpgradedOnce = (source: string) =>
+async ({
+  sessionId,
+  userId,
+  email,
+}: {
+  sessionId: string;
+  userId: string;
+  email: string;
+}): Promise<void> => {
+  if (await billingRecordAdminNotificationOnce(`pro_upgraded:${sessionId}`)) {
+    await captureServerEvent(email || userId, "pro_upgraded", {
+      sessionId,
+      source,
+    });
+  }
+};
+
 export const createCheckoutSession = async ({
   userId,
   email,
@@ -470,6 +509,11 @@ export const createCheckoutSession = async ({
   if (!parsed.success) {
     throw new Error("Stripe Checkout session did not return a redirect URL");
   }
+  await captureServerEvent(email, "checkout_started", {
+    sessionId: parsed.data.id,
+    userId,
+    plan: "pro",
+  });
   return { url: parsed.data.url, sessionId: parsed.data.id };
 };
 
@@ -577,8 +621,15 @@ export const syncCheckoutSession = async ({
       currentPeriodEnd: resolved.currentPeriodEnd,
       cancelAtPeriodEnd: resolved.cancelAtPeriodEnd,
     });
+    if (resolved.plan === "pro") {
+      await captureProUpgradedOnce("checkout_sync")({
+        sessionId: session.id,
+        userId,
+        email,
+      });
+    }
   }
-  return getBillingStatus(userId, email);
+  return billingGetBillingStatus(userId, email);
 };
 
 const constantTimeEqualHex = (a: string, b: string): boolean =>
@@ -666,6 +717,11 @@ const handleCheckoutCompleted = async (
     stripeCustomerId: session.customer ?? undefined,
     stripeSubscriptionId,
     cancelAtPeriodEnd: false,
+  });
+  await captureProUpgradedOnce("stripe_webhook")({
+    sessionId: session.id,
+    userId,
+    email,
   });
   return { status: 200, body: { ok: true } };
 };

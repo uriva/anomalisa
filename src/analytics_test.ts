@@ -1,100 +1,81 @@
-import { assertEquals } from "@std/assert";
-import { injectAnalyticsFetch } from "./analytics.ts";
-import { injectProjectLookup } from "./db.ts";
-import { injectEmailFetch } from "./email.ts";
-import { httpHandler } from "./server.ts";
-import { getTurso, initTursoSchema } from "./turso.ts";
+import { assert, assertEquals } from "@std/assert";
+import {
+  captureServerEvent,
+  defaultPosthogHost,
+  defaultPosthogKey,
+  injectAnalyticsFetch,
+} from "./analytics.ts";
 
-await initTursoSchema();
-
-const testProjectId = "test_analytics_project_001";
-const testUserId = "test_analytics_user_001";
-const testEmail = "analytics-test@example.com";
-const testToken = "tok-analytics-test-001";
-
-const sampleProject = {
-  id: testProjectId,
-  name: "Analytics Test App",
-  token: testToken,
-  owner: { id: testUserId, email: testEmail },
+type CapturedPosthogCall = {
+  url: string;
+  method: string;
+  body: {
+    api_key: string;
+    event: string;
+    distinct_id: string;
+    properties: Record<string, string | number | boolean | undefined>;
+    timestamp: string;
+  };
 };
 
-const stubProjectLookup = (token: string) =>
-  Promise.resolve(token === testToken ? sampleProject : null);
-
-const noopFetch = (): Promise<Response> =>
-  Promise.resolve(new Response("OK", { status: 200 }));
-
-const makeAnalyticsRecorder =
-  (captured: string[]) =>
-  (_url: string, init?: RequestInit): Promise<Response> => {
-    const parsed = JSON.parse(init?.body ? String(init.body) : "{}");
-    captured.push(String(parsed.event ?? ""));
-    return Promise.resolve(new Response("OK", { status: 200 }));
+const makePosthogRecorder =
+  (calls: CapturedPosthogCall[]) =>
+  (url: string, init?: RequestInit): Promise<Response> => {
+    calls.push({
+      url,
+      method: init?.method ?? "GET",
+      body: JSON.parse(init?.body ? String(init.body) : "{}"),
+    });
+    return Promise.resolve(
+      new Response(JSON.stringify({ status: 1 }), { status: 200 }),
+    );
   };
 
-const postSendEvent = (eventName: string) =>
-  httpHandler(
-    new Request("https://anomalisa.uriv.me/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        endpoint: "sendEvent",
-        payload: { token: testToken, eventName },
-      }),
-    }),
-  );
-
-const cleanupAnalyticsTestData = () =>
-  getTurso().batch(
-    [
-      {
-        sql: "DELETE FROM counts WHERE project_id = ?;",
-        args: [testProjectId],
-      },
-      { sql: "DELETE FROM stats WHERE project_id = ?;", args: [testProjectId] },
-      {
-        sql: "DELETE FROM anomalies WHERE project_id = ?;",
-        args: [testProjectId],
-      },
-      {
-        sql: "DELETE FROM outgoing_alerts WHERE project_id = ?;",
-        args: [testProjectId],
-      },
-      {
-        sql: "DELETE FROM monthly_usage WHERE user_id = ?;",
-        args: [testUserId],
-      },
-      {
-        sql: "DELETE FROM admin_notifications WHERE key IN (?, ?);",
-        args: [`first_event:${testProjectId}`, `signup:${testEmail}`],
-      },
-    ],
-    "write",
-  );
-
-Deno.test("sendEvent does not capture per-event PostHog send_event", async () => {
-  await cleanupAnalyticsTestData();
-  const captured: string[] = [];
+Deno.test("captureServerEvent posts expected PostHog /capture/ payload", async () => {
+  const prevKey = Deno.env.get("POSTHOG_API_KEY");
+  const prevHost = Deno.env.get("POSTHOG_HOST");
+  Deno.env.delete("POSTHOG_API_KEY");
+  Deno.env.delete("POSTHOG_HOST");
+  const calls: CapturedPosthogCall[] = [];
   try {
-    await injectProjectLookup(stubProjectLookup)(() =>
-      injectEmailFetch(noopFetch)(() =>
-        injectAnalyticsFetch(makeAnalyticsRecorder(captured))(async () => {
-          const first = await postSendEvent("ping");
-          assertEquals(first.status, 200);
-          assertEquals(
-            captured.toSorted(),
-            ["first_event_received", "user_signup"],
-          );
-
-          captured.length = 0;
-          const second = await postSendEvent("ping");
-          assertEquals(second.status, 200);
-          assertEquals(captured, []);
-        })()
-      )()
+    await injectAnalyticsFetch(makePosthogRecorder(calls))(() =>
+      captureServerEvent("user@example.com", "checkout_started", {
+        plan: "pro",
+        projectId: "proj-1",
+      })
     )();
+    assertEquals(calls.length, 1);
+    assertEquals(calls[0].url, `${defaultPosthogHost}/capture/`);
+    assertEquals(calls[0].method, "POST");
+    assertEquals(calls[0].body.api_key, defaultPosthogKey);
+    assertEquals(calls[0].body.event, "checkout_started");
+    assertEquals(calls[0].body.distinct_id, "user@example.com");
+    assertEquals(calls[0].body.properties.$lib, "anomalisa-server");
+    assertEquals(calls[0].body.properties.plan, "pro");
+    assertEquals(calls[0].body.properties.projectId, "proj-1");
+    assert(Boolean(calls[0].body.timestamp));
   } finally {
-    await cleanupAnalyticsTestData();
+    if (prevKey !== undefined) Deno.env.set("POSTHOG_API_KEY", prevKey);
+    if (prevHost !== undefined) Deno.env.set("POSTHOG_HOST", prevHost);
+  }
+});
+
+Deno.test("captureServerEvent is a no-op when POSTHOG_API_KEY is empty", async () => {
+  const prevKey = Deno.env.get("POSTHOG_API_KEY");
+  Deno.env.set("POSTHOG_API_KEY", "");
+  const calls: CapturedPosthogCall[] = [];
+  try {
+    await injectAnalyticsFetch(makePosthogRecorder(calls))(() =>
+      captureServerEvent("user@example.com", "checkout_started", {
+        plan: "pro",
+      })
+    )();
+    assertEquals(calls.length, 0);
+  } finally {
+    if (prevKey !== undefined) {
+      Deno.env.set("POSTHOG_API_KEY", prevKey);
+    } else {
+      Deno.env.delete("POSTHOG_API_KEY");
+    }
   }
 });

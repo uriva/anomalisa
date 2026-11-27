@@ -1897,6 +1897,12 @@ deno run --allow-net --allow-env --allow-read src/server.ts</pre>
         });
       }
     };
+
+    document.querySelectorAll('a[href="/app?upgrade=pro"]').forEach((link) => {
+      link.addEventListener("click", () => {
+        window.posthog?.capture("upgrade_clicked", { source: "landing" });
+      });
+    });
     </script>
   </body>
 </html>

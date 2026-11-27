@@ -630,6 +630,7 @@
     };
 
     let currentUser = null;
+    let authenticatedCaptured = false;
     let selectedProjectId = null;
     let projects = [];
     let eventCountsCache = {};
@@ -796,7 +797,12 @@
       `;
       const upgradeBtn = document.getElementById("upgrade-pro");
       if (upgradeBtn) {
-        upgradeBtn.addEventListener("click", () => startProCheckout(upgradeBtn));
+        upgradeBtn.addEventListener("click", () => {
+          window.posthog?.capture("upgrade_clicked", {
+            source: "billing_card",
+          });
+          startProCheckout(upgradeBtn);
+        });
       }
       const portalBtn = document.getElementById("manage-billing");
       if (portalBtn) {
@@ -863,6 +869,7 @@
         "click",
         () => {
           if (window.posthog) window.posthog.reset();
+          authenticatedCaptured = false;
           billingStatus = null;
           db.auth.signOut();
         },
@@ -1071,6 +1078,9 @@
       document.getElementById("send-test-anomaly").addEventListener(
         "click",
         async () => {
+          window.posthog?.capture("test_anomaly_clicked", {
+            projectId: project.id,
+          });
           const btn = document.getElementById("send-test-anomaly");
           const msg = document.getElementById("test-anomaly-msg");
           btn.disabled = true;
@@ -1326,7 +1336,12 @@
         el.innerHTML = `<div class="pro-note"><span>${text}</span><button class="btn-app" data-upgrade-gate="1" style="padding:0.35rem 0.7rem;font-size:0.8rem">Upgrade ($15/mo)</button></div>`;
         el.querySelector("[data-upgrade-gate]").addEventListener(
           "click",
-          (e) => startProCheckout(e.currentTarget),
+          (e) => {
+            window.posthog?.capture("upgrade_clicked", {
+              source: containerId,
+            });
+            startProCheckout(e.currentTarget);
+          },
         );
       };
 
@@ -1498,6 +1513,12 @@
           }
           notifySignup(auth.user.email);
         }
+        if (!authenticatedCaptured) {
+          authenticatedCaptured = true;
+          window.posthog?.capture("app_authenticated", {
+            userId: auth.user.id,
+          });
+        }
         if (pendingSessionId) {
           const sessionId = pendingSessionId;
           pendingSessionId = null;
@@ -1531,6 +1552,7 @@
         if (window.posthog) {
           window.posthog.reset();
         }
+        authenticatedCaptured = false;
         billingStatus = null;
         selectedProjectId = null;
         renderLogin();

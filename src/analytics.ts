@@ -4,6 +4,11 @@ export const defaultPosthogKey =
   "phc_rjtFQTqewBSkcMXu7VwMPjzojSSLdxygumxwrxDcZVaU";
 export const defaultPosthogHost = "https://us.i.posthog.com";
 
+export type AnalyticsProperties = Record<
+  string,
+  string | number | boolean | undefined
+>;
+
 export const { inject: injectAnalyticsFetch, access: analyticsFetch } = context(
   (url: string, init?: RequestInit): Promise<Response> => fetch(url, init),
 );
@@ -14,11 +19,11 @@ const getPosthogKey = () =>
     defaultPosthogKey;
 const getPosthogHost = () => Deno.env.get("POSTHOG_HOST") ?? defaultPosthogHost;
 
-export const captureServerEvent = (
+const sendServerEvent = (
   distinctId: string,
   event: string,
-  properties: Record<string, unknown> = {},
-) => {
+  properties?: AnalyticsProperties,
+): Promise<void> => {
   const key = getPosthogKey();
   if (!key) return Promise.resolve();
   return analyticsFetch(`${getPosthogHost()}/capture/`, {
@@ -30,7 +35,7 @@ export const captureServerEvent = (
       distinct_id: distinctId,
       properties: {
         $lib: "anomalisa-server",
-        ...properties,
+        ...(properties ?? {}),
       },
       timestamp: new Date().toISOString(),
     }),
@@ -38,3 +43,8 @@ export const captureServerEvent = (
     console.warn("PostHog capture failed:", err);
   });
 };
+
+export const {
+  inject: injectCaptureServerEvent,
+  access: captureServerEvent,
+} = context(sendServerEvent);

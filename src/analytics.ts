@@ -1,6 +1,12 @@
+import { context } from "@uri/inject";
+
 export const defaultPosthogKey =
   "phc_rjtFQTqewBSkcMXu7VwMPjzojSSLdxygumxwrxDcZVaU";
 export const defaultPosthogHost = "https://us.i.posthog.com";
+
+export const { inject: injectAnalyticsFetch, access: analyticsFetch } = context(
+  (url: string, init?: RequestInit): Promise<Response> => fetch(url, init),
+);
 
 const getPosthogKey = () =>
   Deno.env.get("POSTHOG_API_KEY") ??
@@ -15,7 +21,7 @@ export const captureServerEvent = (
 ) => {
   const key = getPosthogKey();
   if (!key) return Promise.resolve();
-  return fetch(`${getPosthogHost()}/capture/`, {
+  return analyticsFetch(`${getPosthogHost()}/capture/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
